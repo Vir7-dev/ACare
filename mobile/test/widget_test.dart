@@ -1,30 +1,26 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
-import 'package:acare_mobile/main.dart';
+import 'package:acare_mobile/pages/riwayat_pesanan_page.dart';
+import 'package:acare_mobile/widgets/pesanan_card.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  setUpAll(() async {
+    GoogleFonts.config.allowRuntimeFetching = false;
+    await initializeDateFormatting('id_ID');
+  });
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+  testWidgets('Halaman riwayat pesanan tampil', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: RiwayatPesananPage()),
+    );
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.text('Riwayat Pesanan'), findsOneWidget);
+    expect(find.text('Semua'), findsOneWidget);
+    expect(find.text('Selesai'), findsWidgets);
+    expect(find.text('Dibatalkan'), findsWidgets);
+    expect(find.byType(PesananCard), findsWidgets);
   });
 }

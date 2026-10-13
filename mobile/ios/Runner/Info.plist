@@ -66,5 +66,15 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>ACare memakai lokasimu untuk menentukan alamat layanan dan mencari teknisi terdekat.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>ACare membutuhkan akses foto untuk melampirkan bukti pengaduan dan foto profil.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>ACare membutuhkan kamera untuk mengambil foto bukti pengaduan.</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>tel</string>
+	</array>
 </dict>
 </plist>
