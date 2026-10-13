@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../models/pesanan.dart';
 import '../widgets/pesanan_card.dart';
+import 'pengaduan_page.dart';
 
 class RiwayatPesananPage extends StatefulWidget {
   const RiwayatPesananPage({super.key});
@@ -57,7 +58,12 @@ class _RiwayatPesananPageState extends State<RiwayatPesananPage> {
           style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
         ),
         actions: [
-          IconButton(icon: const Icon(Icons.help_outline), onPressed: () {}),
+          IconButton(
+            icon: const Icon(Icons.help_outline),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const PengaduanPage()),
+            ),
+          ),
         ],
       ),
       body: Column(
@@ -161,33 +167,6 @@ class _RiwayatPesananPageState extends State<RiwayatPesananPage> {
                     separatorBuilder: (_, _) => const SizedBox(height: 12),
                     itemBuilder: (_, i) => PesananCard(pesanan: hasil[i]),
                   ),
-          ),
-        ],
-      ),
-      bottomNavigationBar: NavigationBar(
-        backgroundColor: Colors.white,
-        indicatorColor: Colors.transparent,
-        surfaceTintColor: Colors.white,
-        // sisanya tetap
-        selectedIndex: 1,
-        onDestinationSelected: (_) {
-          // TODO: pindah tab (Beranda / Riwayat / Profil)
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Beranda',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.description_outlined),
-            selectedIcon: Icon(Icons.description),
-            label: 'Riwayat',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Profil',
           ),
         ],
       ),
