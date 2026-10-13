@@ -57,8 +57,9 @@ void main() {
     final field = find.byType(TextFormField);
     await tester.enterText(field.at(0), 'Nadya');
     await tester.enterText(field.at(1), '081234567890');
-    await tester.enterText(field.at(2), 'rahasia123');
-    await tester.enterText(field.at(3), 'beda12345');
+    await tester.enterText(field.at(2), 'dina@gmail.com');
+    await tester.enterText(field.at(3), 'rahasia123');
+    await tester.enterText(field.at(4), 'beda12345');
     await tester.tap(find.widgetWithText(ElevatedButton, 'Daftar'));
     await tester.pump();
 

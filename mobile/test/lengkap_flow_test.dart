@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:acare_mobile/models/layanan.dart';
 import 'package:acare_mobile/pages/main_shell.dart';
@@ -65,6 +66,12 @@ void main() {
   });
 
   testWidgets('Profil: tampil, simpan, dan keluar ke Masuk', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'sudah_masuk': true,
+      'nama': 'Dina Safitri',
+      'telepon': '083862865166',
+      'email': 'sdina3066@gmail.com',
+    });
     await bukaShell(tester);
     await tester.tap(find.text('Profil').last);
     await tester.pumpAndSettle();

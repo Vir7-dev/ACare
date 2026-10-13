@@ -18,18 +18,31 @@ class ProfilPage extends StatefulWidget {
 
 class _ProfilPageState extends State<ProfilPage> {
   // Data dummy, nanti diambil dari API Laravel
-  final _nama = TextEditingController(text: 'Dina Safitri');
-  final _telepon = TextEditingController(text: '083862865166');
-  final _email = TextEditingController(text: 'sdina3066@gmail.com');
-  final _lokasi = TextEditingController(text: 'Batam Kepulauan Riau');
+  final _nama = TextEditingController();
+  final _telepon = TextEditingController();
+  final _email = TextEditingController();
+  final _lokasi = TextEditingController();
 
   Uint8List? _foto;
 
   @override
   void initState() {
     super.initState();
-    SesiPengguna.nama().then((n) {
-      if (mounted && n != null) setState(() => _nama.text = n);
+    _muatData();
+  }
+
+  /// Mengisi form dari data yang didaftarkan / terakhir disimpan.
+  Future<void> _muatData() async {
+    final nama = await SesiPengguna.nama();
+    final telepon = await SesiPengguna.telepon();
+    final email = await SesiPengguna.email();
+    final lokasi = await SesiPengguna.lokasi();
+    if (!mounted) return;
+    setState(() {
+      _nama.text = nama ?? '';
+      _telepon.text = telepon ?? '';
+      _email.text = email ?? '';
+      _lokasi.text = lokasi ?? '';
     });
   }
 
@@ -68,7 +81,14 @@ class _ProfilPageState extends State<ProfilPage> {
 
   Future<void> _simpan() async {
     // TODO: kirim perubahan profil ke API Laravel
-    await SesiPengguna.masuk(_nama.text);
+    await SesiPengguna.simpanAkun(
+      nama: _nama.text,
+      telepon: _telepon.text,
+      email: _email.text,
+    );
+    if (_lokasi.text.trim().isNotEmpty) {
+      await SesiPengguna.simpanLokasi(_lokasi.text.trim());
+    }
     if (!mounted) return;
     FocusScope.of(context).unfocus();
     setState(() {});
@@ -178,7 +198,7 @@ class _ProfilPageState extends State<ProfilPage> {
           const SizedBox(height: 14),
           Center(
             child: Text(
-              _nama.text,
+              _nama.text.trim().isEmpty ? 'Pengguna' : _nama.text,
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 20,
                 fontWeight: FontWeight.w800,
@@ -196,23 +216,30 @@ class _ProfilPageState extends State<ProfilPage> {
           const SizedBox(height: 8),
           _Isian(
             ikon: Icons.person_outline,
+            hint: 'Nama',
             controller: _nama,
             onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: 10),
           _Isian(
             ikon: Icons.phone_outlined,
+            hint: 'Nomor telepon',
             controller: _telepon,
             keyboardType: TextInputType.phone,
           ),
           const SizedBox(height: 10),
           _Isian(
             ikon: Icons.mail_outline,
+            hint: 'Email',
             controller: _email,
             keyboardType: TextInputType.emailAddress,
           ),
           const SizedBox(height: 10),
-          _Isian(ikon: Icons.location_on_outlined, controller: _lokasi),
+          _Isian(
+            ikon: Icons.location_on_outlined,
+            hint: 'Lokasi',
+            controller: _lokasi,
+          ),
           const SizedBox(height: 16),
           SizedBox(
             height: 46,
@@ -272,12 +299,14 @@ class _ProfilPageState extends State<ProfilPage> {
 
 class _Isian extends StatelessWidget {
   final IconData ikon;
+  final String hint;
   final TextEditingController controller;
   final TextInputType? keyboardType;
   final ValueChanged<String>? onChanged;
 
   const _Isian({
     required this.ikon,
+    required this.hint,
     required this.controller,
     this.keyboardType,
     this.onChanged,
@@ -294,6 +323,8 @@ class _Isian extends StatelessWidget {
         fontWeight: FontWeight.w600,
       ),
       decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(fontSize: 12, color: AppColors.teksSamar),
         prefixIcon: Icon(ikon, size: 20, color: Colors.black87),
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(vertical: 14),

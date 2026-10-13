@@ -137,4 +137,44 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Selamat Datang, Dina!'), findsOneWidget);
   });
+
+  testWidgets('Daftar menyimpan data; Masuk dan Profil terisi otomatis', (
+    tester,
+  ) async {
+    ukuranHp(tester);
+
+    await tester.pumpWidget(const MaterialApp(home: MasukPage()));
+    await tester.tap(find.text('Daftar Sekarang'));
+    await tester.pumpAndSettle();
+
+    // email dengan format salah ditolak
+    final f = find.byType(TextFormField);
+    await tester.enterText(f.at(0), 'Dina Safitri');
+    await tester.enterText(f.at(1), '083862865166');
+    await tester.enterText(f.at(2), 'bukan-email');
+    await tester.enterText(f.at(3), 'rahasia123');
+    await tester.enterText(f.at(4), 'rahasia123');
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Daftar'));
+    await tester.pump();
+    expect(find.text('Format email tidak valid'), findsOneWidget);
+
+    await tester.enterText(f.at(2), 'sdina3066@gmail.com');
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Daftar'));
+    await tester.pumpAndSettle();
+
+    // kembali ke Masuk, nama sudah terisi dari pendaftaran
+    expect(find.text('Selamat Datang!'), findsOneWidget);
+    expect(find.text('Dina Safitri'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextFormField).at(1), 'rahasia123');
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Masuk'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Profil').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Dina Safitri'), findsWidgets);
+    expect(find.text('083862865166'), findsOneWidget);
+    expect(find.text('sdina3066@gmail.com'), findsOneWidget);
+  });
 }

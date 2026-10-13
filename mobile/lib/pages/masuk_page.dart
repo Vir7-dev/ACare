@@ -23,6 +23,24 @@ class _MasukPageState extends State<MasukPage> {
   final _sandi = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    _isiNamaDariAkun();
+  }
+
+  Future<void> _isiNamaDariAkun() async {
+    final n = await SesiPengguna.akunNama();
+    if (mounted && n != null && _nama.text.isEmpty) _nama.text = n;
+  }
+
+  Future<void> _bukaDaftar() async {
+    await Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => const DaftarPage()));
+    // Setelah mendaftar, nama langsung terisi di form masuk
+    await _isiNamaDariAkun();
+  }
+
+  @override
   void dispose() {
     _nama.dispose();
     _sandi.dispose();
@@ -118,11 +136,7 @@ class _MasukPageState extends State<MasukPage> {
                                   ),
                                 ),
                                 GestureDetector(
-                                  onTap: () => Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (_) => const DaftarPage(),
-                                    ),
-                                  ),
+                                  onTap: _bukaDaftar,
                                   child: Text(
                                     'Daftar Sekarang',
                                     style: GoogleFonts.plusJakartaSans(

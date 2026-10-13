@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../services/sesi_pengguna.dart';
 import '../theme/app_colors.dart';
 import '../widgets/auth_button.dart';
 import '../widgets/auth_header.dart';
@@ -18,6 +19,7 @@ class _DaftarPageState extends State<DaftarPage> {
   final _formKey = GlobalKey<FormState>();
   final _nama = TextEditingController();
   final _telepon = TextEditingController();
+  final _email = TextEditingController();
   final _sandi = TextEditingController();
   final _verifikasi = TextEditingController();
 
@@ -25,6 +27,7 @@ class _DaftarPageState extends State<DaftarPage> {
   void dispose() {
     _nama.dispose();
     _telepon.dispose();
+    _email.dispose();
     _sandi.dispose();
     _verifikasi.dispose();
     super.dispose();
@@ -33,9 +36,15 @@ class _DaftarPageState extends State<DaftarPage> {
   String? _wajib(String? v, String label) =>
       (v == null || v.trim().isEmpty) ? '$label wajib diisi' : null;
 
-  void _daftar() {
+  Future<void> _daftar() async {
     if (!_formKey.currentState!.validate()) return;
-    // TODO: panggil API register Laravel
+    // TODO: panggil API register Laravel; sementara disimpan di perangkat
+    await SesiPengguna.simpanAkun(
+      nama: _nama.text,
+      telepon: _telepon.text,
+      email: _email.text,
+    );
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Pendaftaran berhasil, silakan masuk')),
     );
@@ -109,6 +118,21 @@ class _DaftarPageState extends State<DaftarPage> {
                               return digit.length < 9
                                   ? 'Nomor telepon tidak valid'
                                   : null;
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          AuthTextField(
+                            hint: 'Email',
+                            icon: Icons.mail_outline,
+                            controller: _email,
+                            keyboardType: TextInputType.emailAddress,
+                            textInputAction: TextInputAction.next,
+                            validator: (v) {
+                              final salah = _wajib(v, 'Email');
+                              if (salah != null) return salah;
+                              final ok = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+                                  .hasMatch(v!.trim());
+                              return ok ? null : 'Format email tidak valid';
                             },
                           ),
                           const SizedBox(height: 12),
