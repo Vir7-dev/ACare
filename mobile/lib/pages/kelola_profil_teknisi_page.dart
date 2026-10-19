@@ -11,101 +11,236 @@ class KelolaProfilTeknisiPage extends StatefulWidget {
 
 class _KelolaProfilTeknisiPageState
     extends State<KelolaProfilTeknisiPage> {
-  static const Color biru = Color(0xFF078AC7);
-  static const Color garis = Color(0xFFD6E2FA);
+  static const Color biru = Color(0xFF0788C9);
+  static const Color abu = Color(0xFF777777);
 
   final _formKey = GlobalKey<FormState>();
 
-  final TextEditingController namaController =
-      TextEditingController(text: 'Dina Safitri');
-  final TextEditingController teleponController =
+  final _namaController = TextEditingController(text: 'Dina Safitri');
+  final _teleponController =
       TextEditingController(text: '083862865166');
-  final TextEditingController emailController =
-      TextEditingController(text: 'sdina3066@gmail.com');
-  final TextEditingController kendaraanController =
-      TextEditingController(text: 'Motor BEAT');
-  final TextEditingController platController =
-      TextEditingController(text: 'BP 676767');
+  final _emailController =
+      TextEditingController(text: 'dina.safitri@gmail.com');
+  final _jenisController =
+      TextEditingController(text: 'Mekanik AC');
+  final _platController = TextEditingController(text: 'BP 676767');
 
-  int menuAktif = 3;
+  bool _modeEdit = false;
 
   @override
   void dispose() {
-    namaController.dispose();
-    teleponController.dispose();
-    emailController.dispose();
-    kendaraanController.dispose();
-    platController.dispose();
+    _namaController.dispose();
+    _teleponController.dispose();
+    _emailController.dispose();
+    _jenisController.dispose();
+    _platController.dispose();
     super.dispose();
   }
 
-  void simpanPerubahan() {
-    if (_formKey.currentState!.validate()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Perubahan berhasil disimpan (contoh tampilan).',
-          ),
-          backgroundColor: biru,
-        ),
-      );
-    }
+  void _editProfil() {
+    setState(() {
+      _modeEdit = true;
+    });
   }
 
-  void bukaMenu(String judul) {
+  void _simpanProfil() {
+    if (!_formKey.currentState!.validate()) return;
+
+    FocusScope.of(context).unfocus();
+
+    setState(() {
+      _modeEdit = false;
+    });
+
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$judul belum tersedia.')),
+      const SnackBar(
+        content: Text('Perubahan profil berhasil disimpan.'),
+      ),
+    );
+  }
+
+  Widget _field({
+    required String label,
+    required IconData icon,
+    required TextEditingController controller,
+    required String hint,
+    TextInputType keyboardType = TextInputType.text,
+    String? Function(String?)? validator,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 5),
+      child: TextFormField(
+        controller: controller,
+        readOnly: !_modeEdit,
+        keyboardType: keyboardType,
+        validator: validator,
+        style: const TextStyle(
+          fontSize: 11,
+          color: Colors.black87,
+        ),
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: const TextStyle(fontSize: 10),
+          prefixIcon: Icon(icon, size: 15, color: abu),
+          prefixIconConstraints: const BoxConstraints(
+            minWidth: 32,
+            minHeight: 32,
+          ),
+          isDense: true,
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 8,
+            vertical: 9,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(6),
+            borderSide: const BorderSide(
+              color: Color(0xFFDDE6ED),
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(6),
+            borderSide: const BorderSide(color: biru),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(6),
+            borderSide: const BorderSide(color: Colors.red),
+          ),
+          focusedErrorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(6),
+            borderSide: const BorderSide(color: Colors.red),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _menuItem({
+    required IconData icon,
+    required String title,
+    Color color = Colors.black54,
+    VoidCallback? onTap,
+  }) {
+    return InkWell(
+      onTap: onTap ?? () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$title belum dihubungkan.')),
+        );
+      },
+      child: Container(
+        height: 36,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: const BoxDecoration(
+          border: Border(
+            bottom: BorderSide(color: Color(0xFFE5E5E5)),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 9),
+            Text(
+              title,
+              style: TextStyle(fontSize: 11, color: color),
+            ),
+            const Spacer(),
+            const Icon(
+              Icons.chevron_right,
+              size: 15,
+              color: Colors.black38,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _bottomItem(IconData icon, String label,
+      {bool aktif = false}) {
+    return Expanded(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            icon,
+            size: 17,
+            color: aktif ? biru : Colors.grey,
+          ),
+          const SizedBox(height: 3),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 9,
+              color: aktif ? biru : Colors.grey,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF7F8FA),
       appBar: AppBar(
         backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF263746),
+        surfaceTintColor: Colors.white,
         elevation: 0,
-        scrolledUnderElevation: 0,
-        toolbarHeight: 48,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(
+            Icons.arrow_back,
+            size: 20,
+            color: Colors.black87,
+          ),
           onPressed: () => Navigator.maybePop(context),
         ),
         title: const Text(
           'Kelola Profil',
           style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
           ),
         ),
         actions: [
           IconButton(
-            onPressed: () => bukaMenu('Pencarian'),
-            icon: const Icon(Icons.search, size: 22),
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Pencarian belum dihubungkan.'),
+                ),
+              );
+            },
+            icon: const Icon(Icons.search, size: 19),
+            color: Colors.black54,
           ),
           IconButton(
-            onPressed: () => bukaMenu('Pusat bantuan'),
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Bantuan belum dihubungkan.'),
+                ),
+              );
+            },
             icon: const Icon(
               Icons.help_outline,
-              size: 21,
+              size: 18,
             ),
+            color: Colors.black54,
           ),
-          const SizedBox(width: 5),
+          const SizedBox(width: 4),
         ],
-        shape: const Border(
-          bottom: BorderSide(color: biru, width: 2),
-        ),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(17, 25, 17, 24),
+          padding: const EdgeInsets.fromLTRB(16, 18, 16, 20),
           child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Foto dan nama teknisi
                 Center(
                   child: Column(
                     children: [
@@ -113,427 +248,303 @@ class _KelolaProfilTeknisiPageState
                         clipBehavior: Clip.none,
                         children: [
                           const CircleAvatar(
-                            radius: 35,
-                            backgroundColor: Color(0xFFE2EAFB),
+                            radius: 31,
+                            backgroundColor: Color(0xFFE0E9F9),
                             child: Text(
                               'DS',
                               style: TextStyle(
-                                fontSize: 19,
+                                color: Colors.black87,
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF263746),
+                                fontSize: 16,
                               ),
                             ),
                           ),
                           Positioned(
-                            right: -4,
+                            right: -2,
                             bottom: -1,
-                            child: InkWell(
-                              onTap: () => bukaMenu('Ganti foto'),
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFFDDE9FC),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.camera_alt_outlined,
-                                  size: 16,
-                                  color: Color(0xFF263746),
-                                ),
+                            child: Container(
+                              padding: const EdgeInsets.all(3),
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.camera_alt,
+                                color: biru,
+                                size: 15,
                               ),
                             ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 7),
-                      ValueListenableBuilder<TextEditingValue>(
-                        valueListenable: namaController,
-                        builder: (context, value, child) {
-                          return Text(
-                            value.text.isEmpty
-                                ? 'Nama Teknisi'
-                                : value.text,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF20252B),
+                      Text(
+                        _namaController.text.isEmpty
+                            ? 'Nama Teknisi'
+                            : _namaController.text,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                const Text(
+                  'Informasi Akun',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 5),
+
+                _field(
+                  label: 'Nama Lengkap',
+                  hint: 'Nama lengkap',
+                  icon: Icons.person_outline,
+                  controller: _namaController,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Nama wajib diisi';
+                    }
+                    return null;
+                  },
+                ),
+                _field(
+                  label: 'Nomor Telepon',
+                  hint: 'Nomor telepon',
+                  icon: Icons.phone_outlined,
+                  controller: _teleponController,
+                  keyboardType: TextInputType.phone,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Nomor telepon wajib diisi';
+                    }
+                    return null;
+                  },
+                ),
+                _field(
+                  label: 'Email',
+                  hint: 'Email',
+                  icon: Icons.mail_outline,
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  validator: (value) {
+                    if (value == null ||
+                        !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+                            .hasMatch(value.trim())) {
+                      return 'Email tidak valid';
+                    }
+                    return null;
+                  },
+                ),
+
+                const SizedBox(height: 5),
+                const Text(
+                  'Informasi Teknisi',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 5),
+
+                _field(
+                  label: 'Jenis Teknisi',
+                  hint: 'Jenis teknisi',
+                  icon: Icons.home_repair_service_outlined,
+                  controller: _jenisController,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Jenis teknisi wajib diisi';
+                    }
+                    return null;
+                  },
+                ),
+                _field(
+                  label: 'Nomor Kendaraan',
+                  hint: 'Nomor kendaraan',
+                  icon: Icons.motorcycle_outlined,
+                  controller: _platController,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Nomor kendaraan wajib diisi';
+                    }
+                    return null;
+                  },
+                ),
+
+                const SizedBox(height: 5),
+
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: _modeEdit
+                      ? Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            OutlinedButton(
+                              onPressed: () {
+                                setState(() {
+                                  _modeEdit = false;
+                                });
+                              },
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: biru,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 13,
+                                  vertical: 9,
+                                ),
+                                minimumSize: Size.zero,
+                              ),
+                              child: const Text(
+                                'Batal',
+                                style: TextStyle(fontSize: 11),
+                              ),
                             ),
+                            const SizedBox(width: 7),
+                            ElevatedButton(
+                              onPressed: _simpanProfil,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: biru,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 13,
+                                  vertical: 9,
+                                ),
+                                minimumSize: Size.zero,
+                              ),
+                              child: const Text(
+                                'Simpan Perubahan',
+                                style: TextStyle(fontSize: 11),
+                              ),
+                            ),
+                          ],
+                        )
+                      : ElevatedButton(
+                          onPressed: _editProfil,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: biru,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 13,
+                              vertical: 9,
+                            ),
+                            minimumSize: Size.zero,
+                          ),
+                          child: const Text(
+                            'Edit Profil',
+                            style: TextStyle(fontSize: 11),
+                          ),
+                        ),
+                ),
+
+                const SizedBox(height: 18),
+
+                const Text(
+                  'Pengaturan Akun',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 6),
+
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(
+                      color: const Color(0xFFE5E5E5),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      _menuItem(
+                        icon: Icons.lock_outline,
+                        title: 'Ubah Kata Sandi',
+                      ),
+                      _menuItem(
+                        icon: Icons.notifications_none,
+                        title: 'Notifikasi',
+                      ),
+                      _menuItem(
+                        icon: Icons.support_agent,
+                        title: 'Pusat Bantuan',
+                      ),
+                      _menuItem(
+                        icon: Icons.logout,
+                        title: 'Keluar',
+                        color: Colors.redAccent,
+                        onTap: () {
+                          showDialog<void>(
+                            context: context,
+                            builder: (dialogContext) {
+                              return AlertDialog(
+                                title: const Text('Keluar'),
+                                content: const Text(
+                                  'Apakah kamu yakin ingin keluar?',
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(dialogContext),
+                                    child: const Text('Batal'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () {
+                                      Navigator.pop(dialogContext);
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'Hubungkan aksi keluar '
+                                            'ke proses logout aplikasi.',
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    child: const Text(
+                                      'Keluar',
+                                      style: TextStyle(color: Colors.red),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
                           );
                         },
                       ),
                     ],
                   ),
                 ),
-
-                const SizedBox(height: 26),
-
-                _judulBagian('Informasi Akun'),
-
-                _inputProfil(
-                  controller: namaController,
-                  icon: Icons.person_outline,
-                  hint: 'Nama lengkap',
-                ),
-                _inputProfil(
-                  controller: teleponController,
-                  icon: Icons.phone_outlined,
-                  hint: 'Nomor telepon',
-                  keyboardType: TextInputType.phone,
-                ),
-                _inputProfil(
-                  controller: emailController,
-                  icon: Icons.mail_outline,
-                  hint: 'Email',
-                  keyboardType: TextInputType.emailAddress,
-                ),
-
-                const SizedBox(height: 7),
-                _judulBagian('Informasi Teknisi'),
-
-                Row(
-                  children: [
-                    Expanded(
-                      flex: 3,
-                      child: _inputProfil(
-                        controller: kendaraanController,
-                        icon: Icons.two_wheeler_outlined,
-                        hint: 'Kendaraan',
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      flex: 2,
-                      child: _inputProfil(
-                        controller: platController,
-                        icon: Icons.directions_car_outlined,
-                        hint: 'Nomor polisi',
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 10),
-
-                SizedBox(
-                  width: double.infinity,
-                  height: 43,
-                  child: ElevatedButton(
-                    onPressed: simpanPerubahan,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: biru,
-                      foregroundColor: Colors.white,
-                      elevation: 3,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(9),
-                      ),
-                    ),
-                    child: const Text(
-                      'Simpan Perubahan',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 29),
-
-                const Padding(
-                  padding: EdgeInsets.only(left: 3, bottom: 14),
-                  child: Text(
-                    'Pengaturan Akun',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFF444444),
-                    ),
-                  ),
-                ),
-
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    border: Border.all(color: garis),
-                    borderRadius: BorderRadius.circular(9),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: Column(
-                    children: [
-                      _itemPengaturan(
-                        Icons.lock_outline,
-                        'Ubah Kata Sandi',
-                        onTap: () => bukaMenu('Ubah Kata Sandi'),
-                      ),
-                      _itemPengaturan(
-                        Icons.notifications_none,
-                        'Notifikasi',
-                        onTap: () => bukaMenu('Notifikasi'),
-                      ),
-                      _itemPengaturan(
-                        Icons.help_outline,
-                        'Pusat Bantuan',
-                        onTap: () => bukaMenu('Pusat Bantuan'),
-                      ),
-                      _itemPengaturan(
-                        Icons.logout,
-                        'Keluar',
-                        warna: Colors.redAccent,
-                        tampilGaris: false,
-                        onTap: () => _konfirmasiKeluar(),
-                      ),
-                    ],
-                  ),
-                ),
               ],
             ),
           ),
         ),
       ),
-
-      // Navigasi bawah
       bottomNavigationBar: Container(
-        decoration: BoxDecoration(
+        height: 55,
+        decoration: const BoxDecoration(
           color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.07),
-              blurRadius: 8,
-              offset: const Offset(0, -2),
+          border: Border(
+            top: BorderSide(color: Color(0xFFE5E5E5)),
+          ),
+        ),
+        child: Row(
+          children: [
+            _bottomItem(Icons.home_outlined, 'Beranda'),
+            _bottomItem(Icons.receipt_long_outlined, 'Pesanan'),
+            _bottomItem(Icons.calendar_month_outlined, 'Dampat'),
+            _bottomItem(
+              Icons.person_outline,
+              'Profil',
+              aktif: true,
             ),
           ],
         ),
-        child: SafeArea(
-          top: false,
-          child: SizedBox(
-            height: 54,
-            child: Row(
-              children: [
-                _itemNavigasi(
-                  Icons.home_outlined,
-                  'Beranda',
-                  0,
-                ),
-                _itemNavigasi(
-                  Icons.assignment_outlined,
-                  'Pesanan',
-                  1,
-                ),
-                _itemNavigasi(
-                  Icons.account_balance_wallet_outlined,
-                  'Dompet',
-                  2,
-                ),
-                _itemNavigasi(
-                  Icons.person_outline,
-                  'Profil',
-                  3,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _judulBagian(String judul) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 4, bottom: 5),
-      child: Text(
-        judul,
-        style: const TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w500,
-          color: Color(0xFF333333),
-        ),
-      ),
-    );
-  }
-
-  Widget _inputProfil({
-    required TextEditingController controller,
-    required IconData icon,
-    required String hint,
-    TextInputType keyboardType = TextInputType.text,
-  }) {
-    return Container(
-      height: 37,
-      margin: const EdgeInsets.only(bottom: 5),
-      child: TextFormField(
-        controller: controller,
-        keyboardType: keyboardType,
-        style: const TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w500,
-          color: Color(0xFF454545),
-        ),
-        validator: (value) {
-          if (value == null || value.trim().isEmpty) {
-            return 'Bagian ini wajib diisi';
-          }
-          return null;
-        },
-        decoration: InputDecoration(
-          prefixIcon: Icon(
-            icon,
-            size: 16,
-            color: const Color(0xFF60666C),
-          ),
-          prefixIconConstraints: const BoxConstraints(
-            minWidth: 30,
-            minHeight: 37,
-          ),
-          hintText: hint,
-          hintStyle: const TextStyle(
-            fontSize: 10,
-            color: Color(0xFF777777),
-          ),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 9,
-            vertical: 8,
-          ),
-          filled: true,
-          fillColor: Colors.white,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(9),
-            borderSide: const BorderSide(color: garis),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(9),
-            borderSide: const BorderSide(color: garis),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(9),
-            borderSide: const BorderSide(color: biru),
-          ),
-          errorStyle: const TextStyle(fontSize: 9),
-        ),
-      ),
-    );
-  }
-
-  Widget _itemPengaturan(
-    IconData icon,
-    String judul, {
-    Color warna = const Color(0xFF60666C),
-    bool tampilGaris = true,
-    required VoidCallback onTap,
-  }) {
-    return Column(
-      children: [
-        InkWell(
-          onTap: onTap,
-          child: SizedBox(
-            height: 40,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 9),
-              child: Row(
-                children: [
-                  Icon(icon, size: 15, color: warna),
-                  const SizedBox(width: 9),
-                  Text(
-                    judul,
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
-                      color: warna == Colors.redAccent
-                          ? Colors.redAccent
-                          : const Color(0xFF555555),
-                    ),
-                  ),
-                  const Spacer(),
-                  if (judul != 'Keluar')
-                    const Icon(
-                      Icons.chevron_right,
-                      size: 16,
-                      color: Color(0xFFB0B0B0),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        if (tampilGaris)
-          const Divider(
-            height: 1,
-            thickness: 1,
-            color: Color(0xFFBDBDBD),
-          ),
-      ],
-    );
-  }
-
-  Widget _itemNavigasi(
-    IconData icon,
-    String judul,
-    int index,
-  ) {
-    final aktif = menuAktif == index;
-
-    return Expanded(
-      child: InkWell(
-        onTap: () {
-          setState(() => menuAktif = index);
-
-          if (index != 3) {
-            bukaMenu(judul);
-          }
-        },
-        child: SizedBox(
-          height: 54,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 18,
-                color: aktif
-                    ? biru
-                    : const Color(0xFF59616D),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                judul,
-                style: TextStyle(
-                  fontSize: 9,
-                  color: aktif
-                      ? biru
-                      : const Color(0xFF59616D),
-                  fontWeight:
-                      aktif ? FontWeight.w600 : FontWeight.normal,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _konfirmasiKeluar() {
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Keluar dari akun?'),
-        content: const Text(
-          'Apakah kamu yakin ingin keluar dari akun teknisi?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Batal'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(dialogContext);
-              bukaMenu('Keluar');
-            },
-            child: const Text(
-              'Keluar',
-              style: TextStyle(color: Colors.red),
-            ),
-          ),
-        ],
       ),
     );
   }
