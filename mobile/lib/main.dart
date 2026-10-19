@@ -6,9 +6,7 @@ import 'pages/splash_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
   await initializeDateFormatting('id_ID');
-
   runApp(const ACareApp());
 }
 
