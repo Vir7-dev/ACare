@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
-import 'package:acare_mobile/pages/riwayat_pesanan_page.dart';
+import 'package:acare_mobile/pages/pelanggan/riwayat_pesanan_page.dart';
 import 'package:acare_mobile/widgets/pesanan_card.dart';
 
 void main() {

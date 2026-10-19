@@ -3,9 +3,9 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../services/perangkat.dart';
-import '../services/sesi_pengguna.dart';
-import '../theme/app_colors.dart';
+import '../../services/perangkat.dart';
+import '../../services/sesi_pengguna.dart';
+import '../../theme/app_colors.dart';
 import 'masuk_page.dart';
 import 'pengaduan_page.dart';
 

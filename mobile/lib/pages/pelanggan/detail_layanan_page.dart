@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../models/layanan.dart';
-import '../theme/app_colors.dart';
+import '../../models/layanan.dart';
+import '../../theme/app_colors.dart';
 import 'mencari_teknisi_page.dart';
 
 class DetailLayananPage extends StatelessWidget {

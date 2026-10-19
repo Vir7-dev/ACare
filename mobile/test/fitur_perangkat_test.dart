@@ -7,11 +7,11 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:acare_mobile/models/status_layanan.dart';
-import 'package:acare_mobile/pages/detail_pesanan_page.dart';
-import 'package:acare_mobile/pages/main_shell.dart';
-import 'package:acare_mobile/pages/masuk_page.dart';
-import 'package:acare_mobile/pages/pengaduan_page.dart';
-import 'package:acare_mobile/pages/splash_page.dart';
+import 'package:acare_mobile/pages/pelanggan/detail_pesanan_page.dart';
+import 'package:acare_mobile/pages/umum/main_shell.dart';
+import 'package:acare_mobile/pages/pelanggan/masuk_page.dart';
+import 'package:acare_mobile/pages/pelanggan/pengaduan_page.dart';
+import 'package:acare_mobile/pages/umum/splash_page.dart';
 import 'package:acare_mobile/services/perangkat.dart';
 
 // PNG 1x1 piksel

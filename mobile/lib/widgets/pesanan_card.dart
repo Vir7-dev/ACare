@@ -4,8 +4,8 @@ import 'package:intl/intl.dart';
 
 import '../models/layanan.dart';
 import '../models/pesanan.dart';
-import '../pages/beri_ulasan_page.dart';
-import '../pages/mencari_teknisi_page.dart';
+import '../pages/pelanggan/beri_ulasan_page.dart';
+import '../pages/pelanggan/mencari_teknisi_page.dart';
 
 class PesananCard extends StatelessWidget {
   final Pesanan pesanan;

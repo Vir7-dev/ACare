@@ -3,10 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../widgets/ilustrasi_teknisi.dart';
-import '../services/sesi_pengguna.dart';
+import '../../widgets/ilustrasi_teknisi.dart';
+import '../../services/sesi_pengguna.dart';
+import '../pelanggan/masuk_page.dart';
 import 'main_shell.dart';
-import 'masuk_page.dart';
 
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});

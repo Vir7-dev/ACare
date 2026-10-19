@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import 'beranda_page.dart';
-import 'profil_page.dart';
-import 'riwayat_pesanan_page.dart';
+import '../pelanggan/beranda_page.dart';
+import '../pelanggan/profil_page.dart';
+import '../pelanggan/riwayat_pesanan_page.dart';
 
 /// Kerangka utama setelah login: tiga tab dengan navigasi bawah.
 class MainShell extends StatefulWidget {

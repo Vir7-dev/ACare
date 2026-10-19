@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
-import 'package:acare_mobile/pages/main_shell.dart';
+import 'package:acare_mobile/pages/umum/main_shell.dart';
 
 void main() {
   setUpAll(() async {

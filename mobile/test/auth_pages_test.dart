@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'package:acare_mobile/pages/daftar_page.dart';
-import 'package:acare_mobile/pages/masuk_page.dart';
-import 'package:acare_mobile/pages/splash_page.dart';
+import 'package:acare_mobile/pages/pelanggan/daftar_page.dart';
+import 'package:acare_mobile/pages/pelanggan/masuk_page.dart';
+import 'package:acare_mobile/pages/umum/splash_page.dart';
 
 void main() {
   setUpAll(() {

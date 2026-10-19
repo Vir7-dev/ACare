@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:acare_mobile/models/status_layanan.dart';
-import 'package:acare_mobile/pages/chat_teknisi_page.dart';
-import 'package:acare_mobile/pages/detail_pesanan_page.dart';
-import 'package:acare_mobile/pages/pembayaran_page.dart';
-import 'package:acare_mobile/pages/tracking_teknisi_page.dart';
+import 'package:acare_mobile/pages/pelanggan/chat_teknisi_page.dart';
+import 'package:acare_mobile/pages/pelanggan/detail_pesanan_page.dart';
+import 'package:acare_mobile/pages/pelanggan/pembayaran_page.dart';
+import 'package:acare_mobile/pages/pelanggan/tracking_teknisi_page.dart';
 import 'package:acare_mobile/models/teknisi.dart';
 
 void main() {

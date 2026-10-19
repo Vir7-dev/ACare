@@ -4,8 +4,8 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:acare_mobile/models/layanan.dart';
-import 'package:acare_mobile/pages/main_shell.dart';
-import 'package:acare_mobile/pages/mencari_teknisi_page.dart';
+import 'package:acare_mobile/pages/umum/main_shell.dart';
+import 'package:acare_mobile/pages/pelanggan/mencari_teknisi_page.dart';
 
 void main() {
   setUpAll(() async {

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../models/teknisi.dart';
-import '../theme/app_colors.dart';
+import '../../models/teknisi.dart';
+import '../../theme/app_colors.dart';
 
 class _Pesan {
   final String teks;
