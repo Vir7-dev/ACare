@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
+import '../models/layanan.dart';
 import '../models/pesanan.dart';
+import '../pages/beri_ulasan_page.dart';
+import '../pages/mencari_teknisi_page.dart';
 
 class PesananCard extends StatelessWidget {
   final Pesanan pesanan;
@@ -159,9 +162,11 @@ class PesananCard extends StatelessWidget {
                 Expanded(
                   child: OutlinedButton(
                     style: _outlineStyle,
-                    onPressed: () {
-                      // TODO: halaman Rating/Ulasan
-                    },
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => BeriUlasanPage(pesanan: pesanan),
+                      ),
+                    ),
                     child: const Text('Beri Ulasan'),
                   ),
                 ),
@@ -183,9 +188,16 @@ class PesananCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-                    onPressed: () {
-                      // TODO: halaman Memesan Layanan (Pesan Lagi)
-                    },
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => MencariTeknisiPage(
+                          layanan: daftarLayanan.firstWhere(
+                            (l) => pesanan.namaLayanan.contains(l.nama),
+                            orElse: () => daftarLayanan.first,
+                          ),
+                        ),
+                      ),
+                    ),
                     icon: const Icon(Icons.refresh, size: 18),
                     label: const Text('Pesan Lagi'),
                   ),
@@ -216,9 +228,23 @@ class PesananCard extends StatelessWidget {
                 ),
                 OutlinedButton(
                   style: _outlineStyle,
-                  onPressed: () {
-                    // TODO: halaman Detail Pembatalan
-                  },
+                  onPressed: () => showDialog<void>(
+                    context: context,
+                    builder: (_) => AlertDialog(
+                      title: const Text('Detail Pembatalan'),
+                      content: Text(
+                        '${pesanan.kode}\n\n'
+                        'Alasan: ${pesanan.alasanBatal ?? '-'}\n'
+                        'Pembayaran: ${pesanan.statusPembayaran ?? '-'}',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text('Tutup'),
+                        ),
+                      ],
+                    ),
+                  ),
                   child: const Text('Detail Pembatalan'),
                 ),
               ],
