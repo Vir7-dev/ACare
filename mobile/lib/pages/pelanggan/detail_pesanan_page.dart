@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -5,22 +7,42 @@ import '../../models/layanan.dart';
 import '../../models/status_layanan.dart';
 import '../../models/tagihan.dart';
 import '../../models/teknisi.dart';
+import '../../services/order_service.dart';
 import '../../services/perangkat.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/teknisi_info_card.dart';
 import 'chat_teknisi_page.dart';
 import 'pembayaran_page.dart';
 
+/// Detail pesanan + timeline status pekerjaan teknisi.
+///
+/// Kalau [otomatis] aktif (default), status berjalan sendiri mulai dari
+/// [StatusLayanan.pengecekanAwal] ke [StatusLayanan.melakukanPerbaikan] lalu
+/// [StatusLayanan.selesai] dengan jeda [durasiStatus] per perubahan. Tahap
+/// "Menunggu Pembayaran" belum ditampilkan karena alur pembayaran sedang
+/// disembunyikan.
 class DetailPesananPage extends StatefulWidget {
   final StatusLayanan status;
   final Teknisi teknisi;
   final Tagihan tagihan;
 
+  /// Jalankan perubahan status otomatis selama halaman terbuka.
+  final bool otomatis;
+
+  /// Jeda sebelum status berpindah ke tahap berikutnya.
+  final Duration durasiStatus;
+
+  /// Tampilkan tombol "Batalkan Pesanan".
+  final bool bisaDibatalkan;
+
   const DetailPesananPage({
     super.key,
-    required this.status,
+    this.status = StatusLayanan.pengecekanAwal,
     this.teknisi = teknisiDummy,
     this.tagihan = tagihanDummy,
+    this.otomatis = true,
+    this.durasiStatus = const Duration(milliseconds: 2500),
+    this.bisaDibatalkan = true,
   });
 
   @override
@@ -30,17 +52,64 @@ class DetailPesananPage extends StatefulWidget {
 class _DetailPesananPageState extends State<DetailPesananPage> {
   bool _komponenTerbuka = false;
 
-  static const _langkah = [
-    (StatusLayanan.pengecekanAwal, Icons.search),
-    (StatusLayanan.melakukanPerbaikan, Icons.build_outlined),
-    (StatusLayanan.menungguPembayaran, Icons.credit_card_outlined),
-    (StatusLayanan.selesai, Icons.check_circle_outline),
-  ];
-  // Jam tiap langkah (dummy), tampil kalau langkah sudah dicapai
-  static const _jam = ['12.30', '13.00', '14.30', '15.00'];
+  /// Status yang sedang tampil; berawal dari [DetailPesananPage.status] lalu
+  /// maju sendiri selama [DetailPesananPage.otomatis] aktif.
+  late StatusLayanan _status = _awalTampil(widget.status);
+  Timer? _timerStatus;
 
-  bool get _bisaBayar => widget.status == StatusLayanan.menungguPembayaran;
-  bool get _bisaBatal => widget.status == StatusLayanan.pengecekanAwal;
+  /// Status tanpa tahap pembayaran (tetap sama, termasuk urutannya).
+  static const _daftarTampil = StatusLayanan.langkahTampil;
+
+  // Jam tiap langkah (dummy), tampil kalau langkah sudah dicapai.
+  static const _jam = ['12.30', '13.00', '15.00'];
+
+  static const _ikonLangkah = {
+    StatusLayanan.pengecekanAwal: Icons.search,
+    StatusLayanan.melakukanPerbaikan: Icons.build_outlined,
+    StatusLayanan.selesai: Icons.check_circle_outline,
+  };
+
+  /// Status awal yang dipakai saat halaman dibuka.
+  ///
+  /// Eksplisit `menungguPembayaran` dipertahankan (mis. dibuka dari kode lain
+  /// atau test), tetapi alur otomatis tetap tidak melewati tahap itu.
+  static StatusLayanan _awalTampil(StatusLayanan status) => status;
+
+  int get _indeks => _daftarTampil.indexOf(_status);
+
+  bool get _bisaBayar => _status == StatusLayanan.menungguPembayaran;
+
+  /// Hanya bisa dibatalkan selama masih pengecekan awal dan tombolnya aktif.
+  bool get _bisaBatal =>
+      widget.bisaDibatalkan && _status == StatusLayanan.pengecekanAwal;
+
+  @override
+  void initState() {
+    super.initState();
+    _jadwalkanStatusBerikutnya();
+  }
+
+  @override
+  void dispose() {
+    _timerStatus?.cancel();
+    super.dispose();
+  }
+
+  /// Jadwalkan perpindahan ke status berikutnya, berhenti di tahap terakhir.
+  void _jadwalkanStatusBerikutnya() {
+    _timerStatus?.cancel();
+    _timerStatus = null;
+    if (!widget.otomatis || _indeks < 0) return;
+    if (_indeks >= _daftarTampil.length - 1) return;
+    _timerStatus = Timer(widget.durasiStatus, _lanjutStatus);
+  }
+
+  void _lanjutStatus() {
+    _timerStatus = null;
+    if (!mounted || _indeks >= _daftarTampil.length - 1) return;
+    setState(() => _status = _daftarTampil[_indeks + 1]);
+    _jadwalkanStatusBerikutnya();
+  }
 
   Future<void> _batalkan() async {
     final ya = await showDialog<bool>(
@@ -62,6 +131,7 @@ class _DetailPesananPageState extends State<DetailPesananPage> {
     );
     if (ya == true && mounted) {
       // TODO: panggil API pembatalan pesanan
+      OrderService.instance.batalkan();
       Navigator.of(context).pop();
     }
   }
@@ -73,7 +143,7 @@ class _DetailPesananPageState extends State<DetailPesananPage> {
   @override
   Widget build(BuildContext context) {
     final t = widget.tagihan;
-    final idx = widget.status.index;
+    final idx = _indeks;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -89,7 +159,7 @@ class _DetailPesananPageState extends State<DetailPesananPage> {
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
             ),
             Text(
-              widget.status.label,
+              _status.label,
               style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w400),
             ),
           ],
@@ -115,13 +185,14 @@ class _DetailPesananPageState extends State<DetailPesananPage> {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
             child: Column(
               children: [
-                for (var i = 0; i < _langkah.length; i++)
+                for (var i = 0; i < _daftarTampil.length; i++)
                   _LangkahStatus(
-                    label: _langkah[i].$1.label,
-                    ikon: _langkah[i].$2,
+                    label: _daftarTampil[i].label,
+                    ikon: _ikonLangkah[_daftarTampil[i]]!,
                     jam: i <= idx ? _jam[i] : null,
                     tercapai: i <= idx,
-                    garisBerikutnya: i < _langkah.length - 1,
+                    aktif: i == idx,
+                    garisBerikutnya: i < _daftarTampil.length - 1,
                     garisAktif: i + 1 <= idx,
                   ),
               ],
@@ -140,31 +211,40 @@ class _DetailPesananPageState extends State<DetailPesananPage> {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 14),
-                _Baris('Pemeriksaan', rupiah(t.pemeriksaan)),
-                const SizedBox(height: 12),
-                InkWell(
-                  onTap: () =>
-                      setState(() => _komponenTerbuka = !_komponenTerbuka),
-                  child: _Baris(
-                    'Komponen',
-                    rupiah(t.totalKomponen),
-                    tambahan: Icon(
-                      _komponenTerbuka
-                          ? Icons.keyboard_arrow_up
-                          : Icons.keyboard_arrow_down,
-                      size: 18,
+                const SizedBox(height: 8),
+                if (_bisaBayar) ...[
+                  _Baris('Pemeriksaan', rupiah(t.pemeriksaan)),
+                  const SizedBox(height: 12),
+                  InkWell(
+                    onTap: () =>
+                        setState(() => _komponenTerbuka = !_komponenTerbuka),
+                    child: _Baris(
+                      'Komponen',
+                      rupiah(t.totalKomponen),
+                      tambahan: Icon(
+                        _komponenTerbuka
+                            ? Icons.keyboard_arrow_up
+                            : Icons.keyboard_arrow_down,
+                        size: 18,
+                      ),
                     ),
                   ),
-                ),
-                if (_komponenTerbuka)
-                  for (final k in t.komponen)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 6, left: 8),
-                      child: _Baris(k.nama, rupiah(k.harga), kecil: true),
-                    ),
-                const SizedBox(height: 14),
-                _Baris('Total Pembayaran', rupiah(t.total), tebal: true),
+                  if (_komponenTerbuka)
+                    for (final k in t.komponen)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6, left: 8),
+                        child: _Baris(k.nama, rupiah(k.harga), kecil: true),
+                      ),
+                  const SizedBox(height: 14),
+                  _Baris('Total Pembayaran', rupiah(t.total), tebal: true),
+                ] else
+                  _Baris(
+                    'Status pembayaran',
+                    _status == StatusLayanan.selesai
+                        ? 'Selesai'
+                        : 'Diproses setelah perbaikan selesai',
+                    kecil: _status != StatusLayanan.selesai,
+                  ),
               ],
             ),
           ),
@@ -172,28 +252,35 @@ class _DetailPesananPageState extends State<DetailPesananPage> {
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
             child: Column(
               children: [
-                _TombolAksi(
-                  label: 'Bayar Pesanan',
-                  ikon: Icons.check,
-                  warna: AppColors.hijau,
-                  aktif: _bisaBayar,
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => PembayaranPage(
-                        teknisi: widget.teknisi,
-                        tagihan: widget.tagihan,
+                // Halaman pembayaran sengaja disembunyikan untuk sementara.
+                // Kodenya tetap disimpan; aktifkan lagi dengan mengganti
+                // kondisi di bawah saat alur pembayaran dipakai.
+                if (_bisaBayar)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _TombolAksi(
+                      label: 'Bayar Pesanan',
+                      ikon: Icons.check,
+                      warna: AppColors.hijau,
+                      aktif: true,
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => PembayaranPage(
+                            teknisi: widget.teknisi,
+                            tagihan: widget.tagihan,
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                _TombolAksi(
-                  label: 'Batalkan Pesanan',
-                  ikon: Icons.close,
-                  warna: AppColors.merah,
-                  aktif: _bisaBatal,
-                  onTap: _batalkan,
-                ),
+                if (widget.bisaDibatalkan)
+                  _TombolAksi(
+                    label: 'Batalkan Pesanan',
+                    ikon: Icons.close,
+                    warna: AppColors.merah,
+                    aktif: _bisaBatal,
+                    onTap: _batalkan,
+                  ),
               ],
             ),
           ),
@@ -231,6 +318,9 @@ class _LangkahStatus extends StatelessWidget {
   final IconData ikon;
   final String? jam;
   final bool tercapai;
+
+  /// Langkah yang sedang berjalan (langkah terakhir yang tercapai).
+  final bool aktif;
   final bool garisBerikutnya;
   final bool garisAktif;
 
@@ -239,6 +329,7 @@ class _LangkahStatus extends StatelessWidget {
     required this.ikon,
     required this.jam,
     required this.tercapai,
+    required this.aktif,
     required this.garisBerikutnya,
     required this.garisAktif,
   });
@@ -258,14 +349,39 @@ class _LangkahStatus extends StatelessWidget {
                 children: [
                   Icon(ikon, size: 18, color: warna),
                   const SizedBox(width: 12),
-                  Text(
-                    label,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 12,
-                      color: warna,
-                      fontWeight: tercapai ? FontWeight.w600 : FontWeight.w400,
+                  Flexible(
+                    child: Text(
+                      label,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12,
+                        color: warna,
+                        fontWeight: tercapai
+                            ? FontWeight.w600
+                            : FontWeight.w400,
+                      ),
                     ),
                   ),
+                  if (aktif) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEAF2FF),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        'Sedang berjalan',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.biruAksen,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import '../models/layanan.dart';
 import '../models/pesanan.dart';
 import '../pages/pelanggan/beri_ulasan_page.dart';
-import '../pages/pelanggan/mencari_teknisi_page.dart';
+import '../pages/pelanggan/buat_pesanan_page.dart';
 
 class PesananCard extends StatelessWidget {
   final Pesanan pesanan;
@@ -190,7 +190,7 @@ class PesananCard extends StatelessWidget {
                     ),
                     onPressed: () => Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) => MencariTeknisiPage(
+                        builder: (_) => BuatPesananPage(
                           layanan: daftarLayanan.firstWhere(
                             (l) => pesanan.namaLayanan.contains(l.nama),
                             orElse: () => daftarLayanan.first,

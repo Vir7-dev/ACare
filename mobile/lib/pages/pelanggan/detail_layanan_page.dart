@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/layanan.dart';
 import '../../theme/app_colors.dart';
-import 'mencari_teknisi_page.dart';
+import 'buat_pesanan_page.dart';
 
 class DetailLayananPage extends StatelessWidget {
   const DetailLayananPage({super.key});
@@ -61,7 +61,7 @@ class _LayananTile extends StatelessWidget {
 
   void _pilih(BuildContext context) {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => MencariTeknisiPage(layanan: layanan)),
+      MaterialPageRoute(builder: (_) => BuatPesananPage(layanan: layanan)),
     );
   }
 

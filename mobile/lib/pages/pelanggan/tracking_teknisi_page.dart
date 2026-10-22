@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -8,14 +10,59 @@ import '../../services/perangkat.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/teknisi_info_card.dart';
 import 'chat_teknisi_page.dart';
+import 'detail_pesanan_page.dart';
 
-class TrackingTeknisiPage extends StatelessWidget {
+/// Halaman peta teknisi menuju lokasi.
+///
+/// Setelah [lamaTampil] halaman ini otomatis pindah ke [DetailPesananPage],
+/// yang lalu menampilkan status pekerjaan secara berurutan.
+class TrackingTeknisiPage extends StatefulWidget {
   final Teknisi teknisi;
 
-  const TrackingTeknisiPage({super.key, required this.teknisi});
+  /// Lama dummy sebelum layar detail pesanan muncul.
+  final Duration lamaTampil;
+
+  const TrackingTeknisiPage({
+    super.key,
+    required this.teknisi,
+    this.lamaTampil = const Duration(seconds: 5),
+  });
+
+  @override
+  State<TrackingTeknisiPage> createState() => _TrackingTeknisiPageState();
+}
+
+class _TrackingTeknisiPageState extends State<TrackingTeknisiPage> {
+  Timer? _timerPindah;
+
+  @override
+  void initState() {
+    super.initState();
+    _timerPindah = Timer(widget.lamaTampil, _keDetailPesanan);
+  }
+
+  @override
+  void dispose() {
+    _timerPindah?.cancel();
+    super.dispose();
+  }
+
+  /// Ganti halaman tracking dengan detail pesanan di stack, supaya tombol
+  /// back dari detail pesanan tidak kembali ke peta tracking.
+  void _keDetailPesanan() {
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) =>
+            DetailPesananPage(teknisi: widget.teknisi, bisaDibatalkan: false),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final teknisi = widget.teknisi;
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: Column(

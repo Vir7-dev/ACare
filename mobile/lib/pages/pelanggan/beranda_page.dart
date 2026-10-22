@@ -2,17 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/layanan.dart';
-import '../../models/status_layanan.dart';
-import '../../models/teknisi.dart';
+import '../../services/order_service.dart';
 import '../../services/perangkat.dart';
 import '../../services/sesi_pengguna.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/pesanan_berlangsung_card.dart';
 import '../../widgets/servis_terakhir_card.dart';
+import 'buat_pesanan_page.dart';
 import 'chat_teknisi_page.dart';
 import 'detail_layanan_page.dart';
-import 'detail_pesanan_page.dart';
-import 'mencari_teknisi_page.dart';
 import 'tracking_teknisi_page.dart';
 
 class BerandaPage extends StatefulWidget {
@@ -169,8 +167,11 @@ class _BerandaPageState extends State<BerandaPage> {
   }
 
   void _cariTeknisi(BuildContext context, Layanan layanan) {
+    // Alur pesanan: form detail -> ringkasan/biaya -> cari teknisi.
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => MencariTeknisiPage(layanan: layanan)),
+      MaterialPageRoute(
+        builder: (_) => BuatPesananPage(layanan: layanan, alamatAwal: _lokasi),
+      ),
     );
   }
 
@@ -380,25 +381,41 @@ class _BerandaPageState extends State<BerandaPage> {
               ],
             ),
             const SizedBox(height: 12),
-            PesananBerlangsungCard(
-              namaTeknisi: teknisiDummy.nama,
-              rating: teknisiDummy.rating,
-              jumlahUlasan: teknisiDummy.jumlahUlasan,
-              kendaraan: '${teknisiDummy.kendaraan} • ${teknisiDummy.plat}',
-              estimasi: '12 Menit lagi',
-              // TODO: status pesanan diambil dari API
-              onTap: () => _buka(
-                context,
-                const DetailPesananPage(
-                  status: StatusLayanan.menungguPembayaran,
-                ),
-              ),
-              onChat: () =>
-                  _buka(context, const ChatTeknisiPage(teknisi: teknisiDummy)),
-              onLacakPeta: () => _buka(
-                context,
-                const TrackingTeknisiPage(teknisi: teknisiDummy),
-              ),
+            ValueListenableBuilder<PesananPelanggan?>(
+              valueListenable: OrderService.instance.pesananAktif,
+              builder: (context, aktif, _) {
+                final t = aktif?.teknisi;
+                if (aktif == null || t == null) {
+                  return Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: const Color(0xFFE9EDF4)),
+                    ),
+                    child: Text(
+                      'Belum ada pesanan yang sedang berlangsung.',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 11.5,
+                        color: AppColors.teksSamar,
+                      ),
+                    ),
+                  );
+                }
+                final menit = aktif.estimasiTiba?.inMinutes ?? 12;
+                return PesananBerlangsungCard(
+                  namaTeknisi: t.nama,
+                  rating: t.rating,
+                  jumlahUlasan: t.jumlahUlasan,
+                  kendaraan: '${t.kendaraan} • ${t.plat}',
+                  estimasi: '$menit Menit lagi',
+                  onTap: () => _buka(context, TrackingTeknisiPage(teknisi: t)),
+                  onChat: () => _buka(context, ChatTeknisiPage(teknisi: t)),
+                  onLacakPeta: () =>
+                      _buka(context, TrackingTeknisiPage(teknisi: t)),
+                );
+              },
             ),
           ],
         ),

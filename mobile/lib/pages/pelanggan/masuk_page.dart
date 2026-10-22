@@ -1,17 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../services/auth_service.dart';
 import '../../services/sesi_pengguna.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/auth_button.dart';
 import '../../widgets/auth_header.dart';
 import '../../widgets/auth_text_field.dart';
 import '../../widgets/wave_background.dart';
+import '../teknisi/teknisi_shell.dart';
 import '../umum/main_shell.dart';
 import 'daftar_page.dart';
 
 class MasukPage extends StatefulWidget {
-  const MasukPage({super.key});
+  /// Peran yang dipilih di [RoleSelectPage]; menentukan halaman setelah masuk.
+  final UserRole role;
+
+  const MasukPage({super.key, this.role = UserRole.pelanggan});
 
   @override
   State<MasukPage> createState() => _MasukPageState();
@@ -19,30 +24,31 @@ class MasukPage extends StatefulWidget {
 
 class _MasukPageState extends State<MasukPage> {
   final _formKey = GlobalKey<FormState>();
-  final _nama = TextEditingController();
+  final _email = TextEditingController();
   final _sandi = TextEditingController();
+  bool _memproses = false;
 
   @override
   void initState() {
     super.initState();
-    _isiNamaDariAkun();
+    _isiEmailDariAkun();
   }
 
-  Future<void> _isiNamaDariAkun() async {
-    final n = await SesiPengguna.akunNama();
-    if (mounted && n != null && _nama.text.isEmpty) _nama.text = n;
+  Future<void> _isiEmailDariAkun() async {
+    final e = await SesiPengguna.email();
+    if (mounted && e != null && _email.text.isEmpty) _email.text = e;
   }
 
   Future<void> _bukaDaftar() async {
     await Navigator.of(context)
         .push(MaterialPageRoute(builder: (_) => const DaftarPage()));
-    // Setelah mendaftar, nama langsung terisi di form masuk
-    await _isiNamaDariAkun();
+    // Setelah mendaftar, email langsung terisi di form masuk.
+    await _isiEmailDariAkun();
   }
 
   @override
   void dispose() {
-    _nama.dispose();
+    _email.dispose();
     _sandi.dispose();
     super.dispose();
   }
@@ -52,11 +58,27 @@ class _MasukPageState extends State<MasukPage> {
 
   Future<void> _masuk() async {
     if (!_formKey.currentState!.validate()) return;
-    // TODO: panggil API login Laravel; sementara hanya mengingat sesi lokal
-    await SesiPengguna.masuk(_nama.text);
+    setState(() => _memproses = true);
+    final berhasil = await AuthService.login(
+      _email.text,
+      _sandi.text,
+      widget.role,
+    );
     if (!mounted) return;
-    Navigator.of(context)
-        .pushReplacement(MaterialPageRoute(builder: (_) => const MainShell()));
+    setState(() => _memproses = false);
+    if (!berhasil) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Email dan kata sandi wajib diisi')),
+      );
+      return;
+    }
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => widget.role == UserRole.teknisi
+            ? const TeknisiShell()
+            : const MainShell(),
+      ),
+    );
   }
 
   @override
@@ -106,11 +128,11 @@ class _MasukPageState extends State<MasukPage> {
                           ),
                           const SizedBox(height: 28),
                           AuthTextField(
-                            hint: 'Nama',
-                            icon: Icons.person_outline,
-                            controller: _nama,
+                            hint: 'Email',
+                            icon: Icons.mail_outline,
+                            controller: _email,
                             textInputAction: TextInputAction.next,
-                            validator: (v) => _wajib(v, 'Nama'),
+                            validator: (v) => _wajib(v, 'Email'),
                           ),
                           const SizedBox(height: 16),
                           AuthTextField(
@@ -122,7 +144,10 @@ class _MasukPageState extends State<MasukPage> {
                             validator: (v) => _wajib(v, 'Kata sandi'),
                           ),
                           const SizedBox(height: 32),
-                          AuthButton(label: 'Masuk', onPressed: _masuk),
+                          AuthButton(
+                            label: _memproses ? 'Memproses...' : 'Masuk',
+                            onPressed: _masuk,
+                          ),
                           const SizedBox(height: 24),
                           Center(
                             child: Wrap(

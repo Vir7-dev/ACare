@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/layanan.dart';
-import '../../models/teknisi.dart';
+import '../../services/order_service.dart';
 import '../../services/sesi_pengguna.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/ilustrasi_teknisi.dart';
@@ -13,12 +13,21 @@ import 'tracking_teknisi_page.dart';
 class MencariTeknisiPage extends StatefulWidget {
   final Layanan layanan;
 
+  /// Pesanan yang dibuat di [BuatPesananPage]. Kalau null, dibuatkan pesanan
+  /// minimal supaya halaman tetap bisa dibuka langsung (mis. dari test).
+  final PesananPelanggan? pesanan;
+
+  /// Metode bayar pilihan dari RingkasanPembayaranPage.
+  final String metodeBayar;
+
   /// Lama simulasi pencarian sebelum teknisi "ditemukan".
   final Duration lamaCari;
 
   const MencariTeknisiPage({
     super.key,
     required this.layanan,
+    this.pesanan,
+    this.metodeBayar = '',
     this.lamaCari = const Duration(seconds: 5),
   });
 
@@ -27,50 +36,76 @@ class MencariTeknisiPage extends StatefulWidget {
 }
 
 class _MencariTeknisiPageState extends State<MencariTeknisiPage> {
-  Timer? _timer;
-  bool _dialogTerbuka = false;
-  String _lokasi = 'Perumahan Batu aji, Batam';
+  late String _lokasi = widget.pesanan?.alamat ?? 'Perumahan Batu aji, Batam';
+  bool _selesai = false;
 
   Layanan get layanan => widget.layanan;
 
   @override
   void initState() {
     super.initState();
-    // TODO: ganti simulasi ini dengan hasil pencarian dari API
-    _timer = Timer(widget.lamaCari, _teknisiDitemukan);
+    _mulaiCari();
     SesiPengguna.lokasi().then((l) {
-      if (mounted && l != null) setState(() => _lokasi = l);
+      if (mounted && l != null && widget.pesanan == null) {
+        setState(() => _lokasi = l);
+      }
     });
   }
 
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
+  /// Pesanan minimal untuk pemanggil yang membuka halaman ini tanpa
+  /// [MencariTeknisiPage.pesanan].
+  PesananPelanggan get _pesanan =>
+      widget.pesanan ??
+      PesananPelanggan(
+        layanan: layanan,
+        jumlahUnit: 1,
+        jenisAc: JenisAc.split,
+        pk: 1,
+        alamat: _lokasi,
+        detailAlamat: '',
+        jadwal: DateTime.now(),
+        metodeBayar: widget.metodeBayar,
+        totalEstimasi: OrderService.hitungTotalEstimasi(layanan, 1),
+      );
 
-  void _teknisiDitemukan() {
-    if (!mounted) return;
-    if (_dialogTerbuka) {
-      _timer = Timer(const Duration(seconds: 1), _teknisiDitemukan);
+  Future<void> _mulaiCari() async {
+    final bool ditemukan;
+    try {
+      ditemukan = await OrderService.instance.cariTeknisi(
+        _pesanan,
+        lamaCari: widget.lamaCari,
+      );
+    } catch (_) {
+      // Sudah ada pesanan aktif: kembali tanpa menimpa pesanan tersebut.
+      if (mounted) Navigator.of(context).maybePop();
       return;
     }
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => const TrackingTeknisiPage(teknisi: teknisiDummy),
-      ),
+    // Dibatalkan atau halaman sudah ditinggalkan: jangan pindah layar.
+    if (!mounted || !ditemukan) return;
+    setState(() => _selesai = true);
+    _keTracking();
+  }
+
+  /// Teknisi ditemukan: buka halaman tracking dan buang halaman alur pesanan
+  /// (form, ringkasan, pencarian) dari stack. Beranda tetap jadi halaman
+  /// pertama, jadi menekan back dari tracking kembali ke beranda.
+  void _keTracking() {
+    final teknisi = OrderService.instance.pesananAktif.value?.teknisi;
+    if (teknisi == null) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => TrackingTeknisiPage(teknisi: teknisi)),
+      (route) => route.isFirst,
     );
   }
 
   Future<void> _konfirmasiBatal(BuildContext context) async {
-    _dialogTerbuka = true;
+    if (_selesai) return;
     final batal = await showDialog<bool>(
       context: context,
       builder: (_) => const _DialogBatal(),
     );
-    _dialogTerbuka = false;
     if (batal == true && context.mounted) {
-      // TODO: panggil API pembatalan pencarian
+      OrderService.instance.batalkan();
       Navigator.of(context).pop();
     }
   }
