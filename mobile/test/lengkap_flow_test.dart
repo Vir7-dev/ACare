@@ -65,12 +65,16 @@ void main() {
     expect(find.text('Pusat Bantuan & Pengaduan'), findsNothing);
   });
 
-  testWidgets('Profil: tampil, simpan, dan keluar ke Masuk', (tester) async {
+  testWidgets('Profil: tampil, simpan, dan keluar ke pilih peran', (
+    tester,
+  ) async {
     SharedPreferences.setMockInitialValues({
       'sudah_masuk': true,
       'nama': 'Dina Safitri',
       'telepon': '083862865166',
       'email': 'sdina3066@gmail.com',
+      'is_logged_in': true,
+      'role': 'pelanggan',
     });
     await bukaShell(tester);
     await tester.tap(find.text('Profil').last);
@@ -92,7 +96,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(TextButton, 'Keluar'));
     await tester.pumpAndSettle();
-    expect(find.text('Selamat Datang!'), findsOneWidget);
+    expect(find.text('Masuk sebagai'), findsOneWidget);
+    expect(find.text('Lanjutkan'), findsOneWidget);
+    expect(find.text('Selamat Datang!'), findsNothing);
   });
 
   testWidgets('Mencari teknisi otomatis pindah ke tracking', (tester) async {

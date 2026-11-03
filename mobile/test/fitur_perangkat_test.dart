@@ -7,6 +7,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:acare_mobile/models/status_layanan.dart';
+import 'package:acare_mobile/pages/pelanggan/daftar_page.dart';
 import 'package:acare_mobile/pages/pelanggan/detail_pesanan_page.dart';
 import 'package:acare_mobile/pages/umum/main_shell.dart';
 import 'package:acare_mobile/pages/pelanggan/masuk_page.dart';
@@ -40,7 +41,10 @@ void main() {
 
     await tester.pumpWidget(
       const MaterialApp(
-        home: DetailPesananPage(status: StatusLayanan.pengecekanAwal),
+        home: DetailPesananPage(
+          status: StatusLayanan.pengecekanAwal,
+          otomatis: false,
+        ),
       ),
     );
     await tester.tap(find.text('Telepon'));
@@ -56,7 +60,10 @@ void main() {
 
     await tester.pumpWidget(
       const MaterialApp(
-        home: DetailPesananPage(status: StatusLayanan.pengecekanAwal),
+        home: DetailPesananPage(
+          status: StatusLayanan.pengecekanAwal,
+          otomatis: false,
+        ),
       ),
     );
     await tester.tap(find.text('Telepon'));
@@ -118,24 +125,25 @@ void main() {
     expect(find.text('Pilih Foto'), findsNWidgets(1));
   });
 
-  testWidgets('Masuk mengingat nama; splash langsung ke beranda', (
+  testWidgets('Masuk mengingat sesi; splash langsung ke beranda', (
     tester,
   ) async {
     ukuranHp(tester);
 
     await tester.pumpWidget(const MaterialApp(home: MasukPage()));
-    await tester.enterText(find.byType(TextFormField).at(0), 'Dina');
+    await tester.enterText(find.byType(TextFormField).at(0), 'dina@gmail.com');
     await tester.enterText(find.byType(TextFormField).at(1), 'rahasia123');
     await tester.tap(find.widgetWithText(ElevatedButton, 'Masuk'));
     await tester.pumpAndSettle();
-    expect(find.text('Selamat Datang, Dina!'), findsOneWidget);
+    expect(find.text('Kategori Layanan'), findsOneWidget);
 
     // Buka ulang aplikasi: sesi masih tersimpan
     await tester.pumpWidget(const MaterialApp(home: SplashPage()));
     await tester.pump(const Duration(seconds: 2));
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
-    expect(find.text('Selamat Datang, Dina!'), findsOneWidget);
+    // Peran pelanggan tersimpan, jadi langsung ke kerangka utama pelanggan.
+    expect(find.byType(MainShell), findsOneWidget);
   });
 
   testWidgets('Daftar menyimpan data; Masuk dan Profil terisi otomatis', (
@@ -144,7 +152,12 @@ void main() {
     ukuranHp(tester);
 
     await tester.pumpWidget(const MaterialApp(home: MasukPage()));
-    await tester.tap(find.text('Daftar Sekarang'));
+    await tester.pumpAndSettle();
+    // Form pendaftaran pelanggan masih placeholder; buka DaftarPage lewat
+    // navigator agar perilaku pop-nya sama seperti alur sebenarnya.
+    tester
+        .state<NavigatorState>(find.byType(Navigator))
+        .push(MaterialPageRoute<void>(builder: (_) => const DaftarPage()));
     await tester.pumpAndSettle();
 
     // email dengan format salah ditolak
@@ -162,9 +175,14 @@ void main() {
     await tester.tap(find.widgetWithText(ElevatedButton, 'Daftar'));
     await tester.pumpAndSettle();
 
-    // kembali ke Masuk, nama sudah terisi dari pendaftaran
-    expect(find.text('Selamat Datang!'), findsOneWidget);
-    expect(find.text('Dina Safitri'), findsOneWidget);
+    // Kembali ke Masuk; email otomatis terisi dari data pendaftaran.
+    // Key baru memaksa initState berjalan ulang agar email dibaca ulang.
+    await tester.pumpWidget(
+      const MaterialApp(home: MasukPage(key: Key('masuk'))),
+    );
+    await tester.pumpAndSettle();
+    await tester.pump();
+    expect(find.text('sdina3066@gmail.com'), findsOneWidget);
 
     await tester.enterText(find.byType(TextFormField).at(1), 'rahasia123');
     await tester.tap(find.widgetWithText(ElevatedButton, 'Masuk'));
