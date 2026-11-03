@@ -4,9 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../services/perangkat.dart';
+import '../../services/auth_service.dart';
 import '../../services/sesi_pengguna.dart';
 import '../../theme/app_colors.dart';
-import 'masuk_page.dart';
+import '../role_select_page.dart';
 import 'pengaduan_page.dart';
 
 class ProfilPage extends StatefulWidget {
@@ -120,11 +121,12 @@ class _ProfilPageState extends State<ProfilPage> {
       ),
     );
     if (ya == true && mounted) {
-      // TODO: hapus token login di API
+      await AuthService.logout();
       await SesiPengguna.keluar();
       if (!mounted) return;
+      // Kembali ke pemilihan peran, sama seperti saat pertama membuka aplikasi.
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const MasukPage()),
+        MaterialPageRoute(builder: (_) => const RoleSelectPage()),
         (_) => false,
       );
     }

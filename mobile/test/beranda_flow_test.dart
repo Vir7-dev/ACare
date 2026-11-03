@@ -36,7 +36,7 @@ void main() {
     expect(find.text('Riwayat Pesanan'), findsOneWidget);
   });
 
-  testWidgets('Lihat Detail -> Pilih -> batalkan pencarian', (tester) async {
+  testWidgets('Lihat Detail -> Pilih -> buka form pesanan', (tester) async {
     await bukaShell(tester);
 
     await tester.tap(find.text('Lihat Detail'));
@@ -45,24 +45,8 @@ void main() {
 
     await tester.tap(find.text('Pilih').first);
     await tester.pumpAndSettle();
-    expect(find.text('Mencari Teknisi Terdekat...'), findsOneWidget);
-    expect(find.text('Rp 75.000'), findsOneWidget);
-
-    await tester.tap(find.text('Batalkan Pesanan'));
-    await tester.pumpAndSettle();
-    expect(find.text('Batalkan Pencarian?'), findsOneWidget);
-
-    await tester.tap(find.text('Kembali'));
-    await tester.pumpAndSettle();
-    expect(find.text('Batalkan Pencarian?'), findsNothing);
-    expect(find.text('Mencari Teknisi Terdekat...'), findsOneWidget);
-
-    await tester.tap(find.text('Batalkan Pesanan'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Ya, Batalkan'));
-    await tester.pumpAndSettle();
-    expect(find.text('Mencari Teknisi Terdekat...'), findsNothing);
-    expect(find.text('Layanan AC'), findsOneWidget);
+    // Alur sekarang: pilih layanan -> form detail pesanan.
+    expect(find.text('Detail Pesanan'), findsOneWidget);
   });
 
   testWidgets('Pilih Lokasi membuka daftar dan menyimpan pilihan', (

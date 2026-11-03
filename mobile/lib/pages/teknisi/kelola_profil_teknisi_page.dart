@@ -1,6 +1,10 @@
 
 import 'package:flutter/material.dart';
 
+import '../../services/auth_service.dart';
+import '../../services/sesi_pengguna.dart';
+import '../role_select_page.dart';
+
 class KelolaProfilTeknisiPage extends StatefulWidget {
   const KelolaProfilTeknisiPage({super.key});
 
@@ -56,6 +60,39 @@ class _KelolaProfilTeknisiPageState
       const SnackBar(
         content: Text('Perubahan profil berhasil disimpan.'),
       ),
+    );
+  }
+
+  Future<void> _konfirmasiKeluar() async {
+    final ya = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Keluar'),
+        content: const Text('Apakah kamu yakin ingin keluar?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text(
+              'Keluar',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (ya != true || !mounted) return;
+
+    await AuthService.logout();
+    await SesiPengguna.keluar();
+    if (!mounted) return;
+    // Kembali ke pemilihan peran, sama seperti saat pertama membuka aplikasi.
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const RoleSelectPage()),
+      (_) => false,
     );
   }
 
@@ -478,44 +515,7 @@ class _KelolaProfilTeknisiPageState
                         icon: Icons.logout,
                         title: 'Keluar',
                         color: Colors.redAccent,
-                        onTap: () {
-                          showDialog<void>(
-                            context: context,
-                            builder: (dialogContext) {
-                              return AlertDialog(
-                                title: const Text('Keluar'),
-                                content: const Text(
-                                  'Apakah kamu yakin ingin keluar?',
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.pop(dialogContext),
-                                    child: const Text('Batal'),
-                                  ),
-                                  TextButton(
-                                    onPressed: () {
-                                      Navigator.pop(dialogContext);
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            'Hubungkan aksi keluar '
-                                            'ke proses logout aplikasi.',
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                    child: const Text(
-                                      'Keluar',
-                                      style: TextStyle(color: Colors.red),
-                                    ),
-                                  ),
-                                ],
-                              );
-                            },
-                          );
-                        },
+                        onTap: _konfirmasiKeluar,
                       ),
                     ],
                   ),
