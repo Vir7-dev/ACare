@@ -4,8 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../widgets/ilustrasi_teknisi.dart';
-import '../../services/sesi_pengguna.dart';
-import '../pelanggan/masuk_page.dart';
+import '../../services/auth_service.dart';
+import '../role_select_page.dart';
+import '../teknisi/teknisi_shell.dart';
 import 'main_shell.dart';
 
 class SplashPage extends StatefulWidget {
@@ -23,6 +24,7 @@ class _SplashPageState extends State<SplashPage> {
 
   int _tahap = 0;
   Timer? _timer;
+  bool _berpindah = false;
 
   @override
   void initState() {
@@ -35,13 +37,19 @@ class _SplashPageState extends State<SplashPage> {
   }
 
   Future<void> _keMasuk() async {
-    final sudahMasuk = await SesiPengguna.sudahMasuk();
-    if (!mounted) return;
+    final sudahMasuk = await AuthService.isLoggedIn();
+    final role = sudahMasuk ? await AuthService.getSavedRole() : null;
+    if (!mounted || _berpindah) return;
+    _berpindah = true;
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
         transitionDuration: const Duration(milliseconds: 400),
-        pageBuilder: (_, _, _) =>
-            sudahMasuk ? const MainShell() : const MasukPage(),
+        pageBuilder: (_, _, _) => switch (role) {
+          UserRole.pelanggan => const MainShell(),
+          UserRole.teknisi => const TeknisiShell(),
+          // Belum punya sesi valid: pengguna memilih peran dulu.
+          null => const RoleSelectPage(),
+        },
         transitionsBuilder: (_, anim, _, child) =>
             FadeTransition(opacity: anim, child: child),
       ),
