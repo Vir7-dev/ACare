@@ -7,7 +7,12 @@ use Illuminate\Http\Request;
 
 class TransaksiController extends Controller
 {
-    private function getDaftarTransaksi()
+    /**
+     * Daftar transaksi contoh (sumber tunggal untuk Beranda dan Kelola Transaksi).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function daftarTransaksi(): array
     {
         return [
             [
@@ -248,19 +253,8 @@ class TransaksiController extends Controller
 
     public function index(Request $request)
     {
-        $transaksiList = $this->getDaftarTransaksi();
-
-        $stats = [
-            'total' => count($transaksiList),
-            'selesai' => count(array_filter($transaksiList, fn($t) => $t['status'] === 'Selesai')),
-            'berlangsung' => count(array_filter($transaksiList, fn($t) => $t['status'] === 'Berlangsung')),
-            'dibatalkan' => count(array_filter($transaksiList, fn($t) => $t['status'] === 'Dibatalkan')),
-            'omzet' => array_sum(array_column(array_filter($transaksiList, fn($t) => $t['status'] === 'Selesai'), 'total_biaya')),
-        ];
-
         return view('admin.kelola-transaksi', [
-            'transaksiList' => $transaksiList,
-            'stats' => $stats,
+            'transaksiList' => self::daftarTransaksi(),
         ]);
     }
 }

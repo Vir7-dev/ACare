@@ -3,11 +3,18 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Support\StatusAdmin;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class PenggunaController extends Controller
 {
-    private function getDaftarPengguna()
+    /**
+     * Daftar pengguna contoh (sumber tunggal untuk Kelola Pengguna dan badge sidebar).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function dataDasar(): array
     {
         return [
             // 1. GanAnWo - Teknisi Menunggu Verifikasi (Default selected sesuai Figma)
@@ -312,26 +319,138 @@ class PenggunaController extends Controller
         ];
     }
 
+    /**
+     * Daftar pengguna dengan perubahan status dari session sudah diterapkan.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function daftarPengguna(): array
+    {
+        $statusTersimpan = StatusAdmin::ambil('pengguna') ?? [];
+        $dokumenTersimpan = StatusAdmin::ambil('dokumen') ?? [];
+
+        return array_map(function (array $pengguna) use ($statusTersimpan, $dokumenTersimpan): array {
+            $ubah = $statusTersimpan[$pengguna['id']] ?? null;
+            if ($ubah !== null) {
+                $pengguna['status_verifikasi'] = $ubah['status'];
+                $pengguna['alasan_penolakan'] = $ubah['alasan'];
+            }
+
+            foreach ($pengguna['dokumen'] as $i => $dokumen) {
+                $status = $dokumenTersimpan[$pengguna['id'].':'.$dokumen['id']] ?? null;
+                if ($status !== null) {
+                    $pengguna['dokumen'][$i]['status'] = $status;
+                    $pengguna['dokumen'][$i]['catatan'] = $status === 'valid'
+                        ? 'Telah diperiksa: berkas asli dan valid'
+                        : ($status === 'tidak_valid' ? 'Telah diperiksa: perlu perbaikan atau buram' : $dokumen['catatan']);
+                } elseif ($ubah !== null && $ubah['status'] === 'terverifikasi') {
+                    $pengguna['dokumen'][$i]['status'] = 'valid';
+                    $pengguna['dokumen'][$i]['catatan'] = 'Diverifikasi oleh Admin Operasional';
+                }
+            }
+
+            return $pengguna;
+        }, self::dataDasar());
+    }
+
+    /**
+     * Ubah status verifikasi satu atau beberapa teknisi (juga dipakai untuk membatalkan).
+     */
+    public function ubahStatus(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'perubahan' => ['required', 'array', 'min:1', 'max:50'],
+            'perubahan.*.id' => ['required', 'string'],
+            'perubahan.*.status' => ['required', 'in:menunggu,terverifikasi,ditolak'],
+            'perubahan.*.alasan' => ['nullable', 'string', 'max:1000'],
+            'massal' => ['sometimes', 'boolean'],
+        ]);
+
+        $daftar = collect(self::daftarPengguna())->keyBy('id');
+
+        foreach ($data['perubahan'] as $ubah) {
+            $pengguna = $daftar->get($ubah['id']);
+            if ($pengguna === null || $pengguna['peran'] !== 'Teknisi') {
+                return response()->json(['pesan' => 'Hanya teknisi yang memiliki status verifikasi.'], 422);
+            }
+            if ($ubah['status'] === 'ditolak' && trim((string) ($ubah['alasan'] ?? '')) === '') {
+                return response()->json(['pesan' => 'Alasan penolakan wajib diisi.'], 422);
+            }
+            if (($data['massal'] ?? false) && $ubah['status'] === 'terverifikasi') {
+                $belumValid = collect($pengguna['dokumen'])->contains(fn (array $d): bool => $d['status'] !== 'valid');
+                if ($belumValid) {
+                    return response()->json([
+                        'pesan' => $pengguna['nama'].' belum memiliki semua dokumen berstatus valid. Tinjau satu per satu.',
+                    ], 422);
+                }
+            }
+        }
+
+        foreach ($data['perubahan'] as $ubah) {
+            StatusAdmin::simpan('pengguna', $ubah['id'], [
+                'status' => $ubah['status'],
+                'alasan' => $ubah['status'] === 'ditolak' ? trim($ubah['alasan']) : null,
+            ]);
+        }
+
+        return response()->json(['ok' => true, 'menunggu' => count(self::teknisiMenunggu())]);
+    }
+
+    /**
+     * Tandai hasil pemeriksaan satu dokumen teknisi.
+     */
+    public function ubahDokumen(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'id' => ['required', 'string'],
+            'dokumen_id' => ['required', 'string'],
+            'status' => ['required', 'in:menunggu,valid,tidak_valid'],
+        ]);
+
+        $pengguna = collect(self::dataDasar())->firstWhere('id', $data['id']);
+        $ada = $pengguna !== null && collect($pengguna['dokumen'])->contains('id', $data['dokumen_id']);
+        if (! $ada) {
+            return response()->json(['pesan' => 'Dokumen tidak ditemukan.'], 404);
+        }
+
+        StatusAdmin::simpan('dokumen', $data['id'].':'.$data['dokumen_id'], $data['status']);
+
+        return response()->json(['ok' => true]);
+    }
+
     public function index(Request $request)
     {
-        $penggunaList = $this->getDaftarPengguna();
+        $penggunaList = self::daftarPengguna();
 
         // Default pengguna terpilih adalah GanAnWo (Teknisi pending yang ada di Figma)
         $selectedPengguna = $penggunaList[0];
 
-        // Hitung total ringkasan
-        $totalPengguna = 243;
-        $totalTeknisi = 15;
-        $totalPenggunaBiasa = 228;
-        $totalMenunggu = count(array_filter($penggunaList, fn($u) => $u['peran'] === 'Teknisi' && $u['status_verifikasi'] === 'menunggu'));
+        $statusAwal = in_array($request->query('status'), ['menunggu', 'terverifikasi', 'ditolak'], true)
+            ? $request->query('status')
+            : 'semua';
 
         return view('admin.kelola-pengguna', [
             'penggunaList' => $penggunaList,
             'selectedPengguna' => $selectedPengguna,
-            'totalPengguna' => $totalPengguna,
-            'totalTeknisi' => $totalTeknisi,
-            'totalPenggunaBiasa' => $totalPenggunaBiasa,
-            'totalMenunggu' => $totalMenunggu,
+            'statusAwal' => $statusAwal,
         ]);
+    }
+
+    /**
+     * Teknisi yang masih menunggu verifikasi (id dan nama).
+     *
+     * @return array<int, array{id: string, nama: string}>
+     */
+    public static function teknisiMenunggu(): array
+    {
+        $menunggu = array_filter(
+            self::daftarPengguna(),
+            fn (array $pengguna): bool => $pengguna['peran'] === 'Teknisi' && $pengguna['status_verifikasi'] === 'menunggu'
+        );
+
+        return array_values(array_map(
+            fn (array $pengguna): array => ['id' => $pengguna['id'], 'nama' => $pengguna['nama']],
+            $menunggu
+        ));
     }
 }

@@ -6,17 +6,20 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\PenggunaController;
 use App\Http\Controllers\Admin\LayananController;
 use App\Http\Controllers\Admin\TransaksiController;
+use App\Http\Controllers\Admin\PengaduanController;
 
 // 1. Autentikasi Admin Portal ACare
 Route::get('/admin/login', [AuthController::class, 'showLogin'])->name('admin.login');
 Route::post('/admin/login', [AuthController::class, 'login'])->name('admin.login.submit');
-Route::match(['get', 'post'], '/admin/logout', [AuthController::class, 'logout'])->name('admin.logout');
+Route::post('/admin/logout', [AuthController::class, 'logout'])->name('admin.logout');
 
 // 2. Beranda / Dashboard (Tugas Thoriq: Ringkasan Statistik, Omzet & Performa Platform)
 Route::get('/', [DashboardController::class, 'index'])->name('admin.dashboard');
-Route::get('/admin', [DashboardController::class, 'index'])->name('admin.dashboard.alias');
-Route::get('/admin/dashboard', [DashboardController::class, 'index'])->name('admin.dashboard.main');
-Route::get('/admin/beranda', [DashboardController::class, 'index'])->name('admin.beranda');
+
+// Alamat lama menuju Beranda (hanya redirect, bukan halaman terpisah)
+Route::redirect('/admin', '/');
+Route::redirect('/admin/dashboard', '/');
+Route::redirect('/admin/beranda', '/');
 
 // 3. Kelola Transaksi & Monitoring Bukti Pengerjaan Servis AC
 Route::get('/admin/transaksi', [TransaksiController::class, 'index'])->name('admin.transaksi');
@@ -27,7 +30,14 @@ Route::get('/admin/pengguna', [PenggunaController::class, 'index'])->name('admin
 // 5. Kelola Layanan (Tugas Achmal: 6 Katalog Layanan Resmi ACare)
 Route::get('/admin/layanan', [LayananController::class, 'index'])->name('admin.layanan');
 
+// 6. Pengaduan dari pelanggan/teknisi
+Route::get('/admin/pengaduan', [PengaduanController::class, 'index'])->name('admin.pengaduan');
+
+// 7. Aksi perubahan status (disimpan di session sementara)
+Route::post('/admin/pengguna/status', [PenggunaController::class, 'ubahStatus'])->name('admin.pengguna.status');
+Route::post('/admin/pengguna/dokumen', [PenggunaController::class, 'ubahDokumen'])->name('admin.pengguna.dokumen');
+Route::post('/admin/pengaduan/status', [PengaduanController::class, 'ubahStatus'])->name('admin.pengaduan.status');
+Route::post('/admin/layanan/sinkron', [LayananController::class, 'sinkron'])->name('admin.layanan.sinkron');
+
 // Redirect rute statistik lama ke Beranda Dashboard agar selalu sinkron
-Route::get('/admin/statistik', function () {
-    return redirect()->route('admin.dashboard');
-});
+Route::redirect('/admin/statistik', '/');
