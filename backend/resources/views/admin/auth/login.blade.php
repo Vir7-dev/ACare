@@ -5,166 +5,107 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - ACare Admin Portal</title>
 
-    <!-- Google Fonts: Plus Jakarta Sans -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
-                    }
-                }
-            }
-        }
-    </script>
+    @include('layouts.partials.tema')
 
     <!-- Alpine.js -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-
-    <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; }
-    </style>
 </head>
-<body class="bg-gradient-to-br from-slate-900 via-sky-950 to-slate-900 min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+<body class="min-h-screen bg-white text-slate-800 antialiased flex">
 
-    <!-- Background Glow Decor -->
-    <div class="absolute -top-32 -left-32 w-96 h-96 bg-[#0284C7]/20 rounded-full blur-3xl pointer-events-none"></div>
-    <div class="absolute -bottom-32 -right-32 w-96 h-96 bg-sky-500/15 rounded-full blur-3xl pointer-events-none"></div>
+    <!-- Panel kiri: foto identitas ACare -->
+    <section class="hidden lg:flex lg:w-[55%] relative flex-col justify-between p-12 text-white bg-navy bg-cover bg-center"
+             style="background-image: url('{{ asset('images/login-bg.jpg') }}');">
+        <div class="absolute inset-0" style="background: linear-gradient(180deg, rgba(10,35,80,0.78) 0%, rgba(10,35,80,0.15) 38%, rgba(10,35,80,0.15) 62%, rgba(10,35,80,0.85) 100%);" aria-hidden="true"></div>
 
-    <div class="w-full max-w-md relative z-10" x-data="{
-        email: 'admin@acare.id',
-        password: 'admin123',
-        showPass: false,
-        isiDemo() {
-            this.email = 'admin@acare.id';
-            this.password = 'admin123';
-        }
-    }">
-
-        <!-- Logo & Title Header -->
-        <div class="text-center mb-8">
-            <div class="inline-flex items-center justify-center p-3 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 shadow-xl mb-4">
-                <img src="{{ asset('images/acare-logo.png') }}" alt="ACare Admin Portal" class="h-10 w-auto object-contain">
-            </div>
-            <h1 class="text-2xl font-black text-white tracking-tight">Portal Masuk Admin</h1>
-            <p class="text-xs text-sky-200/70 mt-1">Sistem Manajemen Layanan &amp; Verifikasi Teknisi ACare</p>
+        <div class="relative">
+            <img src="{{ asset('images/logo-acare-putih.png') }}" alt="ACare" class="w-40 h-auto">
         </div>
 
-        <!-- Login Card -->
-        <div class="bg-white/95 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-white/40">
-            
+        <div class="relative max-w-md">
+            <h2 class="text-3xl font-bold leading-tight">Kelola layanan AC dalam satu tempat.</h2>
+            <p class="mt-3 text-base text-white/85">Verifikasi teknisi, pantau transaksi, dan tangani pengaduan pelanggan dari satu portal.</p>
+        </div>
+    </section>
+
+    <!-- Panel kanan: formulir -->
+    <main class="flex-1 flex flex-col items-center justify-center px-6 py-10" x-data="{ showPass: false }">
+        <div class="w-full max-w-sm">
+
+            <!-- Logo untuk layar kecil (panel foto disembunyikan) -->
+            <div class="lg:hidden mb-8">
+                <img src="{{ asset('images/logo-acare.png') }}" alt="ACare" class="w-32 h-auto">
+            </div>
+
+            <h1 class="text-2xl font-bold text-navy tracking-tight">Selamat Datang!</h1>
+            <p class="text-sm text-slate-600 mt-1 mb-7">Masuk untuk mengelola layanan ACare.</p>
+
             @if(session('info'))
-                <div class="mb-5 p-3.5 bg-sky-50 border border-sky-200 text-sky-800 rounded-xl text-xs font-semibold flex items-center gap-2">
-                    <svg class="w-4 h-4 text-sky-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
+                <div class="mb-5 px-3.5 py-3 bg-brand-50 border border-brand-100 text-brand-dark rounded-lg text-sm font-medium flex items-center gap-2.5" role="status">
+                    <iconify-icon icon="lucide:info" width="16" height="16" aria-hidden="true"></iconify-icon>
                     <span>{{ session('info') }}</span>
                 </div>
             @endif
 
             @if($errors->any())
-                <div class="mb-5 p-3.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs font-semibold flex items-center gap-2">
-                    <svg class="w-4 h-4 text-rose-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
+                <div class="mb-5 px-3.5 py-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-lg text-sm font-medium flex items-center gap-2.5" role="alert">
+                    <iconify-icon icon="lucide:circle-alert" width="16" height="16" aria-hidden="true"></iconify-icon>
                     <span>{{ $errors->first() }}</span>
                 </div>
             @endif
 
-            <form action="{{ route('admin.login.submit') }}" method="POST" class="space-y-4">
+            <form action="{{ route('admin.login.submit') }}" method="POST" class="space-y-5">
                 @csrf
 
-                <!-- Input Email -->
                 <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1.5">Email Administrator</label>
+                    <label for="email" class="block text-sm font-semibold text-navy mb-1.5">Nama Pengguna / Email Admin</label>
                     <div class="relative">
-                        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.206" />
-                            </svg>
+                        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                            <iconify-icon icon="lucide:user" width="16" height="16" aria-hidden="true"></iconify-icon>
                         </span>
-                        <input type="email"
+                        <input type="text"
+                               id="email"
                                name="email"
-                               x-model="email"
+                               value="{{ old('email') }}"
+                               autocomplete="username"
                                required
-                               placeholder="admin@acare.id"
-                               class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0284C7] focus:bg-white transition-all">
+                               placeholder="admin@acare.id atau nama pengguna"
+                               class="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent">
                     </div>
                 </div>
 
-                <!-- Input Password -->
                 <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1.5">Kata Sandi</label>
+                    <label for="password" class="block text-sm font-semibold text-navy mb-1.5">Kata Sandi</label>
                     <div class="relative">
-                        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                            </svg>
+                        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                            <iconify-icon icon="lucide:lock" width="16" height="16" aria-hidden="true"></iconify-icon>
                         </span>
                         <input :type="showPass ? 'text' : 'password'"
+                               id="password"
                                name="password"
-                               x-model="password"
+                               autocomplete="current-password"
                                required
-                               placeholder="••••••••"
-                               class="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0284C7] focus:bg-white transition-all">
+                               placeholder="Masukkan kata sandi portal"
+                               class="w-full pl-10 pr-11 py-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent">
                         <button type="button"
                                 @click="showPass = !showPass"
-                                class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600">
-                            <svg x-show="!showPass" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
-                            <svg x-show="showPass" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="display: none;">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />
-                            </svg>
+                                :aria-label="showPass ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'"
+                                class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-500 hover:text-slate-800">
+                            <iconify-icon x-show="!showPass" icon="lucide:eye" width="18" height="18" aria-hidden="true"></iconify-icon>
+                            <iconify-icon x-show="showPass" icon="lucide:eye-off" width="18" height="18" aria-hidden="true" style="display: none;"></iconify-icon>
                         </button>
                     </div>
                 </div>
 
-                <!-- Remember Me & Forgot -->
-                <div class="flex items-center justify-between text-xs pt-1">
-                    <label class="flex items-center gap-2 cursor-pointer text-slate-600">
-                        <input type="checkbox" checked class="rounded text-[#0284C7] focus:ring-[#0284C7]">
-                        <span>Ingat sesi saya</span>
-                    </label>
-                    <span class="text-slate-400 text-[11px]">Portal PBL 302</span>
-                </div>
-
-                <!-- Tombol Submit -->
                 <button type="submit"
-                        class="w-full py-3 bg-[#0284C7] hover:bg-[#0369a1] text-white font-extrabold text-xs rounded-xl shadow-lg shadow-sky-500/25 transition-all flex items-center justify-center gap-2">
-                    <span>Masuk ke Admin Portal</span>
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
-                    </svg>
+                        class="w-full py-3 bg-brand hover:bg-brand-dark text-white font-semibold text-sm rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <span>Masuk ke Portal Admin</span>
+                    <iconify-icon icon="lucide:arrow-right" width="16" height="16" aria-hidden="true"></iconify-icon>
                 </button>
             </form>
 
-            <!-- Demo Quick Fill Pill -->
-            <div class="mt-6 pt-5 border-t border-slate-100 text-center">
-                <p class="text-[11px] text-slate-400 mb-2.5">Kredensial Default Tim ACare:</p>
-                <button type="button"
-                        @click="isiDemo()"
-                        class="px-3.5 py-1.5 bg-sky-50 border border-sky-200 text-[#0284C7] hover:bg-sky-100 rounded-xl text-xs font-bold transition-all inline-flex items-center gap-1.5">
-                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-                    </svg>
-                    <span>Gunakan Akun Demo (admin@acare.id)</span>
-                </button>
-            </div>
-
+            <p class="text-xs text-slate-600 mt-8">&copy; 2026 ACare. Hak Cipta Dilindungi.</p>
         </div>
-
-        <!-- Footer Copyright -->
-        <p class="text-center text-xs text-sky-200/50 mt-6 font-medium">
-            &copy; 2026 ACare Platform. All rights reserved. PBL 302.
-        </p>
-    </div>
+    </main>
 
 </body>
 </html>

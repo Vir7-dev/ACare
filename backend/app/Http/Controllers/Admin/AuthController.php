@@ -18,7 +18,7 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         $request->validate([
-            'email' => 'required|email',
+            'email' => 'required',
             'password' => 'required',
         ]);
 
@@ -39,7 +39,7 @@ class AuthController extends Controller
         }
 
         return back()->withErrors([
-            'email' => 'Email atau kata sandi admin tidak sesuai. Gunakan email: admin@acare.id',
+            'email' => 'Email atau kata sandi salah.',
         ])->withInput();
     }
 
