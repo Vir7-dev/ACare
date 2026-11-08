@@ -6,34 +6,176 @@
 <script>
 function initKelolaLayanan() {
     return {
-        filterKategori: 'Semua',
         filterStatus: 'Semua',
         search: '',
         showModal: false,
         showDeleteModal: false,
         deleteTarget: null,
         editMode: false,
-        form: { nama: '', kategori: 'Perawatan', harga_min: '', harga_max: '', durasi: '', deskripsi: '', status: 'Aktif' },
+        form: { nama: '', harga_min: '', harga_max: '', durasi: '', deskripsi: '', status: 'Aktif' },
         layanan: {!! json_encode($layanan) !!},
+        errors: {},
+        urutKolom: 'nama',
+        urutArah: 1,
+        halaman: 1,
+        perHalaman: 10,
+
+        get totalLayanan() { return this.layanan.length; },
+        get layananAktif() { return this.layanan.filter(function(l) { return l.status === 'Aktif'; }).length; },
+        get layananNonaktif() { return this.layanan.filter(function(l) { return l.status !== 'Aktif'; }).length; },
+
+        tampilkanToast(pesan, tipe, batal) {
+            window.adminToast(pesan, { tipe: tipe || 'success', batal: batal || null });
+        },
+
+        // Simpan katalog ke server; bila gagal, tampilan dikembalikan. Berhasil -> toast dengan Batalkan.
+        terapkan(daftarBaru, pesan, tipe) {
+            var self = this;
+            var sebelum = JSON.parse(JSON.stringify(this.layanan));
+            this.layanan = daftarBaru;
+            return window.kirimAdmin('{{ route('admin.layanan.sinkron') }}', { layanan: daftarBaru }).then(function (r) {
+                if (!r.ok) {
+                    self.layanan = sebelum;
+                    var galat = (r.data && r.data.pesan) || 'Perubahan gagal disimpan.';
+                    window.adminToast(galat, { tipe: 'error' });
+                    return false;
+                }
+                self.tampilkanToast(pesan, tipe, function () {
+                    window.kirimAdmin('{{ route('admin.layanan.sinkron') }}', { layanan: sebelum }).then(function (h) {
+                        if (h.ok) { self.layanan = sebelum; window.adminToast('Perubahan dibatalkan.'); }
+                    });
+                });
+                return true;
+            });
+        },
+
+        validasiForm() {
+            var galat = {};
+            var nama = String(this.form.nama || '').trim();
+            var min = Number(this.form.harga_min);
+            var max = Number(this.form.harga_max);
+            var self = this;
+            if (nama === '') {
+                galat.nama = 'Nama layanan wajib diisi.';
+            } else if (this.layanan.some(function(l) { return l.id !== self.form.id && l.nama.toLowerCase() === nama.toLowerCase(); })) {
+                galat.nama = 'Nama layanan sudah ada.';
+            }
+            if (!(min > 0)) {
+                galat.harga_min = 'Harga minimum harus lebih dari 0.';
+            }
+            if (!(max > 0)) {
+                galat.harga_max = 'Harga maksimum harus lebih dari 0.';
+            } else if (max < min) {
+                galat.harga_max = 'Harga maksimum tidak boleh lebih kecil dari harga minimum.';
+            }
+            if (String(this.form.durasi || '').trim() === '') {
+                galat.durasi = 'Estimasi durasi wajib diisi.';
+            }
+            this.errors = galat;
+            return Object.keys(galat).length === 0;
+        },
+
+        simpan() {
+            if (!this.validasiForm()) {
+                return;
+            }
+            var data = Object.assign({}, this.form, {
+                nama: String(this.form.nama).trim(),
+                harga_min: Number(this.form.harga_min),
+                harga_max: Number(this.form.harga_max),
+                durasi: String(this.form.durasi).trim()
+            });
+            var daftar = JSON.parse(JSON.stringify(this.layanan));
+            var pesan;
+            if (this.editMode) {
+                var indeks = daftar.findIndex(function(l) { return l.id === data.id; });
+                daftar.splice(indeks, 1, data);
+                pesan = 'Layanan "' + data.nama + '" diperbarui.';
+            } else {
+                data.id = daftar.reduce(function(maks, l) { return Math.max(maks, l.id); }, 0) + 1;
+                data.icon = 'lucide:settings';
+                data.warna = 'bg-brand-50 text-brand-dark';
+                data.total_pesanan = 0;
+                daftar.push(data);
+                pesan = 'Layanan "' + data.nama + '" ditambahkan.';
+            }
+            var self = this;
+            this.terapkan(daftar, pesan).then(function (ok) {
+                if (ok) { self.showModal = false; }
+            });
+        },
+
+        hapus() {
+            var nama = this.deleteTarget.nama;
+            var id = this.deleteTarget.id;
+            var daftar = this.layanan.filter(function(l) { return l.id !== id; });
+            var self = this;
+            this.terapkan(daftar, 'Layanan "' + nama + '" dihapus.', 'warning').then(function () {
+                self.showDeleteModal = false;
+            });
+        },
+
+        ubahStatus(item) {
+            var baru = item.status === 'Aktif' ? 'Tidak Aktif' : 'Aktif';
+            var daftar = JSON.parse(JSON.stringify(this.layanan));
+            daftar.find(function(l) { return l.id === item.id; }).status = baru;
+            this.terapkan(daftar, 'Layanan "' + item.nama + '" sekarang ' + baru + '.');
+        },
+
+        init() {
+            var self = this;
+            ['filterStatus', 'search'].forEach(function(k) {
+                self.$watch(k, function() { self.halaman = 1; });
+            });
+        },
+
+        urutkan(kolom) {
+            if (this.urutKolom === kolom) {
+                this.urutArah = -this.urutArah;
+            } else {
+                this.urutKolom = kolom;
+                this.urutArah = 1;
+            }
+        },
+
+        ariaUrut(kolom) {
+            if (this.urutKolom !== kolom) { return 'none'; }
+            return this.urutArah === 1 ? 'ascending' : 'descending';
+        },
 
         get filtered() {
             var self = this;
-            return this.layanan.filter(function(l) {
-                var matchKat = self.filterKategori === 'Semua' || l.kategori === self.filterKategori;
+            var hasil = this.layanan.filter(function(l) {
                 var matchSts = self.filterStatus === 'Semua' || l.status === self.filterStatus;
-                var matchQ   = self.search === '' || l.nama.toLowerCase().includes(self.search.toLowerCase()) || l.kategori.toLowerCase().includes(self.search.toLowerCase());
-                return matchKat && matchSts && matchQ;
+                var matchQ   = self.search === '' || l.nama.toLowerCase().includes(self.search.toLowerCase()) ;
+                return matchSts && matchQ;
             });
+            var kolom = this.urutKolom, arah = this.urutArah;
+            return hasil.sort(function(a, b) {
+                var x = kolom === 'durasi' ? parseInt(a.durasi, 10) || 0 : a[kolom];
+                var y = kolom === 'durasi' ? parseInt(b.durasi, 10) || 0 : b[kolom];
+                if (typeof x === 'string') { return arah * x.localeCompare(y, 'id'); }
+                return arah * (x - y);
+            });
+        },
+
+        get totalTersaring() { return this.filtered.length; },
+        get jumlahHalaman() { return Math.max(1, Math.ceil(this.totalTersaring / this.perHalaman)); },
+        get halamanIni() {
+            var mulai = (this.halaman - 1) * this.perHalaman;
+            return this.filtered.slice(mulai, mulai + this.perHalaman);
         },
 
         openAdd() {
             this.editMode = false;
-            this.form = { nama: '', kategori: 'Perawatan', harga_min: '', harga_max: '', durasi: '', deskripsi: '', status: 'Aktif' };
+            this.errors = {};
+            this.form = { nama: '', harga_min: '', harga_max: '', durasi: '', deskripsi: '', status: 'Aktif' };
             this.showModal = true;
         },
 
         openEdit(item) {
             this.editMode = true;
+            this.errors = {};
             this.form = Object.assign({}, item);
             this.showModal = true;
         },
@@ -51,13 +193,13 @@ function initKelolaLayanan() {
 }
 </script>
 
-<div class="h-full" x-data="initKelolaLayanan()">
+<div class="h-full" x-data="initKelolaLayanan()" @keydown.escape.window="showModal = false; showDeleteModal = false">
 
     <!-- Page Header -->
     <div class="px-8 pt-6 pb-4">
         <!-- Breadcrumb -->
-        <div class="flex items-center gap-2 text-xs font-medium text-slate-400 mb-2">
-            <a href="{{ route('admin.dashboard') }}" class="hover:text-[#0284C7] transition-colors flex items-center gap-1">
+        <div class="flex items-center gap-2 text-xs font-medium text-slate-500 mb-2">
+            <a href="{{ route('admin.dashboard') }}" class="hover:text-brand-dark transition-colors flex items-center gap-1">
                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
                 </svg>
@@ -69,11 +211,11 @@ function initKelolaLayanan() {
 
         <div class="flex items-center justify-between">
             <div>
-                <h1 class="text-xl font-extrabold text-slate-900 tracking-tight">Kelola Layanan</h1>
-                <p class="text-xs text-slate-500 mt-0.5">Manajemen layanan AC yang tersedia di platform ACare</p>
+                <h1 class="text-2xl font-bold text-navy tracking-tight">Kelola Layanan</h1>
+                <p class="text-sm text-slate-500 mt-0.5">Manajemen layanan AC yang tersedia di platform ACare</p>
             </div>
             <button @click="openAdd()"
-                class="flex items-center gap-2 px-4 py-2.5 bg-[#0284C7] text-white text-xs font-bold rounded-xl shadow hover:bg-[#0369a1] transition-all">
+                class="flex items-center gap-2 px-4 py-2.5 bg-brand text-white text-xs font-bold rounded-lg  hover:bg-brand-dark transition-all">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                 </svg>
@@ -82,177 +224,122 @@ function initKelolaLayanan() {
         </div>
     </div>
 
-    <!-- Stats Cards -->
-    <div class="px-8 pb-5 grid grid-cols-4 gap-4">
-        <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex items-center gap-3">
-            <div class="w-10 h-10 bg-sky-50 rounded-xl flex items-center justify-center flex-shrink-0">
-                <svg class="w-5 h-5 text-[#0284C7]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-                </svg>
-            </div>
-            <div>
-                <p class="text-[11px] text-slate-500 font-medium">Total Layanan</p>
-                <p class="text-xl font-black text-slate-900">{{ $stats['total_layanan'] }}</p>
-            </div>
-        </div>
-        <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex items-center gap-3">
-            <div class="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center flex-shrink-0">
-                <svg class="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
-            </div>
-            <div>
-                <p class="text-[11px] text-slate-500 font-medium">Layanan Aktif</p>
-                <p class="text-xl font-black text-slate-900">{{ $stats['layanan_aktif'] }}</p>
-            </div>
-        </div>
-        <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex items-center gap-3">
-            <div class="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center flex-shrink-0">
-                <svg class="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
-            </div>
-            <div>
-                <p class="text-[11px] text-slate-500 font-medium">Tidak Aktif</p>
-                <p class="text-xl font-black text-slate-900">{{ $stats['layanan_nonaktif'] }}</p>
-            </div>
-        </div>
-        <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex items-center gap-3">
-            <div class="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center flex-shrink-0">
-                <svg class="w-5 h-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
-                </svg>
-            </div>
-            <div>
-                <p class="text-[11px] text-slate-500 font-medium">Total Pesanan</p>
-                <p class="text-xl font-black text-slate-900">{{ $stats['total_pesanan'] }}</p>
-            </div>
-        </div>
-    </div>
-
     <!-- Filter Bar -->
-    <div class="px-8 pb-4 flex items-center gap-3">
+    <div class="px-8 pb-4 flex flex-wrap items-center gap-3">
         <!-- Search -->
         <div class="relative flex-1 max-w-xs">
-            <span class="absolute inset-y-0 left-3 flex items-center text-slate-400">
+            <span class="absolute inset-y-0 left-3 flex items-center text-slate-500">
                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                 </svg>
             </span>
             <input type="text" x-model="search" placeholder="Cari layanan..."
-                class="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0284C7] focus:border-transparent shadow-sm">
-        </div>
-
-        <!-- Kategori Tabs -->
-        <div class="flex bg-white border border-slate-200 rounded-xl p-1 gap-0.5 shadow-sm">
-            @foreach($kategori as $kat)
-            <button @click="filterKategori = '{{ $kat }}'"
-                :class="filterKategori === '{{ $kat }}' ? 'bg-[#0284C7] text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'"
-                class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all">
-                {{ $kat }}
-            </button>
-            @endforeach
+                class="w-full pl-9 pr-3 py-2 bg-white border border-line rounded-lg text-sm font-medium text-slate-800 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent">
         </div>
 
         <!-- Status Filter -->
         <select x-model="filterStatus"
-            class="px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#0284C7] shadow-sm">
+            class="px-3 py-2 bg-white border border-line rounded-lg text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand">
             <option value="Semua">Semua Status</option>
             <option value="Aktif">Aktif</option>
             <option value="Tidak Aktif">Tidak Aktif</option>
         </select>
+
+        <p class="ml-auto text-sm text-slate-600 whitespace-nowrap">
+            <span x-text="totalLayanan"></span> layanan ·
+            <span x-text="layananAktif"></span> aktif ·
+            <span x-text="layananNonaktif"></span> nonaktif
+        </p>
     </div>
 
-    <!-- Layanan Cards Grid -->
+    <!-- Tabel Layanan -->
     <div class="px-8 pb-8">
-        <template x-if="filtered.length === 0">
-            <div class="bg-white rounded-2xl border border-slate-100 p-12 text-center shadow-sm">
-                <div class="w-14 h-14 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <svg class="w-7 h-7 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                </div>
-                <p class="text-sm font-bold text-slate-600">Layanan tidak ditemukan</p>
-                <p class="text-xs text-slate-400 mt-1">Coba ubah filter atau kata kunci pencarian</p>
+        <div class="bg-white rounded-lg border border-line overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-brand-50 text-xs text-slate-600">
+                        <th class="py-3 px-3 pl-5" :aria-sort="ariaUrut('nama')">
+                            <button type="button" @click="urutkan('nama')" class="inline-flex items-center gap-1 font-bold hover:text-navy transition-colors">
+                                <span>Layanan</span>
+                                <iconify-icon :icon="urutKolom === 'nama' ? (urutArah === 1 ? 'lucide:arrow-up' : 'lucide:arrow-down') : 'lucide:arrow-up-down'"
+                                              :class="urutKolom === 'nama' ? 'text-brand-dark' : 'text-slate-400'" width="13" height="13" aria-hidden="true"></iconify-icon>
+                            </button>
+                        </th>
+                        <th class="py-3 px-3 text-right" :aria-sort="ariaUrut('harga_min')">
+                            <button type="button" @click="urutkan('harga_min')" class="inline-flex items-center gap-1 font-bold hover:text-navy transition-colors">
+                                <span>Harga (Rp)</span>
+                                <iconify-icon :icon="urutKolom === 'harga_min' ? (urutArah === 1 ? 'lucide:arrow-up' : 'lucide:arrow-down') : 'lucide:arrow-up-down'"
+                                              :class="urutKolom === 'harga_min' ? 'text-brand-dark' : 'text-slate-400'" width="13" height="13" aria-hidden="true"></iconify-icon>
+                            </button>
+                        </th>
+                        <th class="py-3 px-3 " :aria-sort="ariaUrut('durasi')">
+                            <button type="button" @click="urutkan('durasi')" class="inline-flex items-center gap-1 font-bold hover:text-navy transition-colors">
+                                <span>Durasi (menit)</span>
+                                <iconify-icon :icon="urutKolom === 'durasi' ? (urutArah === 1 ? 'lucide:arrow-up' : 'lucide:arrow-down') : 'lucide:arrow-up-down'"
+                                              :class="urutKolom === 'durasi' ? 'text-brand-dark' : 'text-slate-400'" width="13" height="13" aria-hidden="true"></iconify-icon>
+                            </button>
+                        </th>
+                        <th class="py-3 px-3 font-bold">Status</th>
+                        <th class="py-3 px-4 font-bold text-right">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-line text-sm">
+                    <template x-for="item in halamanIni" :key="item.id">
+                        <tr class="hover:bg-slate-50 transition-colors" :class="item.status === 'Aktif' ? '' : 'bg-slate-50/60'">
+                            <td class="py-3 pl-5 pr-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" :class="item.warna">
+                                        <iconify-icon :icon="item.icon" width="18" height="18" aria-hidden="true"></iconify-icon>
+                                    </div>
+                                    <div class="min-w-0">
+                                        <p class="font-bold text-navy whitespace-nowrap" x-text="item.nama" :title="item.deskripsi"></p>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="py-3 px-3 text-right whitespace-nowrap font-semibold text-slate-800"
+                                x-text="Number(item.harga_min).toLocaleString('id-ID') + ' – ' + Number(item.harga_max).toLocaleString('id-ID')"></td>
+                            <td class="py-3 px-3 whitespace-nowrap text-slate-700" x-text="String(item.durasi).replace(/ menit$/, '')"></td>
+                            <td class="py-3 px-3">
+                                <div class="flex items-center gap-2.5">
+                                    <button type="button" role="switch" :aria-checked="item.status === 'Aktif'"
+                                            :aria-label="'Layanan ' + item.nama + ' ' + (item.status === 'Aktif' ? 'aktif, klik untuk menonaktifkan' : 'nonaktif, klik untuk mengaktifkan')"
+                                            @click="ubahStatus(item)"
+                                            :class="item.status === 'Aktif' ? 'bg-brand' : 'bg-slate-300'"
+                                            class="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2">
+                                        <span :class="item.status === 'Aktif' ? 'translate-x-4' : 'translate-x-0.5'"
+                                              class="inline-block h-4 w-4 rounded-full bg-white transition-transform"></span>
+                                    </button>
+                                    <span class="sr-only" x-text="item.status"></span>
+                                </div>
+                            </td>
+                            <td class="py-3 px-4">
+                                <div class="flex items-center justify-end gap-1">
+                                    <button type="button" @click="openEdit(item)"
+                                            :aria-label="'Ubah layanan ' + item.nama"
+                                            :title="'Ubah layanan ' + item.nama"
+                                            class="p-2 text-brand-dark hover:bg-brand-50 rounded-lg transition-colors">
+                                        <iconify-icon icon="lucide:pencil" width="16" height="16" aria-hidden="true"></iconify-icon>
+                                    </button>
+                                    <button type="button" @click="confirmDelete(item)"
+                                            :aria-label="'Hapus layanan ' + item.nama" :title="'Hapus layanan ' + item.nama"
+                                            class="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors">
+                                        <iconify-icon icon="lucide:trash-2" width="16" height="16" aria-hidden="true"></iconify-icon>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    </template>
+                    <tr x-show="totalTersaring === 0" style="display: none;">
+                        <td colspan="6" class="py-12 text-center">
+                            <p class="text-sm font-bold text-slate-600">Layanan tidak ditemukan</p>
+                            <p class="text-xs text-slate-500 mt-1">Coba ubah filter atau kata kunci pencarian.</p>
+                        </td>
+                    </tr>
+                </tbody>
+                </table>
             </div>
-        </template>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            <template x-for="item in filtered" :key="item.id">
-                <div class="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all overflow-hidden group">
-                    <!-- Card Header -->
-                    <div class="p-5 pb-3">
-                        <div class="flex items-start justify-between mb-3">
-                            <div class="flex items-center gap-3">
-                                <div class="w-11 h-11 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
-                                    :class="item.warna">
-                                    <span x-text="item.icon"></span>
-                                </div>
-                                <div>
-                                    <h3 class="text-sm font-bold text-slate-900 leading-tight" x-text="item.nama"></h3>
-                                    <span class="inline-block mt-0.5 px-2 py-0.5 bg-sky-50 text-[#0284C7] text-[10px] font-bold rounded-full" x-text="item.kategori"></span>
-                                </div>
-                            </div>
-                            <!-- Status Badge -->
-                            <span class="px-2.5 py-1 rounded-full text-[10px] font-bold flex-shrink-0"
-                                :class="item.status === 'Aktif' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'"
-                                x-text="item.status">
-                            </span>
-                        </div>
-                        <p class="text-[11px] text-slate-500 leading-relaxed line-clamp-2" x-text="item.deskripsi"></p>
-                    </div>
-
-                    <!-- Card Info Grid -->
-                    <div class="mx-5 mb-4 grid grid-cols-3 gap-2">
-                        <div class="bg-slate-50 rounded-xl p-2.5 text-center">
-                            <p class="text-[10px] text-slate-400 font-medium">Harga Min</p>
-                            <p class="text-xs font-bold text-slate-800 mt-0.5" x-text="'Rp' + Number(item.harga_min).toLocaleString('id-ID')"></p>
-                        </div>
-                        <div class="bg-slate-50 rounded-xl p-2.5 text-center">
-                            <p class="text-[10px] text-slate-400 font-medium">Harga Max</p>
-                            <p class="text-xs font-bold text-slate-800 mt-0.5" x-text="'Rp' + Number(item.harga_max).toLocaleString('id-ID')"></p>
-                        </div>
-                        <div class="bg-slate-50 rounded-xl p-2.5 text-center">
-                            <p class="text-[10px] text-slate-400 font-medium">Pesanan</p>
-                            <p class="text-xs font-bold text-slate-800 mt-0.5" x-text="item.total_pesanan"></p>
-                        </div>
-                    </div>
-
-                    <!-- Durasi Row -->
-                    <div class="mx-5 mb-4 flex items-center gap-1.5 text-[11px] text-slate-500">
-                        <svg class="w-3.5 h-3.5 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        </svg>
-                        <span>Durasi estimasi: </span>
-                        <span class="font-semibold text-slate-700" x-text="item.durasi"></span>
-                    </div>
-
-                    <!-- Actions -->
-                    <div class="px-5 pb-5 flex gap-2 border-t border-slate-50 pt-3">
-                        <button @click="openEdit(item)"
-                            class="flex-1 flex items-center justify-center gap-1.5 py-2 bg-sky-50 text-[#0284C7] text-xs font-bold rounded-xl hover:bg-sky-100 transition-all">
-                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                            </svg>
-                            Edit
-                        </button>
-                        <button @click="confirmDelete(item)"
-                            class="flex items-center justify-center gap-1.5 px-3 py-2 bg-red-50 text-red-600 text-xs font-bold rounded-xl hover:bg-red-100 transition-all">
-                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                            </svg>
-                        </button>
-                        <!-- Toggle Status -->
-                        <button @click="item.status = item.status === 'Aktif' ? 'Tidak Aktif' : 'Aktif'"
-                            class="flex items-center justify-center px-3 py-2 text-xs font-bold rounded-xl transition-all border"
-                            :class="item.status === 'Aktif' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'">
-                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"/>
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-            </template>
+            @include('admin.partials.paginasi')
         </div>
     </div>
 
@@ -263,15 +350,15 @@ function initKelolaLayanan() {
         x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
         x-transition:leave="transition ease-in duration-150"
         x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
-        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="showModal = false"></div>
-        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg z-10" @click.stop>
+        <div class="absolute inset-0 bg-black/40" @click="showModal = false"></div>
+        <div class="relative bg-white rounded-lg shadow-lg w-full max-w-lg z-10" @click.stop>
             <!-- Modal Header -->
-            <div class="px-6 pt-6 pb-4 border-b border-slate-100 flex items-center justify-between">
+            <div class="px-6 pt-6 pb-4 border-b border-line flex items-center justify-between">
                 <div>
-                    <h2 class="text-base font-bold text-slate-900" x-text="editMode ? 'Edit Layanan' : 'Tambah Layanan Baru'"></h2>
-                    <p class="text-xs text-slate-500 mt-0.5">Isi informasi layanan AC dengan lengkap</p>
+                    <h2 class="text-base font-bold text-navy" x-text="editMode ? 'Edit Layanan' : 'Tambah Layanan Baru'"></h2>
+                    <p class="text-sm text-slate-500 mt-0.5">Isi informasi layanan AC dengan lengkap</p>
                 </div>
-                <button @click="showModal = false" class="p-2 hover:bg-slate-100 rounded-xl transition-all">
+                <button @click="showModal = false" aria-label="Tutup" class="p-2 hover:bg-slate-100 rounded-lg transition-all">
                     <svg class="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                     </svg>
@@ -282,22 +369,14 @@ function initKelolaLayanan() {
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1.5">Nama Layanan</label>
                     <input type="text" x-model="form.nama" placeholder="Contoh: Cuci AC 1/2 PK"
-                        class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0284C7] focus:border-transparent">
+                        class="w-full px-3 py-2.5 bg-slate-50 border border-line rounded-lg text-sm font-medium text-slate-800 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent">
+                    <p x-show="errors.nama" x-text="errors.nama" class="mt-1 text-xs font-semibold text-rose-600" style="display: none;"></p>
                 </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1.5">Kategori</label>
-                        <select x-model="form.kategori"
-                            class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#0284C7]">
-                            <option>Perawatan</option>
-                            <option>Perbaikan</option>
-                            <option>Instalasi</option>
-                        </select>
-                    </div>
+                <div class="grid grid-cols-1 gap-4">
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1.5">Status</label>
                         <select x-model="form.status"
-                            class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#0284C7]">
+                            class="w-full px-3 py-2.5 bg-slate-50 border border-line rounded-lg text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand">
                             <option>Aktif</option>
                             <option>Tidak Aktif</option>
                         </select>
@@ -306,34 +385,37 @@ function initKelolaLayanan() {
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1.5">Harga Minimum (Rp)</label>
-                        <input type="number" x-model="form.harga_min" placeholder="80000"
-                            class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0284C7]">
+                        <input type="number" min="0" x-model="form.harga_min" placeholder="80000"
+                            class="w-full px-3 py-2.5 bg-slate-50 border border-line rounded-lg text-sm font-medium text-slate-800 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand">
+                        <p x-show="errors.harga_min" x-text="errors.harga_min" class="mt-1 text-xs font-semibold text-rose-600" style="display: none;"></p>
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1.5">Harga Maksimum (Rp)</label>
-                        <input type="number" x-model="form.harga_max" placeholder="150000"
-                            class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0284C7]">
+                        <input type="number" min="0" x-model="form.harga_max" placeholder="150000"
+                            class="w-full px-3 py-2.5 bg-slate-50 border border-line rounded-lg text-sm font-medium text-slate-800 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand">
+                        <p x-show="errors.harga_max" x-text="errors.harga_max" class="mt-1 text-xs font-semibold text-rose-600" style="display: none;"></p>
                     </div>
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1.5">Estimasi Durasi</label>
                     <input type="text" x-model="form.durasi" placeholder="Contoh: 60–90 menit"
-                        class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0284C7]">
+                        class="w-full px-3 py-2.5 bg-slate-50 border border-line rounded-lg text-sm font-medium text-slate-800 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand">
+                    <p x-show="errors.durasi" x-text="errors.durasi" class="mt-1 text-xs font-semibold text-rose-600" style="display: none;"></p>
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1.5">Deskripsi</label>
                     <textarea x-model="form.deskripsi" rows="3" placeholder="Deskripsi singkat layanan..."
-                        class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0284C7] resize-none"></textarea>
+                        class="w-full px-3 py-2.5 bg-slate-50 border border-line rounded-lg text-sm font-medium text-slate-800 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand resize-none"></textarea>
                 </div>
             </div>
             <!-- Modal Footer -->
             <div class="px-6 pb-6 flex gap-3">
                 <button @click="showModal = false"
-                    class="flex-1 py-2.5 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl hover:bg-slate-200 transition-all">
+                    class="flex-1 py-2.5 bg-slate-100 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-200 transition-all">
                     Batal
                 </button>
-                <button @click="showModal = false"
-                    class="flex-1 py-2.5 bg-[#0284C7] text-white text-xs font-bold rounded-xl hover:bg-[#0369a1] transition-all shadow">
+                <button @click="simpan()"
+                    class="flex-1 py-2.5 bg-brand text-white text-xs font-bold rounded-lg hover:bg-brand-dark transition-all ">
                     <span x-text="editMode ? 'Simpan Perubahan' : 'Tambah Layanan'"></span>
                 </button>
             </div>
@@ -345,27 +427,30 @@ function initKelolaLayanan() {
         class="fixed inset-0 z-50 flex items-center justify-center p-4"
         x-transition:enter="transition ease-out duration-200"
         x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100">
-        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="showDeleteModal = false"></div>
-        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm z-10 p-6 text-center" @click.stop>
+        <div class="absolute inset-0 bg-black/40" @click="showDeleteModal = false"></div>
+        <div class="relative bg-white rounded-lg shadow-lg w-full max-w-sm z-10 p-6 text-center" @click.stop>
             <div class="w-14 h-14 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
                 <svg class="w-7 h-7 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
                 </svg>
             </div>
-            <h3 class="text-base font-bold text-slate-900 mb-1">Hapus Layanan?</h3>
-            <p class="text-xs text-slate-500 mb-5">Layanan "<span class="font-semibold text-slate-700" x-text="deleteTarget?.nama"></span>" akan dihapus permanen dan tidak dapat dikembalikan.</p>
+            <h3 class="text-base font-bold text-navy mb-1">Hapus Layanan?</h3>
+            <p class="text-xs text-slate-500 mb-5">Layanan "<span class="font-semibold text-slate-700" x-text="deleteTarget?.nama"></span>" akan dihapus permanen dan tidak dapat dikembalikan.
+                <span x-show="deleteTarget && deleteTarget.total_pesanan > 0" class="block mt-2 font-semibold text-amber-800" x-text="'Layanan ini sudah dipakai di ' + (deleteTarget ? deleteTarget.total_pesanan : 0) + ' pesanan. Pertimbangkan untuk menonaktifkannya saja.'"></span>
+            </p>
             <div class="flex gap-3">
                 <button @click="showDeleteModal = false"
-                    class="flex-1 py-2.5 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl hover:bg-slate-200 transition-all">
+                    class="flex-1 py-2.5 bg-slate-100 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-200 transition-all">
                     Batal
                 </button>
-                <button @click="layanan = layanan.filter(l => l.id !== deleteTarget.id); showDeleteModal = false"
-                    class="flex-1 py-2.5 bg-red-500 text-white text-xs font-bold rounded-xl hover:bg-red-600 transition-all shadow">
+                <button @click="hapus()"
+                    class="flex-1 py-2.5 bg-red-500 text-white text-xs font-bold rounded-lg hover:bg-red-600 transition-all ">
                     Hapus
                 </button>
             </div>
         </div>
     </div>
+
 
 </div>
 
