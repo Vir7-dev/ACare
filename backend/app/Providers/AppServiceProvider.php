@@ -2,9 +2,11 @@
 
 namespace App\Providers;
 
+use App\Http\Controllers\Admin\PencairanController;
 use App\Http\Controllers\Admin\PengaduanController;
 use App\Http\Controllers\Admin\PenggunaController;
 use App\Http\Controllers\Admin\TransaksiController;
+use App\Http\Controllers\Admin\UlasanController;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
@@ -19,7 +21,8 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
-     * Indeks ringkas untuk pencarian global (transaksi, pengguna, pengaduan).
+     * Indeks ringkas untuk pencarian global (transaksi, pengguna, pengaduan,
+     * ulasan, pencairan dan refund).
      * Hanya berisi teks pendek; tidak ada data sensitif seperti telepon atau alamat.
      *
      * @return array<int, array{jenis: string, id: string, judul: string, info: string}>
@@ -38,6 +41,13 @@ class AppServiceProvider extends ServiceProvider
             $hasil[] = ['jenis' => 'Pengaduan', 'id' => $a['id'], 'judul' => $a['id'].' · '.$a['pelapor'], 'info' => $a['kategori'].' · '.$a['status']];
         }
 
+        foreach (UlasanController::daftarUlasan() as $u) {
+            $hasil[] = ['jenis' => 'Ulasan', 'id' => $u['id'], 'judul' => $u['id'].' · '.$u['pelanggan'], 'info' => 'Rating '.$u['rating'].' untuk '.$u['teknisi'].' · '.$u['status']];
+        }
+        foreach (PencairanController::daftarPengajuan() as $p) {
+            $hasil[] = ['jenis' => 'Pencairan', 'id' => $p['id'], 'judul' => $p['id'].' · '.$p['pemohon'], 'info' => $p['jenis'].' · '.$p['status']];
+        }
+
         return $hasil;
     }
 
@@ -49,6 +59,7 @@ class AppServiceProvider extends ServiceProvider
         View::composer('layouts.admin', function ($view): void {
             $view->with('jumlahTeknisiMenunggu', count(PenggunaController::teknisiMenunggu()));
             $view->with('jumlahPengaduanBaru', PengaduanController::jumlahBaru());
+            $view->with('jumlahPengajuanMenunggu', PencairanController::jumlahMenunggu());
             $view->with('indeksCari', self::indeksCari());
         });
 
