@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'beranda_teknisi_page.dart';
 import 'pesanan_teknisi_page.dart';
 import 'dompet_teknisi_page.dart';
-import 'kelola_profil_teknisi_page.dart'; // sesuaikan path kalau file-nya di lib/pages/
+import 'kelola_profil_teknisi_page.dart';
 
 class TeknisiShell extends StatefulWidget {
   const TeknisiShell({super.key});
@@ -28,6 +28,9 @@ class _TeknisiShellState extends State<TeknisiShell> {
     return Scaffold(
       body: IndexedStack(index: _index, children: _pages),
       bottomNavigationBar: NavigationBar(
+        backgroundColor: Colors.white,
+        indicatorColor: Colors.transparent,
+        surfaceTintColor: Colors.white,
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
         destinations: const [
