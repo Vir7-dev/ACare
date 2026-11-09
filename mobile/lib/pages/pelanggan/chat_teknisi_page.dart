@@ -127,7 +127,7 @@ class _ChatTeknisiPageState extends State<ChatTeknisiPage> {
                     ),
                   ),
                   Text(
-                    'Teknisi ACare â€¢ Online',
+                    'Teknisi ACare • Online',
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 10.5,
                       color: Colors.white70,

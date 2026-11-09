@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../models/layanan.dart';
 import '../../models/status_layanan.dart';
 import '../../models/tagihan.dart';
+import '../../models/tawaran_biaya.dart';
 import '../../models/teknisi.dart';
 import '../../services/order_service.dart';
 import '../../services/perangkat.dart';
@@ -57,6 +58,17 @@ class _DetailPesananPageState extends State<DetailPesananPage> {
   late StatusLayanan _status = _awalTampil(widget.status);
   Timer? _timerStatus;
 
+  final _order = OrderService.instance;
+
+  /// Biaya perbaikan dari Teknisi (UC-14); `null` bila belum diajukan.
+  TawaranBiaya? _tawaran;
+  Timer? _timerHitung;
+  Duration _sisa = Duration.zero;
+
+  /// Pesanan selesai hanya dengan biaya awal karena biaya perbaikan ditolak
+  /// atau kedaluwarsa.
+  bool _tanpaPerbaikan = false;
+
   /// Status tanpa tahap pembayaran (tetap sama, termasuk urutannya).
   static const _daftarTampil = StatusLayanan.langkahTampil;
 
@@ -79,6 +91,15 @@ class _DetailPesananPageState extends State<DetailPesananPage> {
 
   bool get _bisaBayar => _status == StatusLayanan.menungguPembayaran;
 
+  /// Langkah [i] sudah dicapai. Saat biaya perbaikan ditolak, tahap
+  /// perbaikan dilewati dan tidak ditandai.
+  bool _tercapai(int i) {
+    if (i < 0 || i > _indeks) return false;
+    final lewati =
+        _tanpaPerbaikan && _daftarTampil[i] == StatusLayanan.melakukanPerbaikan;
+    return !lewati;
+  }
+
   /// Hanya bisa dibatalkan selama masih pengecekan awal dan tombolnya aktif.
   bool get _bisaBatal =>
       widget.bisaDibatalkan && _status == StatusLayanan.pengecekanAwal;
@@ -86,13 +107,108 @@ class _DetailPesananPageState extends State<DetailPesananPage> {
   @override
   void initState() {
     super.initState();
+    _tawaran = _order.tawaranBiaya.value;
+    _sesuaikanDenganTawaran();
+    _order.tawaranBiaya.addListener(_tawaranBerubah);
+    _mulaiHitung();
     _jadwalkanStatusBerikutnya();
   }
 
   @override
   void dispose() {
+    _order.tawaranBiaya.removeListener(_tawaranBerubah);
     _timerStatus?.cancel();
+    _timerHitung?.cancel();
     super.dispose();
+  }
+
+  /// Status halaman mengikuti tanggapan yang sudah ada (mis. dibuka ulang).
+  void _sesuaikanDenganTawaran() {
+    final t = _tawaran;
+    if (t == null || t.menunggu) return;
+    if (t.status == StatusTawaran.disetujui) {
+      if (_status == StatusLayanan.pengecekanAwal) {
+        _status = StatusLayanan.melakukanPerbaikan;
+      }
+    } else {
+      _status = StatusLayanan.selesai;
+      _tanpaPerbaikan = true;
+    }
+  }
+
+  void _tawaranBerubah() {
+    if (!mounted) return;
+    final baru = _order.tawaranBiaya.value;
+    final lama = _tawaran;
+    setState(() {
+      _tawaran = baru;
+      if (lama != null && lama.menunggu && baru != null && !baru.menunggu) {
+        _sesuaikanDenganTawaran();
+      }
+    });
+    _mulaiHitung();
+    _jadwalkanStatusBerikutnya();
+  }
+
+  /// Hitung mundur batas waktu tanggapan; habis = dianggap menolak.
+  void _mulaiHitung() {
+    _timerHitung?.cancel();
+    _timerHitung = null;
+    final t = _tawaran;
+    if (t == null || !t.menunggu) return;
+    _sisa = t.sisaWaktu();
+    _timerHitung = Timer.periodic(const Duration(seconds: 1), (_) {
+      final aktif = _tawaran;
+      if (!mounted || aktif == null || !aktif.menunggu) return;
+      final sisa = aktif.sisaWaktu();
+      if (sisa == Duration.zero) {
+        _order.kedaluwarsakanTawaran();
+      } else {
+        setState(() => _sisa = sisa);
+      }
+    });
+  }
+
+  void _setuju() {
+    _order.tanggapiTawaran(setuju: true);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Biaya perbaikan disetujui. Teknisi melanjutkan pekerjaan.',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _tolak() async {
+    final ya = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Tolak biaya perbaikan?'),
+        content: const Text(
+          'Pesanan akan diselesaikan hanya dengan biaya awal, tanpa '
+          'perbaikan dan tanpa pelunasan.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Kembali'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Ya, Tolak'),
+          ),
+        ],
+      ),
+    );
+    if (ya == true && mounted) {
+      _order.tanggapiTawaran(setuju: false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Biaya perbaikan ditolak. Pesanan diselesaikan.'),
+        ),
+      );
+    }
   }
 
   /// Jadwalkan perpindahan ke status berikutnya, berhenti di tahap terakhir.
@@ -101,6 +217,18 @@ class _DetailPesananPageState extends State<DetailPesananPage> {
     _timerStatus = null;
     if (!widget.otomatis || _indeks < 0) return;
     if (_indeks >= _daftarTampil.length - 1) return;
+    if (_status == StatusLayanan.pengecekanAwal) {
+      final t = _tawaran;
+      // Berhenti sampai Pelanggan menanggapi biaya perbaikan.
+      if (t != null && t.menunggu) return;
+      if (t == null && OrderService.perluTawaran(_order.pesananAktif.value)) {
+        _timerStatus = Timer(widget.durasiStatus, () {
+          _timerStatus = null;
+          _order.ajukanTawaranContoh();
+        });
+        return;
+      }
+    }
     _timerStatus = Timer(widget.durasiStatus, _lanjutStatus);
   }
 
@@ -189,15 +317,24 @@ class _DetailPesananPageState extends State<DetailPesananPage> {
                   _LangkahStatus(
                     label: _daftarTampil[i].label,
                     ikon: _ikonLangkah[_daftarTampil[i]]!,
-                    jam: i <= idx ? _jam[i] : null,
-                    tercapai: i <= idx,
+                    jam: _tercapai(i) ? _jam[i] : null,
+                    tercapai: _tercapai(i),
                     aktif: i == idx,
                     garisBerikutnya: i < _daftarTampil.length - 1,
-                    garisAktif: i + 1 <= idx,
+                    garisAktif: _tercapai(i + 1),
                   ),
               ],
             ),
           ),
+          if (_tawaran != null) ...[
+            const _BarJudul('Biaya Perbaikan'),
+            _KartuTawaran(
+              tawaran: _tawaran!,
+              sisa: _sisa,
+              onSetuju: _setuju,
+              onTolak: _tolak,
+            ),
+          ],
           const Divider(height: 1, color: Color(0xFFE4E6EA)),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
@@ -240,7 +377,9 @@ class _DetailPesananPageState extends State<DetailPesananPage> {
                 ] else
                   _Baris(
                     'Status pembayaran',
-                    _status == StatusLayanan.selesai
+                    _tanpaPerbaikan
+                        ? 'Selesai (hanya biaya awal)'
+                        : _status == StatusLayanan.selesai
                         ? 'Selesai'
                         : 'Diproses setelah perbaikan selesai',
                     kecil: _status != StatusLayanan.selesai,
@@ -506,6 +645,227 @@ class _TombolAksi extends StatelessWidget {
             fontWeight: FontWeight.w500,
           ),
         ),
+      ),
+    );
+  }
+}
+
+
+/// Kartu biaya perbaikan dari Teknisi dengan tombol Setuju dan Tolak.
+class _KartuTawaran extends StatelessWidget {
+  final TawaranBiaya tawaran;
+  final Duration sisa;
+  final VoidCallback onSetuju;
+  final VoidCallback onTolak;
+
+  const _KartuTawaran({
+    required this.tawaran,
+    required this.sisa,
+    required this.onSetuju,
+    required this.onTolak,
+  });
+
+  String get _sisaTeks {
+    final m = sisa.inMinutes.toString().padLeft(2, '0');
+    final d = (sisa.inSeconds % 60).toString().padLeft(2, '0');
+    return '$m:$d';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = tawaran;
+    final gaya = GoogleFonts.plusJakartaSans(fontSize: 12.5);
+    final tebal = GoogleFonts.plusJakartaSans(
+      fontSize: 13,
+      fontWeight: FontWeight.w700,
+    );
+    final (warnaChip, latarChip) = switch (t.status) {
+      StatusTawaran.menunggu => (
+        const Color(0xFFB45309),
+        const Color(0xFFFFF4DB),
+      ),
+      StatusTawaran.disetujui => (AppColors.hijau, AppColors.hijauMuda),
+      _ => (AppColors.merah, const Color(0xFFFDE8E8)),
+    };
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 3,
+                ),
+                decoration: BoxDecoration(
+                  color: latarChip,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  t.status.label,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                    color: warnaChip,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              if (t.menunggu) ...[
+                const Icon(Icons.timer_outlined, size: 15),
+                const SizedBox(width: 4),
+                Text(
+                  'Sisa $_sisaTeks',
+                  key: const Key('sisa-tanggapan'),
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: sisa.inMinutes < 1 ? AppColors.merah : null,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 12),
+          _Baris('Biaya pengecekan awal', rupiah(t.biayaAwal)),
+          const SizedBox(height: 8),
+          for (final i in t.item) ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  i.jasa ? Icons.build_outlined : Icons.settings_outlined,
+                  size: 16,
+                  color: AppColors.biruAksen,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(i.nama, style: gaya),
+                      Text(
+                        i.jasa ? 'Jasa perbaikan' : 'Suku cadang / material',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 10.5,
+                          color: AppColors.teksSamar,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(rupiah(i.harga), style: gaya),
+              ],
+            ),
+            const SizedBox(height: 8),
+          ],
+          const Divider(height: 20),
+          _Baris('Biaya perbaikan', rupiah(t.biayaPerbaikan)),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(child: Text('Total tagihan', style: tebal)),
+              Text(
+                rupiah(t.totalTagihan),
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.biruAksen,
+                ),
+              ),
+            ],
+          ),
+          if (t.catatan.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0F6FF),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Catatan teknisi',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(t.catatan, style: gaya),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 14),
+          if (t.menunggu) ...[
+            Text(
+              'Jika ditolak atau tidak ditanggapi sampai batas waktu, pesanan '
+              'diselesaikan hanya dengan biaya awal dan tanpa pelunasan.',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 10.5,
+                color: AppColors.teksSamar,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 46,
+                    child: OutlinedButton(
+                      onPressed: onTolak,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.merah,
+                        side: const BorderSide(color: AppColors.merah),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text('Tolak'),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  flex: 2,
+                  child: SizedBox(
+                    height: 46,
+                    child: ElevatedButton(
+                      onPressed: onSetuju,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.hijau,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text('Setuju'),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ] else
+            Text(
+              t.status == StatusTawaran.disetujui
+                  ? 'Anda menyetujui biaya perbaikan. Teknisi melanjutkan '
+                        'pekerjaan.'
+                  : t.status == StatusTawaran.kedaluwarsa
+                  ? 'Batas waktu tanggapan terlewat, biaya perbaikan dianggap '
+                        'ditolak. Pesanan diselesaikan hanya dengan biaya awal.'
+                  : 'Anda menolak biaya perbaikan. Pesanan diselesaikan hanya '
+                        'dengan biaya awal.',
+              style: gaya,
+            ),
+        ],
       ),
     );
   }
