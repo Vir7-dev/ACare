@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../models/alamat.dart';
 import '../../models/layanan.dart';
+import '../../services/alamat_service.dart';
 import '../../services/order_service.dart';
 import '../../services/perangkat.dart';
 import '../../services/sesi_pengguna.dart';
@@ -11,6 +13,9 @@ import '../../widgets/servis_terakhir_card.dart';
 import 'buat_pesanan_page.dart';
 import 'chat_teknisi_page.dart';
 import 'detail_layanan_page.dart';
+import 'detail_pesanan_page.dart';
+import 'form_alamat_page.dart';
+import 'kelola_alamat_page.dart';
 import 'tracking_teknisi_page.dart';
 
 class BerandaPage extends StatefulWidget {
@@ -21,16 +26,9 @@ class BerandaPage extends StatefulWidget {
 }
 
 class _BerandaPageState extends State<BerandaPage> {
-  // Data dummy, nanti diganti daftar lokasi tersimpan dari API / GPS
-  static const _daftarLokasi = [
-    'Batu Aji, Batam',
-    'Nagoya, Batam',
-    'Batam Centre, Batam',
-    'Sekupang, Batam',
-    'Tiban, Batam',
-  ];
-
   static const _lokasiSaatIni = '__lokasi_saat_ini__';
+  static const _kelola = '__kelola__';
+  static const _tambah = '__tambah__';
 
   String? _lokasi;
   String? _nama;
@@ -43,6 +41,7 @@ class _BerandaPageState extends State<BerandaPage> {
   }
 
   Future<void> _muatSesi() async {
+    await AlamatService.instance.muat();
     final lokasi = await SesiPengguna.lokasi();
     final nama = await SesiPengguna.nama();
     if (!mounted) return;
@@ -77,53 +76,157 @@ class _BerandaPageState extends State<BerandaPage> {
     }
   }
 
+  /// Teks tombol lokasi: label alamat tersimpan bila yang dipakai alamat itu.
+  String? get _teksLokasi {
+    final a = AlamatService.instance.terpilih;
+    if (a != null && a.alamatLengkap == _lokasi) return a.label;
+    return _lokasi;
+  }
+
+  Future<void> _tambahAlamat() async {
+    final baru = await Navigator.of(context).push<AlamatTersimpan>(
+      MaterialPageRoute(builder: (_) => const FormAlamatPage()),
+    );
+    if (baru == null || !mounted) return;
+    await AlamatService.instance.pilih(baru);
+    await _muatSesi();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Alamat berhasil disimpan')),
+    );
+  }
+
   Future<void> _pilihLokasi() async {
+    final service = AlamatService.instance;
     final dipilih = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
+      isScrollControlled: true,
       builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-              child: Text(
-                'Pilih Lokasi',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            ListTile(
-              leading: const Icon(
-                Icons.my_location,
-                color: AppColors.biruAksen,
-              ),
-              title: const Text('Gunakan lokasi saya saat ini'),
-              onTap: () => Navigator.of(context).pop(_lokasiSaatIni),
-            ),
-            const Divider(height: 1),
-            for (final l in _daftarLokasi)
-              ListTile(
-                leading: const Icon(Icons.location_on_outlined),
-                title: Text(l),
-                trailing: l == _lokasi
-                    ? const Icon(Icons.check, color: AppColors.biruAksen)
-                    : null,
-                onTap: () => Navigator.of(context).pop(l),
-              ),
-          ],
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.75,
+          ),
+          child: ListenableBuilder(
+            listenable: service,
+            builder: (context, _) {
+              final daftar = service.daftar;
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 8, 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Pilih Lokasi',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(_kelola),
+                          child: const Text('Kelola'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  ListTile(
+                    leading: const Icon(
+                      Icons.my_location,
+                      color: AppColors.biruAksen,
+                    ),
+                    title: const Text('Gunakan lokasi saya saat ini'),
+                    onTap: () => Navigator.of(context).pop(_lokasiSaatIni),
+                  ),
+                  const Divider(height: 1),
+                  if (daftar.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 16,
+                      ),
+                      child: Text(
+                        'Belum ada alamat tersimpan',
+                        style: TextStyle(color: AppColors.teksSamar),
+                      ),
+                    )
+                  else
+                    Flexible(
+                      child: ListView(
+                        shrinkWrap: true,
+                        padding: EdgeInsets.zero,
+                        children: [
+                          for (final a in daftar)
+                            ListTile(
+                              leading: const Icon(Icons.location_on_outlined),
+                              title: Text(a.label),
+                              subtitle: Text(
+                                a.alamatLengkap,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              trailing: a.alamatLengkap == _lokasi
+                                  ? const Icon(
+                                      Icons.check,
+                                      color: AppColors.biruAksen,
+                                    )
+                                  : null,
+                              onTap: () => Navigator.of(context).pop(a.id),
+                            ),
+                        ],
+                      ),
+                    ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(
+                      Icons.add_circle_outline,
+                      color: AppColors.biruAksen,
+                    ),
+                    title: const Text('Tambah alamat baru'),
+                    onTap: () => Navigator.of(context).pop(_tambah),
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
-    if (dipilih == null) return;
+    if (dipilih == null || !mounted) return;
     if (dipilih == _lokasiSaatIni) {
       await _pakaiLokasiSaatIni();
+    } else if (dipilih == _tambah) {
+      await _tambahAlamat();
+    } else if (dipilih == _kelola) {
+      await Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const KelolaAlamatPage()));
+      await _muatSesi();
     } else {
-      await _simpanLokasi(dipilih);
+      for (final a in service.daftar) {
+        if (a.id == dipilih) {
+          await service.pilih(a);
+          await _muatSesi();
+        }
+      }
     }
+  }
+
+  /// Dari notifikasi: buka detail pesanan untuk menanggapi biaya perbaikan.
+  void _bukaTawaran() {
+    final teknisi = OrderService.instance.pesananAktif.value?.teknisi;
+    Navigator.of(context).pop();
+    if (teknisi == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => DetailPesananPage(teknisi: teknisi, otomatis: false),
+      ),
+    );
   }
 
   void _bukaNotifikasi() {
@@ -146,6 +249,16 @@ class _BerandaPageState extends State<BerandaPage> {
                 ),
               ),
             ),
+            if (OrderService.instance.tawaranBiaya.value?.menunggu == true)
+              ListTile(
+                leading: const Icon(
+                  Icons.request_quote_outlined,
+                  color: Color(0xFFB45309),
+                ),
+                title: const Text('Biaya perbaikan menunggu persetujuan'),
+                subtitle: const Text('Tanggapi sebelum batas waktu berakhir'),
+                onTap: _bukaTawaran,
+              ),
             const ListTile(
               leading: Icon(Icons.two_wheeler, color: AppColors.hijau),
               title: Text('Teknisi menuju lokasimu'),
@@ -199,7 +312,7 @@ class _BerandaPageState extends State<BerandaPage> {
                           child: Text(
                             _mencariLokasi
                                 ? 'Mencari lokasi...'
-                                : (_lokasi ?? 'Pilih Lokasi'),
+                                : (_teksLokasi ?? 'Pilih Lokasi'),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),

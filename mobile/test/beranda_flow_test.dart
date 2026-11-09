@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import 'package:acare_mobile/pages/umum/main_shell.dart';
+import 'package:acare_mobile/services/alamat_service.dart';
 
 void main() {
   setUpAll(() async {
@@ -52,17 +53,34 @@ void main() {
   testWidgets('Pilih Lokasi membuka daftar dan menyimpan pilihan', (
     tester,
   ) async {
+    AlamatService.instance.reset();
+    await tester.runAsync(() async {
+      final s = AlamatService.instance;
+      await s.tambah(
+        label: 'Rumah',
+        alamatLengkap: 'Batu Aji, Batam',
+        latitude: 1.05,
+        longitude: 103.97,
+      );
+      await s.tambah(
+        label: 'Kantor',
+        alamatLengkap: 'Nagoya, Batam',
+        latitude: 1.14,
+        longitude: 104.01,
+      );
+    });
     await bukaShell(tester);
+    await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Pilih Lokasi'));
+    await tester.tap(find.text('Rumah'));
     await tester.pumpAndSettle();
     expect(find.text('Nagoya, Batam'), findsOneWidget);
 
-    await tester.tap(find.text('Nagoya, Batam'));
+    await tester.tap(find.text('Kantor'));
     await tester.pumpAndSettle();
 
-    // label tombol berubah dari "Pilih Lokasi" ke lokasi terpilih
-    expect(find.text('Nagoya, Batam'), findsOneWidget);
+    // label tombol berubah ke alamat terpilih
+    expect(find.text('Kantor'), findsOneWidget);
     expect(find.text('Pilih Lokasi'), findsNothing);
   });
 

@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../models/layanan.dart';
+import '../models/tawaran_biaya.dart';
 import '../models/teknisi.dart';
 
 /// Status ringkas pesanan pelanggan.
@@ -172,6 +173,79 @@ class OrderService {
   final ValueNotifier<PesananPelanggan?> pesananAktif =
       ValueNotifier<PesananPelanggan?>(null);
 
+  /// Biaya perbaikan dari Teknisi yang menunggu atau sudah ditanggapi
+  /// Pelanggan. `null` bila Teknisi belum mengajukan biaya.
+  final ValueNotifier<TawaranBiaya?> tawaranBiaya =
+      ValueNotifier<TawaranBiaya?>(null);
+
+  /// Batas waktu Pelanggan menanggapi biaya perbaikan.
+  // TODO(backend): batas waktu ditentukan server (`batas_waktu_tawaran`).
+  static const Duration batasTanggapan = Duration(minutes: 10);
+
+  /// Pesanan yang diagnosisnya bisa menambah biaya perbaikan.
+  static bool perluTawaran(PesananPelanggan? p) =>
+      p != null && layananBerbiayaTambahan.contains(p.layanan.nama);
+
+  /// Mock: Teknisi mengajukan biaya perbaikan setelah pengecekan awal.
+  // TODO(backend): tawaran datang dari API/notifikasi saat Teknisi menekan
+  // "Kirim ke Pelanggan" (UC-22).
+  void ajukanTawaranContoh([DateTime? sekarang]) {
+    final p = pesananAktif.value;
+    if (p == null || tawaranBiaya.value != null) return;
+    final servis = p.layanan.nama == 'Service AC';
+    tawaranBiaya.value = TawaranBiaya(
+      biayaAwal: hitungBiayaLayanan(p.layanan, p.jumlahUnit),
+      item: servis
+          ? const [
+              ItemTawaran(
+                nama: 'Jasa las pipa dan perbaikan saluran bocor',
+                harga: 120000,
+                jasa: true,
+              ),
+              ItemTawaran(
+                nama: 'Isi freon R32 + seal karet',
+                harga: 150000,
+                jasa: false,
+              ),
+            ]
+          : const [
+              ItemTawaran(
+                nama: 'Jasa perbaikan kebocoran saluran',
+                harga: 80000,
+                jasa: true,
+              ),
+              ItemTawaran(
+                nama: 'Kapasitor 35 uF',
+                harga: 65000,
+                jasa: false,
+              ),
+            ],
+      catatan: servis
+          ? 'Perlu las pipa sambungan indoor dan penambahan freon agar '
+                'dingin maksimal kembali seperti semula.'
+          : 'Kapasitor sudah lemah dan saluran pembuangan bocor, perlu '
+                'diganti dan diperbaiki.',
+      batasWaktu: (sekarang ?? DateTime.now()).add(batasTanggapan),
+    );
+  }
+
+  /// Pelanggan menyetujui atau menolak biaya perbaikan (UC-14).
+  // TODO(backend): kirim tanggapan ke API dan beri notifikasi ke Teknisi.
+  void tanggapiTawaran({required bool setuju}) {
+    final t = tawaranBiaya.value;
+    if (t == null || !t.menunggu) return;
+    tawaranBiaya.value = t.denganStatus(
+      setuju ? StatusTawaran.disetujui : StatusTawaran.ditolak,
+    );
+  }
+
+  /// Batas waktu terlewat: diperlakukan seperti penolakan.
+  void kedaluwarsakanTawaran() {
+    final t = tawaranBiaya.value;
+    if (t == null || !t.menunggu) return;
+    tawaranBiaya.value = t.denganStatus(StatusTawaran.kedaluwarsa);
+  }
+
   /// Riwayat servis terakhir pelanggan (mock, kosong = belum pernah servis).
   // TODO(backend): ambil riwayat dari API pelanggan.
   final ValueNotifier<PesananPelanggan?> servisTerakhir =
@@ -267,6 +341,7 @@ class OrderService {
     _timerPencarian = null;
     _selesaikanPencarian(false);
     pesananAktif.value = null;
+    tawaranBiaya.value = null;
   }
 
   void _selesaikanPencarian(bool ditemukan) {
@@ -292,6 +367,7 @@ class OrderService {
     if (p == null) return;
     servisTerakhir.value = p.copyWith(status: StatusPesananPelanggan.selesai);
     pesananAktif.value = null;
+    tawaranBiaya.value = null;
   }
 
   /// Kembalikan service ke kondisi awal (dipakai unit test).
@@ -303,5 +379,6 @@ class OrderService {
     _selesaikanPencarian(false);
     pesananAktif.value = null;
     servisTerakhir.value = null;
+    tawaranBiaya.value = null;
   }
 }
