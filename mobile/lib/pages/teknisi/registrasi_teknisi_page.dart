@@ -1,18 +1,18 @@
-
 import 'package:flutter/material.dart';
+
+import '../../services/perangkat.dart';
+import '../../theme/app_colors.dart';
 
 class RegistrasiTeknisiPage extends StatefulWidget {
   const RegistrasiTeknisiPage({super.key});
 
   @override
-  State<RegistrasiTeknisiPage> createState() =>
-      _RegistrasiTeknisiPageState();
+  State<RegistrasiTeknisiPage> createState() => _RegistrasiTeknisiPageState();
 }
 
-class _RegistrasiTeknisiPageState
-    extends State<RegistrasiTeknisiPage> {
-  static const Color biru = Color(0xFF0788D1);
-  static const Color biruMuda = Color(0xFFB9DFFF);
+class _RegistrasiTeknisiPageState extends State<RegistrasiTeknisiPage> {
+  static const Color biru = AppColors.biru;
+  static const Color biruMuda = AppColors.biruMuda;
 
   final formKey = GlobalKey<FormState>();
 
@@ -28,8 +28,8 @@ class _RegistrasiTeknisiPageState
   final namaPemilik = TextEditingController();
 
   String bank = 'BNI (Bank Negara Indonesia)';
-  String? fotoKtp;
-  String? fotoSelfie;
+  static const _dokumen = ['CV', 'Lamaran Kerja', 'KTP', 'Ijazah', 'Pas foto'];
+  final Map<String, String> berkas = {};
 
   @override
   void dispose() {
@@ -57,13 +57,10 @@ class _RegistrasiTeknisiPageState
     }
 
     if (tahap == 2) {
-      if (fotoKtp == null || fotoSelfie == null) {
+      final kurang = _dokumen.where((d) => !berkas.containsKey(d)).toList();
+      if (kurang.isNotEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Silakan lengkapi foto KTP dan foto selfie.',
-            ),
-          ),
+          SnackBar(content: Text('Lengkapi dokumen: ${kurang.join(', ')}.')),
         );
         return;
       }
@@ -77,9 +74,7 @@ class _RegistrasiTeknisiPageState
     if (!setuju) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Anda harus menyetujui syarat dan ketentuan.',
-          ),
+          content: Text('Anda harus menyetujui syarat dan ketentuan.'),
         ),
       );
       return;
@@ -127,10 +122,7 @@ class _RegistrasiTeknisiPageState
         children: [
           Text(
             label,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 5),
           TextFormField(
@@ -141,10 +133,7 @@ class _RegistrasiTeknisiPageState
             style: const TextStyle(fontSize: 12),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: const TextStyle(
-                fontSize: 11,
-                color: Colors.black38,
-              ),
+              hintStyle: const TextStyle(fontSize: 11, color: Colors.black38),
               prefixIcon: Icon(icon, color: biru, size: 18),
               suffixIcon: passwordField
                   ? IconButton(
@@ -169,16 +158,11 @@ class _RegistrasiTeknisiPageState
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(
-                  color: Color(0xFF80C9F5),
-                ),
+                borderSide: const BorderSide(color: Color(0xFF80C9F5)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(
-                  color: biru,
-                  width: 1.5,
-                ),
+                borderSide: const BorderSide(color: biru, width: 1.5),
               ),
               errorBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
@@ -206,19 +190,11 @@ class _RegistrasiTeknisiPageState
         backgroundColor: utama ? biru : Colors.white,
         foregroundColor: utama ? Colors.white : biru,
         elevation: utama ? 1 : 0,
-        padding: const EdgeInsets.symmetric(
-          horizontal: 18,
-          vertical: 10,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
         minimumSize: const Size(0, 34),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(5),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
       ),
-      child: Text(
-        teks,
-        style: const TextStyle(fontSize: 12),
-      ),
+      child: Text(teks, style: const TextStyle(fontSize: 12)),
     );
   }
 
@@ -234,10 +210,7 @@ class _RegistrasiTeknisiPageState
         children: [
           Text(
             judul,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 7),
           InkWell(
@@ -272,11 +245,8 @@ class _RegistrasiTeknisiPageState
                         ),
                         const SizedBox(height: 5),
                         const Text(
-                          'Format JPG, PNG, PDF | Maks. 5MB',
-                          style: TextStyle(
-                            fontSize: 9,
-                            color: Colors.grey,
-                          ),
+                          'Format PNG, JPG, PDF | Maks. 5 MB',
+                          style: TextStyle(fontSize: 9, color: Colors.grey),
                         ),
                       ],
                     ),
@@ -310,10 +280,7 @@ class _RegistrasiTeknisiPageState
         const SizedBox(height: 24),
         const Text(
           'Informasi Pribadi',
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 20),
         input(
@@ -346,15 +313,14 @@ class _RegistrasiTeknisiPageState
           keyboard: TextInputType.emailAddress,
           validator: (value) {
             if (value == null ||
-                !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
-                    .hasMatch(value.trim())) {
+                !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value.trim())) {
               return 'Email tidak valid';
             }
             return null;
           },
         ),
         input(
-          label: 'Verifikasi kata sandi',
+          label: 'Kata sandi',
           hint: 'Masukkan kata sandi',
           icon: Icons.lock_outline,
           controller: password,
@@ -369,10 +335,7 @@ class _RegistrasiTeknisiPageState
         const SizedBox(height: 10),
         Align(
           alignment: Alignment.centerRight,
-          child: tombol(
-            teks: 'Selanjutnya',
-            aksi: lanjut,
-          ),
+          child: tombol(teks: 'Selanjutnya', aksi: lanjut),
         ),
         const SizedBox(height: 14),
         const Text(
@@ -387,6 +350,20 @@ class _RegistrasiTeknisiPageState
     );
   }
 
+  Future<void> pilihBerkas(String jenis) async {
+    try {
+      final f = await Perangkat.ambilFoto();
+      if (f != null && mounted) {
+        setState(() => berkas[jenis] = f.name);
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Berkas tidak bisa dipilih.')),
+      );
+    }
+  }
+
   Widget tahapKedua() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -394,28 +371,20 @@ class _RegistrasiTeknisiPageState
         const SizedBox(height: 8),
         const Center(
           child: Text(
-            'Informasi Tambahan',
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.bold,
-            ),
+            'Unggah Dokumen',
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
           ),
         ),
-        const SizedBox(height: 24),
-        uploadFoto(
-          judul: 'Foto KTP',
-          file: fotoKtp,
-          onTap: () {
-            setState(() => fotoKtp = 'KTP dipilih (contoh)');
-          },
+        const SizedBox(height: 4),
+        const Center(
+          child: Text(
+            'Dokumen untuk lamaran kerja',
+            style: TextStyle(fontSize: 10, color: Colors.black54),
+          ),
         ),
-        uploadFoto(
-          judul: 'Foto Selfie dengan KTP',
-          file: fotoSelfie,
-          onTap: () {
-            setState(() => fotoSelfie = 'Foto selfie dipilih (contoh)');
-          },
-        ),
+        const SizedBox(height: 20),
+        for (final d in _dokumen)
+          uploadFoto(judul: d, file: berkas[d], onTap: () => pilihBerkas(d)),
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(12),
@@ -428,7 +397,7 @@ class _RegistrasiTeknisiPageState
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'ⓘ Tips Foto',
+                'Tips',
                 style: TextStyle(
                   fontSize: 12,
                   color: biru,
@@ -437,15 +406,15 @@ class _RegistrasiTeknisiPageState
               ),
               SizedBox(height: 7),
               Text(
-                '• Pastikan foto terang dan jelas',
+                '• Semua dokumen harus jelas dan tidak buram',
                 style: TextStyle(fontSize: 10, color: Colors.black54),
               ),
               Text(
-                '• KTP terlihat penuh dan tidak terpotong',
+                '• Gunakan format PNG, JPG, atau PDF',
                 style: TextStyle(fontSize: 10, color: Colors.black54),
               ),
               Text(
-                '• Wajah dan data pada KTP dapat terbaca',
+                '• Ukuran file maksimal 5 MB',
                 style: TextStyle(fontSize: 10, color: Colors.black54),
               ),
             ],
@@ -455,15 +424,8 @@ class _RegistrasiTeknisiPageState
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            tombol(
-              teks: 'Kembali',
-              aksi: kembali,
-              utama: false,
-            ),
-            tombol(
-              teks: 'Selanjutnya',
-              aksi: lanjut,
-            ),
+            tombol(teks: 'Kembali', aksi: kembali, utama: false),
+            tombol(teks: 'Selanjutnya', aksi: lanjut),
           ],
         ),
       ],
@@ -478,19 +440,13 @@ class _RegistrasiTeknisiPageState
         const Center(
           child: Text(
             'Data Rekening Bank',
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
           ),
         ),
         const SizedBox(height: 25),
         const Text(
           'Pilih Bank Penerima',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-          ),
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
@@ -537,10 +493,7 @@ class _RegistrasiTeknisiPageState
             ),
             DropdownMenuItem(
               value: 'Mandiri',
-              child: Text(
-                'Mandiri',
-                style: TextStyle(fontSize: 11),
-              ),
+              child: Text('Mandiri', style: TextStyle(fontSize: 11)),
             ),
           ],
           onChanged: (value) {
@@ -599,18 +552,51 @@ class _RegistrasiTeknisiPageState
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            tombol(
-              teks: 'Kembali',
-              aksi: kembali,
-              utama: false,
-            ),
-            tombol(
-              teks: 'Registrasi',
-              aksi: lanjut,
-            ),
+            tombol(teks: 'Kembali', aksi: kembali, utama: false),
+            tombol(teks: 'Daftar', aksi: lanjut),
           ],
         ),
       ],
+    );
+  }
+
+  Widget indikatorLangkah() {
+    const label = ['Informasi pribadi', 'Dokumen', 'Data bank'];
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 18),
+      child: Row(
+        children: [
+          for (var i = 0; i < 3; i++)
+            Expanded(
+              child: Column(
+                children: [
+                  CircleAvatar(
+                    radius: 11,
+                    backgroundColor: i < tahap ? biru : Colors.grey.shade300,
+                    child: Text(
+                      '${i + 1}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: i < tahap ? Colors.white : Colors.black54,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    label[i],
+                    style: TextStyle(
+                      fontSize: 9,
+                      color: i + 1 == tahap ? Colors.black87 : Colors.black45,
+                      fontWeight: i + 1 == tahap
+                          ? FontWeight.w600
+                          : FontWeight.w400,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -637,11 +623,7 @@ class _RegistrasiTeknisiPageState
               height: constraints.maxHeight,
               child: Stack(
                 children: [
-                  Positioned.fill(
-                    child: CustomPaint(
-                      painter: _LatarPainter(),
-                    ),
-                  ),
+                  Positioned.fill(child: CustomPaint(painter: _LatarPainter())),
                   SingleChildScrollView(
                     padding: const EdgeInsets.fromLTRB(18, 95, 18, 30),
                     child: Center(
@@ -649,9 +631,7 @@ class _RegistrasiTeknisiPageState
                         constraints: const BoxConstraints(maxWidth: 400),
                         child: Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.fromLTRB(
-                            15, 22, 15, 18,
-                          ),
+                          padding: const EdgeInsets.fromLTRB(15, 22, 15, 18),
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(18),
@@ -665,7 +645,9 @@ class _RegistrasiTeknisiPageState
                           ),
                           child: Form(
                             key: formKey,
-                            child: isiTahap(),
+                            child: Column(
+                              children: [indikatorLangkah(), isiTahap()],
+                            ),
                           ),
                         ),
                       ),
