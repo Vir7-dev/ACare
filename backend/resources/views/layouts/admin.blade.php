@@ -96,7 +96,9 @@
                     var peta = {
                         Transaksi: '{{ route('admin.transaksi') }}?detail=',
                         Pengguna: '{{ route('admin.pengguna') }}?q=',
-                        Pengaduan: '{{ route('admin.pengaduan') }}?q='
+                        Pengaduan: '{{ route('admin.pengaduan') }}?q=',
+                        Ulasan: '{{ route('admin.ulasan') }}?q=',
+                        Pencairan: '{{ route('admin.pencairan') }}?q='
                     };
                     if (r.jenis === 'Transaksi' && bisaBukaDetail) {
                         window.dispatchEvent(new CustomEvent('buka-detail-transaksi', { detail: { id: r.id } }));
@@ -117,16 +119,20 @@
         $segment2 = request()->segment(2);
         $isTransaksi = $segment2 == 'transaksi' || str_contains($currentRoute, 'transaksi');
         $isPengaduan = $segment2 == 'pengaduan';
+        $isUlasan = $segment2 == 'ulasan';
+        $isPencairan = $segment2 == 'pencairan';
         $isBeranda = $isTransaksi || $currentRoute === 'admin.dashboard';
         $isPengguna = $segment2 == 'pengguna' || str_contains($currentRoute, 'pengguna');
         $isLayanan = $segment2 == 'layanan' || str_contains($currentRoute, 'layanan');
 
-        $bisaBukaDetail = in_array($currentRoute, ['admin.dashboard', 'admin.transaksi', 'admin.pengaduan'], true);
+        $bisaBukaDetail = in_array($currentRoute, ['admin.dashboard', 'admin.transaksi', 'admin.pengaduan', 'admin.ulasan', 'admin.pencairan'], true);
 
         $menu = [
             ['rute' => 'admin.dashboard', 'label' => 'Beranda', 'ikon' => 'lucide:layout-dashboard', 'aktif' => $isBeranda, 'lencana' => 0],
             ['rute' => 'admin.pengguna', 'label' => 'Kelola Pengguna', 'ikon' => 'lucide:users', 'aktif' => $isPengguna, 'lencana' => $jumlahTeknisiMenunggu, 'kunci' => 'pengguna', 'keterangan' => 'teknisi menunggu verifikasi'],
             ['rute' => 'admin.pengaduan', 'label' => 'Pengaduan', 'ikon' => 'lucide:message-square-warning', 'aktif' => $isPengaduan, 'lencana' => $jumlahPengaduanBaru, 'kunci' => 'pengaduan', 'keterangan' => 'pengaduan baru'],
+            ['rute' => 'admin.ulasan', 'label' => 'Moderasi Ulasan', 'ikon' => 'lucide:star', 'aktif' => $isUlasan, 'lencana' => 0],
+            ['rute' => 'admin.pencairan', 'label' => 'Pencairan & Refund', 'ikon' => 'lucide:wallet', 'aktif' => $isPencairan, 'lencana' => $jumlahPengajuanMenunggu, 'kunci' => 'pencairan', 'keterangan' => 'pengajuan menunggu keputusan'],
             ['rute' => 'admin.layanan', 'label' => 'Kelola Layanan', 'ikon' => 'lucide:clipboard-list', 'aktif' => $isLayanan, 'lencana' => 0],
         ];
     @endphp
@@ -153,7 +159,7 @@
                 </button>
             </div>
 
-            <!-- Menu: Beranda, Kelola Pengguna, Pengaduan, Kelola Layanan. Transaksi dibuka dari Beranda atau pencarian. -->
+            <!-- Menu: Beranda, Kelola Pengguna, Pengaduan, Moderasi Ulasan, Pencairan & Refund, Kelola Layanan. Transaksi dibuka dari Beranda atau pencarian. -->
             <nav class="px-3 space-y-1" aria-label="Menu utama">
                 @foreach($menu as $item)
                     <a href="{{ route($item['rute']) }}"
@@ -269,7 +275,7 @@
                     <input x-ref="kotak" x-model="q" type="text" autocomplete="off"
                            @keydown.arrow-down.prevent="gerak(1)" @keydown.arrow-up.prevent="gerak(-1)"
                            @keydown.enter.prevent="pilih(hasil[aktif])"
-                           placeholder="Cari ID transaksi, nama pengguna, atau ID pengaduan"
+                           placeholder="Cari ID transaksi, pengguna, pengaduan, ulasan, atau pencairan"
                            aria-label="Kata kunci pencarian"
                            class="flex-1 py-3.5 text-sm text-slate-800 placeholder-slate-500 focus:outline-none bg-transparent">
                     <kbd class="px-1.5 py-0.5 rounded border border-line text-xs font-semibold text-slate-500">Esc</kbd>

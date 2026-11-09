@@ -107,6 +107,7 @@ class DashboardController extends Controller
             'transaksi' => $transaksi,
             'teknisiMenungguVerifikasi' => $teknisiMenungguVerifikasi,
             'jumlahPengaduanBaru' => PengaduanController::jumlahBaru(),
+            'jumlahPengajuanMenunggu' => PencairanController::jumlahMenunggu(),
         ]);
     }
 }

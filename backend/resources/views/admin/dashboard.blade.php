@@ -213,8 +213,8 @@ function initDashboard() {
         </div>
     </div>
 
-    <!-- Dua Banner: Verifikasi Teknisi & Pengaduan -->
-    <div class="px-8 pb-5 grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <!-- Banner antrean: Verifikasi Teknisi, Pengaduan, Pencairan & Refund -->
+    <div class="px-8 pb-5 grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
         <div class="bg-white border border-line border-l-4 border-l-brand rounded-lg px-5 py-4 flex items-center justify-between gap-4">
             <div class="flex items-start gap-3">
                 <svg class="w-5 h-5 text-brand-dark flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -243,6 +243,20 @@ function initDashboard() {
             </div>
             <a href="{{ route('admin.pengaduan', ['status' => 'Baru']) }}"
                class="px-4 py-2 border border-amber-500 text-amber-700 hover:bg-amber-50 text-xs font-bold rounded-md whitespace-nowrap transition-all">
+                Tinjau
+            </a>
+        </div>
+
+        <div class="bg-white border border-line border-l-4 border-l-emerald-500 rounded-lg px-5 py-4 flex items-center justify-between gap-4">
+            <div class="flex items-start gap-3">
+                <iconify-icon icon="lucide:wallet" width="20" height="20" class="text-emerald-600 flex-shrink-0 mt-0.5" aria-hidden="true"></iconify-icon>
+                <div>
+                    <p class="text-sm font-bold text-navy">{{ $jumlahPengajuanMenunggu }} pencairan &amp; refund menunggu</p>
+                    <p class="text-sm text-slate-500 mt-0.5">Pengajuan dana teknisi dan pelanggan.</p>
+                </div>
+            </div>
+            <a href="{{ route('admin.pencairan', ['status' => 'Menunggu']) }}"
+               class="px-4 py-2 border border-emerald-600 text-emerald-700 hover:bg-emerald-50 text-xs font-bold rounded-md whitespace-nowrap transition-all">
                 Tinjau
             </a>
         </div>

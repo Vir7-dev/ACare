@@ -1,12 +1,14 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\DashboardController;
-use App\Http\Controllers\Admin\PenggunaController;
 use App\Http\Controllers\Admin\LayananController;
-use App\Http\Controllers\Admin\TransaksiController;
+use App\Http\Controllers\Admin\PencairanController;
 use App\Http\Controllers\Admin\PengaduanController;
+use App\Http\Controllers\Admin\PenggunaController;
+use App\Http\Controllers\Admin\TransaksiController;
+use App\Http\Controllers\Admin\UlasanController;
+use Illuminate\Support\Facades\Route;
 
 // 1. Autentikasi Admin Portal ACare
 Route::get('/admin/login', [AuthController::class, 'showLogin'])->name('admin.login');
@@ -33,10 +35,18 @@ Route::get('/admin/layanan', [LayananController::class, 'index'])->name('admin.l
 // 6. Pengaduan dari pelanggan/teknisi
 Route::get('/admin/pengaduan', [PengaduanController::class, 'index'])->name('admin.pengaduan');
 
-// 7. Aksi perubahan status (disimpan di session sementara)
+// 7. Moderasi rating & ulasan pelanggan
+Route::get('/admin/ulasan', [UlasanController::class, 'index'])->name('admin.ulasan');
+
+// 8. Pencairan pendapatan teknisi & refund pelanggan
+Route::get('/admin/pencairan', [PencairanController::class, 'index'])->name('admin.pencairan');
+
+// 9. Aksi perubahan status (disimpan di session sementara)
 Route::post('/admin/pengguna/status', [PenggunaController::class, 'ubahStatus'])->name('admin.pengguna.status');
 Route::post('/admin/pengguna/dokumen', [PenggunaController::class, 'ubahDokumen'])->name('admin.pengguna.dokumen');
 Route::post('/admin/pengaduan/status', [PengaduanController::class, 'ubahStatus'])->name('admin.pengaduan.status');
+Route::post('/admin/ulasan/status', [UlasanController::class, 'ubahStatus'])->name('admin.ulasan.status');
+Route::post('/admin/pencairan/status', [PencairanController::class, 'ubahStatus'])->name('admin.pencairan.status');
 Route::post('/admin/layanan/sinkron', [LayananController::class, 'sinkron'])->name('admin.layanan.sinkron');
 
 // Redirect rute statistik lama ke Beranda Dashboard agar selalu sinkron
