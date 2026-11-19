@@ -22,7 +22,7 @@ class DetailLayananPage extends StatelessWidget {
         ),
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
-          child: Divider(height: 1, color: Color(0xFFEEF0F4)),
+          child: Divider(height: 1, color: AppColors.garisLembut),
         ),
       ),
       body: ListView(
@@ -75,7 +75,7 @@ class _LayananTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFE6EAF2)),
+          border: Border.all(color: AppColors.garisLembut),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -111,14 +111,14 @@ class _LayananTile extends StatelessWidget {
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFEAF2FF),
+                            color: AppColors.biruMuda,
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
                             'Populer',
                             style: GoogleFonts.plusJakartaSans(
-                              fontSize: 10,
-                              color: AppColors.biruAksen,
+                              fontSize: 11,
+                              color: AppColors.biruTua,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -131,7 +131,7 @@ class _LayananTile extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.plusJakartaSans(
-                      fontSize: 10.5,
+                      fontSize: 11,
                       color: Colors.black54,
                     ),
                   ),
@@ -144,14 +144,14 @@ class _LayananTile extends StatelessWidget {
                           vertical: 3,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFEAF2FF),
+                          color: AppColors.biruMuda,
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           rupiah(layanan.harga),
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 11,
-                            color: AppColors.biruAksen,
+                            color: AppColors.biruTua,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -166,7 +166,7 @@ class _LayananTile extends StatelessWidget {
                       Text(
                         '± ${layanan.durasiMenit} menit',
                         style: GoogleFonts.plusJakartaSans(
-                          fontSize: 10,
+                          fontSize: 11,
                           color: AppColors.teksSamar,
                         ),
                       ),
@@ -175,7 +175,7 @@ class _LayananTile extends StatelessWidget {
                         'Pilih',
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 12,
-                          color: AppColors.biruAksen,
+                          color: AppColors.biruTua,
                           fontWeight: FontWeight.w600,
                         ),
                       ),

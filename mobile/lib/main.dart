@@ -3,6 +3,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'pages/umum/splash_page.dart';
+import 'theme/app_colors.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,7 +21,8 @@ class ACareApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        colorSchemeSeed: const Color(0xFF0B6E99),
+        colorScheme: ColorScheme.fromSeed(seedColor: AppColors.biru)
+            .copyWith(primary: AppColors.biru, error: AppColors.merah),
         fontFamily: GoogleFonts.plusJakartaSans().fontFamily,
       ),
       home: const SplashPage(),

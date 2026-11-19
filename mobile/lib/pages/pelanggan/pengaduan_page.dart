@@ -27,6 +27,15 @@ class _PengaduanPageState extends State<PengaduanPage> {
     'Lainnya',
   ];
 
+  static const _jenisSistem = [
+    'Gagal Bayar',
+    'Aplikasi Error / Force Close',
+    'Notifikasi Tidak Muncul',
+    'Lainnya',
+  ];
+
+  List<String> get _daftarJenis => _layananTeknisi ? _jenis : _jenisSistem;
+
   bool _layananTeknisi = true;
   late Pesanan _pesanan = widget.pesanan ?? dummyPesanan.first;
   String? _jenisDipilih;
@@ -108,7 +117,7 @@ class _PengaduanPageState extends State<PengaduanPage> {
     );
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FB),
+      backgroundColor: AppColors.latar,
       appBar: AppBar(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
@@ -135,7 +144,7 @@ class _PengaduanPageState extends State<PengaduanPage> {
               Text(
                 'Pilih jalur aduan',
                 style: GoogleFonts.plusJakartaSans(
-                  fontSize: 10,
+                  fontSize: 11,
                   color: AppColors.teksSamar,
                 ),
               ),
@@ -152,7 +161,10 @@ class _PengaduanPageState extends State<PengaduanPage> {
                     judul: 'Layanan Teknisi',
                     keterangan: 'Pengerjaan bocor, teknisi terlambat, tagihan',
                     dipilih: _layananTeknisi,
-                    onTap: () => setState(() => _layananTeknisi = true),
+                    onTap: () => setState(() {
+                      _layananTeknisi = true;
+                      _jenisDipilih = null;
+                    }),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -162,7 +174,10 @@ class _PengaduanPageState extends State<PengaduanPage> {
                     judul: 'Sistem & Aplikasi',
                     keterangan: 'Gagal bayar, bug voucher, force close',
                     dipilih: !_layananTeknisi,
-                    onTap: () => setState(() => _layananTeknisi = false),
+                    onTap: () => setState(() {
+                      _layananTeknisi = false;
+                      _jenisDipilih = null;
+                    }),
                   ),
                 ),
               ],
@@ -176,16 +191,12 @@ class _PengaduanPageState extends State<PengaduanPage> {
               children: [
                 Row(
                   children: [
-                    const Icon(
-                      Icons.circle,
-                      size: 6,
-                      color: AppColors.biruAksen,
-                    ),
+                    const Icon(Icons.circle, size: 6, color: AppColors.biruTua),
                     const SizedBox(width: 6),
                     Text(
                       'TERKAIT PESANAN',
                       style: GoogleFonts.plusJakartaSans(
-                        fontSize: 10,
+                        fontSize: 11,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -198,14 +209,14 @@ class _PengaduanPageState extends State<PengaduanPage> {
                       Text(
                         'Ubah Pesanan ',
                         style: GoogleFonts.plusJakartaSans(
-                          fontSize: 10,
-                          color: AppColors.biruAksen,
+                          fontSize: 11,
+                          color: AppColors.biruTua,
                         ),
                       ),
                       const Icon(
                         Icons.swap_horiz,
                         size: 14,
-                        color: AppColors.biruAksen,
+                        color: AppColors.biruTua,
                       ),
                     ],
                   ),
@@ -223,7 +234,7 @@ class _PengaduanPageState extends State<PengaduanPage> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              for (final j in _jenis)
+              for (final j in _daftarJenis)
                 _ChipJenis(
                   label: j,
                   dipilih: _jenisDipilih == j,
@@ -240,7 +251,7 @@ class _PengaduanPageState extends State<PengaduanPage> {
               Text(
                 '${_kronologi.text.length}/$_maks',
                 style: GoogleFonts.plusJakartaSans(
-                  fontSize: 10,
+                  fontSize: 11,
                   color: AppColors.teksSamar,
                 ),
               ),
@@ -261,11 +272,11 @@ class _PengaduanPageState extends State<PengaduanPage> {
               fillColor: Colors.white,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Color(0xFFD5DCEB)),
+                borderSide: const BorderSide(color: AppColors.garis),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Color(0xFFD5DCEB)),
+                borderSide: const BorderSide(color: AppColors.garis),
               ),
             ),
           ),
@@ -279,7 +290,7 @@ class _PengaduanPageState extends State<PengaduanPage> {
                 TextSpan(
                   text: '(Opsional)',
                   style: GoogleFonts.plusJakartaSans(
-                    fontSize: 10,
+                    fontSize: 11,
                     fontWeight: FontWeight.w400,
                     color: AppColors.teksSamar,
                   ),
@@ -308,7 +319,7 @@ class _PengaduanPageState extends State<PengaduanPage> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFFEAF0FF),
+              color: AppColors.biruMuda,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
@@ -353,7 +364,7 @@ class _PengaduanPageState extends State<PengaduanPage> {
                             child: Text(
                               'SLA',
                               style: GoogleFonts.plusJakartaSans(
-                                fontSize: 8,
+                                fontSize: 11,
                                 color: AppColors.hijau,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -365,7 +376,7 @@ class _PengaduanPageState extends State<PengaduanPage> {
                       Text(
                         'Tim Acare akan memproses aduanmu, memverifikasi riwayat GPS & rekaman kerja.',
                         style: GoogleFonts.plusJakartaSans(
-                          fontSize: 9.5,
+                          fontSize: 11,
                           color: Colors.black54,
                         ),
                       ),
@@ -412,7 +423,7 @@ class _PengaduanPageState extends State<PengaduanPage> {
                   'Laporanmu terlindungi dan ditangani secara rahasia oleh Tim Acare.',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.plusJakartaSans(
-                    fontSize: 9,
+                    fontSize: 11,
                     color: AppColors.teksSamar,
                   ),
                 ),
@@ -448,11 +459,11 @@ class _KategoriAduan extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: dipilih ? const Color(0xFFEFF4FF) : Colors.white,
+          color: dipilih ? AppColors.biruMuda : Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: dipilih ? AppColors.biruAksen : const Color(0xFFE0E3EA),
-            width: dipilih ? 2 : 1,
+            color: dipilih ? AppColors.biruTua : AppColors.garisLembut,
+            width: 2,
           ),
         ),
         child: Column(
@@ -462,15 +473,13 @@ class _KategoriAduan extends StatelessWidget {
               width: 34,
               height: 34,
               decoration: BoxDecoration(
-                color: dipilih
-                    ? const Color(0xFFDDE8FA)
-                    : const Color(0xFFF1F3F6),
+                color: dipilih ? AppColors.biruMuda : AppColors.latar,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
                 ikon,
                 size: 18,
-                color: dipilih ? AppColors.biruAksen : Colors.black54,
+                color: dipilih ? AppColors.biruTua : Colors.black54,
               ),
             ),
             const SizedBox(height: 10),
@@ -479,14 +488,14 @@ class _KategoriAduan extends StatelessWidget {
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
-                color: dipilih ? AppColors.biruAksen : Colors.black87,
+                color: dipilih ? AppColors.biruTua : Colors.black87,
               ),
             ),
             const SizedBox(height: 2),
             Text(
               keterangan,
               style: GoogleFonts.plusJakartaSans(
-                fontSize: 9,
+                fontSize: 11,
                 color: Colors.black54,
               ),
             ),
@@ -512,7 +521,7 @@ class _KartuPesananTerkait extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFEAF0FF),
+        color: AppColors.biruMuda,
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
@@ -538,14 +547,14 @@ class _KartuPesananTerkait extends StatelessWidget {
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFDDE8FA),
+                        color: AppColors.biruMuda,
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
                         '$tanggal WIB',
                         style: GoogleFonts.plusJakartaSans(
-                          fontSize: 8.5,
-                          color: AppColors.biruAksen,
+                          fontSize: 11,
+                          color: AppColors.biruTua,
                         ),
                       ),
                     ),
@@ -555,7 +564,7 @@ class _KartuPesananTerkait extends StatelessWidget {
                 Text(
                   pesanan.namaLayanan,
                   style: GoogleFonts.plusJakartaSans(
-                    fontSize: 10,
+                    fontSize: 11,
                     color: Colors.black54,
                   ),
                 ),
@@ -571,7 +580,7 @@ class _KartuPesananTerkait extends StatelessWidget {
                     Flexible(
                       child: Text(
                         'Teknisi: ${pesanan.namaTeknisi} (Rating 4.9)',
-                        style: GoogleFonts.plusJakartaSans(fontSize: 9.5),
+                        style: GoogleFonts.plusJakartaSans(fontSize: 11),
                       ),
                     ),
                   ],
@@ -590,7 +599,7 @@ class _KartuPesananTerkait extends StatelessWidget {
             child: const Icon(
               Icons.ac_unit,
               size: 18,
-              color: AppColors.biruAksen,
+              color: AppColors.biruTua,
             ),
           ),
         ],
@@ -618,10 +627,10 @@ class _ChipJenis extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
         decoration: BoxDecoration(
-          color: dipilih ? AppColors.biruAksen : Colors.white,
+          color: dipilih ? AppColors.biruTua : Colors.white,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: dipilih ? AppColors.biruAksen : const Color(0xFFD5DCEB),
+            color: dipilih ? AppColors.biruTua : AppColors.garis,
           ),
         ),
         child: Row(
@@ -634,7 +643,7 @@ class _ChipJenis extends StatelessWidget {
             Text(
               label,
               style: GoogleFonts.plusJakartaSans(
-                fontSize: 10.5,
+                fontSize: 11,
                 color: dipilih ? Colors.white : Colors.black87,
                 fontWeight: dipilih ? FontWeight.w600 : FontWeight.w400,
               ),
@@ -683,7 +692,7 @@ class _SlotBukti extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFFD5DCEB)),
+          border: Border.all(color: AppColors.garis),
         ),
         clipBehavior: Clip.antiAlias,
         child: Stack(
@@ -693,7 +702,7 @@ class _SlotBukti extends StatelessWidget {
               berkas!.data,
               fit: BoxFit.cover,
               errorBuilder: (_, _, _) => const Center(
-                child: Icon(Icons.image_outlined, color: AppColors.biruAksen),
+                child: Icon(Icons.image_outlined, color: AppColors.biruTua),
               ),
             ),
             Positioned(
@@ -708,7 +717,7 @@ class _SlotBukti extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.plusJakartaSans(
-                    fontSize: 8,
+                    fontSize: 11,
                     color: Colors.white,
                   ),
                 ),
@@ -735,7 +744,7 @@ class _SlotBukti extends StatelessWidget {
       return Container(
         height: tinggi,
         decoration: BoxDecoration(
-          color: const Color(0xFFF1F3F6),
+          color: AppColors.latar,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Center(
@@ -745,14 +754,14 @@ class _SlotBukti extends StatelessWidget {
               const Icon(
                 Icons.photo_outlined,
                 size: 18,
-                color: Color(0xFFBFC4CC),
+                color: AppColors.teksNonaktif,
               ),
               const SizedBox(height: 4),
               Text(
                 'Slot 2 Kosong',
                 style: GoogleFonts.plusJakartaSans(
-                  fontSize: 8.5,
-                  color: const Color(0xFFBFC4CC),
+                  fontSize: 11,
+                  color: AppColors.teksNonaktif,
                 ),
               ),
             ],
@@ -767,9 +776,9 @@ class _SlotBukti extends StatelessWidget {
       child: Container(
         height: tinggi,
         decoration: BoxDecoration(
-          color: const Color(0xFFF1F5FD),
+          color: AppColors.biruMuda,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: AppColors.biru),
         ),
         child: Center(
           child: Column(
@@ -778,21 +787,21 @@ class _SlotBukti extends StatelessWidget {
               const Icon(
                 Icons.add_a_photo_outlined,
                 size: 20,
-                color: AppColors.biruAksen,
+                color: AppColors.biruTua,
               ),
               const SizedBox(height: 4),
               Text(
                 'Pilih Foto',
                 style: GoogleFonts.plusJakartaSans(
-                  fontSize: 9,
-                  color: AppColors.biruAksen,
+                  fontSize: 11,
+                  color: AppColors.biruTua,
                   fontWeight: FontWeight.w600,
                 ),
               ),
               Text(
                 'Maks 5MB',
                 style: GoogleFonts.plusJakartaSans(
-                  fontSize: 8,
+                  fontSize: 11,
                   color: AppColors.teksSamar,
                 ),
               ),

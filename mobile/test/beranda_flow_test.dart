@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import 'package:acare_mobile/pages/umum/main_shell.dart';
+import 'package:acare_mobile/services/notifikasi_service.dart';
 
 void main() {
   setUpAll(() async {
@@ -56,13 +57,18 @@ void main() {
 
     await tester.tap(find.text('Pilih Lokasi'));
     await tester.pumpAndSettle();
-    expect(find.text('Nagoya, Batam'), findsOneWidget);
+    // Daftar berisi alamat tersimpan pelanggan.
+    expect(find.text('Rumah'), findsOneWidget);
+    expect(find.text('Kelola alamat tersimpan'), findsOneWidget);
 
-    await tester.tap(find.text('Nagoya, Batam'));
+    await tester.tap(find.text('Rumah'));
     await tester.pumpAndSettle();
 
-    // label tombol berubah dari "Pilih Lokasi" ke lokasi terpilih
-    expect(find.text('Nagoya, Batam'), findsOneWidget);
+    // label tombol berubah dari "Pilih Lokasi" ke alamat terpilih
+    expect(
+      find.text('Perumahan Batu Aji Blok C No. 12, Batam'),
+      findsOneWidget,
+    );
     expect(find.text('Pilih Lokasi'), findsNothing);
   });
 
@@ -73,6 +79,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Notifikasi'), findsOneWidget);
-    expect(find.text('Teknisi menuju lokasimu'), findsOneWidget);
+    expect(find.text('Waktunya servis berkala'), findsOneWidget);
+
+    // Ketuk notifikasi -> tandai dibaca.
+    expect(NotifikasiService.instance.belumDibaca, 1);
+    await tester.tap(find.text('Waktunya servis berkala'));
+    await tester.pump();
+    expect(NotifikasiService.instance.belumDibaca, 0);
+    NotifikasiService.instance.reset();
   });
 }

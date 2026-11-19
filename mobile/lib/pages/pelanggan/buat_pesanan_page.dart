@@ -3,9 +3,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import '../../models/layanan.dart';
+import '../../services/alamat_service.dart';
 import '../../services/order_service.dart';
 import '../../services/sesi_pengguna.dart';
 import '../../theme/app_colors.dart';
+import 'kelola_alamat_page.dart';
 import 'ringkasan_pembayaran_page.dart';
 
 /// Form detail pesanan: dipilih dari "Lihat Detail" atau kategori di beranda.
@@ -25,8 +27,6 @@ class BuatPesananPage extends StatefulWidget {
 }
 
 class _BuatPesananPageState extends State<BuatPesananPage> {
-  static const Color biru = Color(0xFF0788D1);
-
   static const List<String> _keluhan = [
     'Tidak dingin',
     'Bocor air',
@@ -61,9 +61,11 @@ class _BuatPesananPageState extends State<BuatPesananPage> {
 
   String _alamat = '';
 
-  /// Cuci AC hanya butuh data AC; Service AC & Cek AC butuh keluhan.
-  bool get _perluKeluhan =>
-      _layanan.nama == 'Service AC' || _layanan.nama == 'Cek AC';
+  /// Hanya Service AC (perbaikan) yang butuh checklist keluhan. Cek AC cukup
+  /// catatan karena pelanggan awam belum tentu tahu masalahnya.
+  bool get _perluKeluhan => _layanan.nama == 'Service AC';
+
+  bool get _cekSaja => _layanan.nama == 'Cek AC';
 
   bool get _perluFreon => _layanan.nama == 'Isi Freon';
 
@@ -73,6 +75,16 @@ class _BuatPesananPageState extends State<BuatPesananPage> {
   void initState() {
     super.initState();
     _muatAlamat();
+  }
+
+  /// Pilih alamat dari daftar tersimpan (atau tambah baru di sana).
+  Future<void> _pilihAlamat() async {
+    final a = await Navigator.of(context).push<AlamatTersimpan>(
+      MaterialPageRoute(
+        builder: (_) => const KelolaAlamatPage(modePilih: true),
+      ),
+    );
+    if (a != null && mounted) setState(() => _alamat = a.alamatLengkap);
   }
 
   Future<void> _muatAlamat() async {
@@ -166,7 +178,7 @@ class _BuatPesananPageState extends State<BuatPesananPage> {
       jadwal: _jadwal,
       catatan: _catatanPesanan(),
       metodeBayar: '',
-      totalEstimasi: OrderService.hitungTotalEstimasi(_layanan, _jumlahUnit),
+      biayaAwal: OrderService.hitungBiayaAwal(_layanan, _jumlahUnit),
     );
 
     Navigator.of(context).push(
@@ -209,7 +221,7 @@ class _BuatPesananPageState extends State<BuatPesananPage> {
         ),
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
-          child: Divider(height: 1, color: Color(0xFFEEF0F4)),
+          child: Divider(height: 1, color: AppColors.garisLembut),
         ),
       ),
       body: Form(
@@ -253,24 +265,43 @@ class _BuatPesananPageState extends State<BuatPesananPage> {
             ],
             const SizedBox(height: 20),
             _judul('Lokasi'),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF0F6FF),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFF80C9F5)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.location_on_outlined, size: 18, color: biru),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _alamat.isEmpty ? 'Memuat lokasi...' : _alamat,
-                      style: const TextStyle(fontSize: 12),
+            InkWell(
+              onTap: _pilihAlamat,
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.biruMuda,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.biruGaris),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.location_on_outlined,
+                      size: 18,
+                      color: AppColors.biru,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _alamat.isEmpty ? 'Memuat lokasi...' : _alamat,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    const Text(
+                      'Ubah',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.biru,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 10),
@@ -289,8 +320,12 @@ class _BuatPesananPageState extends State<BuatPesananPage> {
             const SizedBox(height: 20),
             _judul('Catatan & Foto'),
             _input(
-              label: 'Catatan tambahan (opsional)',
-              hint: 'Contoh: AC di lantai 2, gunakan tangga sendiri',
+              label: _cekSaja
+                  ? 'Ceritakan kondisi AC (opsional)'
+                  : 'Catatan tambahan (opsional)',
+              hint: _cekSaja
+                  ? 'Contoh: AC terasa kurang dingin sejak minggu lalu'
+                  : 'Contoh: AC di lantai 2, gunakan tangga sendiri',
               icon: Icons.notes_outlined,
               controller: _catatan,
               maxLines: 3,
@@ -330,7 +365,7 @@ class _BuatPesananPageState extends State<BuatPesananPage> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE6EAF2)),
+        border: Border.all(color: AppColors.garisLembut),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -362,34 +397,42 @@ class _BuatPesananPageState extends State<BuatPesananPage> {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.plusJakartaSans(
-                    fontSize: 10.5,
+                    fontSize: 11,
                     color: Colors.black54,
                   ),
                 ),
                 const SizedBox(height: 8),
-                Row(
+                // Wrap: durasi turun ke baris berikutnya bila layar sempit.
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 2,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Text(
                       'Mulai ${rupiah(_layanan.harga)}',
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 12,
-                        color: AppColors.biruAksen,
+                        color: AppColors.biruTua,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    const Icon(
-                      Icons.schedule,
-                      size: 12,
-                      color: AppColors.teksSamar,
-                    ),
-                    const SizedBox(width: 3),
-                    Text(
-                      '± ${_layanan.durasiMenit} menit',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 10,
-                        color: AppColors.teksSamar,
-                      ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.schedule,
+                          size: 12,
+                          color: AppColors.teksSamar,
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          '± ${_layanan.durasiMenit} menit',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 11,
+                            color: AppColors.teksSamar,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -399,10 +442,9 @@ class _BuatPesananPageState extends State<BuatPesananPage> {
           TextButton(
             onPressed: () => Navigator.of(context).maybePop(),
             style: TextButton.styleFrom(
-              foregroundColor: AppColors.biruAksen,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              foregroundColor: AppColors.biruTua,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              minimumSize: const Size(48, 48),
               textStyle: GoogleFonts.plusJakartaSans(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -428,7 +470,10 @@ class _BuatPesananPageState extends State<BuatPesananPage> {
 
   Widget _teksError(String teks) => Padding(
     padding: const EdgeInsets.only(top: 4),
-    child: Text(teks, style: const TextStyle(fontSize: 10, color: Colors.red)),
+    child: Text(
+      teks,
+      style: const TextStyle(fontSize: 11, color: AppColors.merah),
+    ),
   );
 
   Widget _stepperJumlahUnit() {
@@ -469,17 +514,26 @@ class _BuatPesananPageState extends State<BuatPesananPage> {
     return InkWell(
       onTap: aktif ? onTap : null,
       customBorder: const CircleBorder(),
-      child: Container(
-        width: 32,
-        height: 32,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(color: aktif ? biru : const Color(0xFFCBD0D8)),
-        ),
-        child: Icon(
-          ikon,
-          size: 16,
-          color: aktif ? biru : const Color(0xFFCBD0D8),
+      // Lingkaran 36 px, area sentuh 48 px.
+      child: SizedBox(
+        width: 48,
+        height: 48,
+        child: Center(
+          child: Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: aktif ? AppColors.biru : AppColors.garis,
+              ),
+            ),
+            child: Icon(
+              ikon,
+              size: 18,
+              color: aktif ? AppColors.biru : AppColors.teksNonaktif,
+            ),
+          ),
         ),
       ),
     );
@@ -565,18 +619,18 @@ class _BuatPesananPageState extends State<BuatPesananPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: dipilih ? const Color(0xFFE3F1FF) : Colors.white,
+          color: dipilih ? AppColors.biruMuda : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: dipilih ? biru : const Color(0xFFCBD0D8),
-            width: dipilih ? 1.5 : 1,
+            color: dipilih ? AppColors.biru : AppColors.garis,
+            width: 1.5,
           ),
         ),
         child: Text(
           label,
           style: GoogleFonts.plusJakartaSans(
             fontSize: 12,
-            color: dipilih ? biru : Colors.black87,
+            color: dipilih ? AppColors.biru : Colors.black87,
             fontWeight: dipilih ? FontWeight.w600 : FontWeight.w400,
           ),
         ),
@@ -597,12 +651,10 @@ class _BuatPesananPageState extends State<BuatPesananPage> {
                 _keluhanDipilih.remove(k);
               }
             }),
-            dense: true,
             contentPadding: EdgeInsets.zero,
             controlAffinity: ListTileControlAffinity.leading,
-            visualDensity: VisualDensity.compact,
             title: Text(k, style: GoogleFonts.plusJakartaSans(fontSize: 12)),
-            activeColor: biru,
+            activeColor: AppColors.biru,
           ),
       ],
     );
@@ -672,8 +724,8 @@ class _BuatPesananPageState extends State<BuatPesananPage> {
   }
 
   ButtonStyle _gayaTombolJadwal() => OutlinedButton.styleFrom(
-    foregroundColor: biru,
-    side: const BorderSide(color: Color(0xFF80C9F5)),
+    foregroundColor: AppColors.biru,
+    side: const BorderSide(color: AppColors.biruGaris),
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
     padding: const EdgeInsets.symmetric(vertical: 10),
   );
@@ -710,7 +762,7 @@ class _BuatPesananPageState extends State<BuatPesananPage> {
                 const SizedBox(height: 4),
                 const Text(
                   'Format JPG, PNG | Maks. 5MB',
-                  style: TextStyle(fontSize: 9, color: Colors.grey),
+                  style: TextStyle(fontSize: 11, color: AppColors.teksSamar),
                 ),
               ],
             ),
@@ -746,7 +798,7 @@ class _BuatPesananPageState extends State<BuatPesananPage> {
             decoration: InputDecoration(
               hintText: hint,
               hintStyle: const TextStyle(fontSize: 11, color: Colors.black38),
-              prefixIcon: Icon(icon, color: biru, size: 18),
+              prefixIcon: Icon(icon, color: AppColors.biru, size: 18),
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 12,
@@ -754,19 +806,19 @@ class _BuatPesananPageState extends State<BuatPesananPage> {
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Color(0xFF80C9F5)),
+                borderSide: const BorderSide(color: AppColors.biruGaris),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: biru, width: 1.5),
+                borderSide: const BorderSide(color: AppColors.biru, width: 1.5),
               ),
               errorBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Colors.red),
+                borderSide: const BorderSide(color: AppColors.merah),
               ),
               focusedErrorBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Colors.red),
+                borderSide: const BorderSide(color: AppColors.merah),
               ),
             ),
           ),

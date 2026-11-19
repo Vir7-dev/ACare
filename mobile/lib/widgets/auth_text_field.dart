@@ -49,6 +49,9 @@ class _AuthTextFieldState extends State<AuthTextField> {
         prefixIcon: Icon(widget.icon, color: AppColors.teksSamar, size: 22),
         suffixIcon: widget.password
             ? IconButton(
+                tooltip: _sembunyi
+                    ? 'Tampilkan kata sandi'
+                    : 'Sembunyikan kata sandi',
                 icon: Icon(
                   _sembunyi
                       ? Icons.visibility_off_outlined
@@ -61,10 +64,10 @@ class _AuthTextFieldState extends State<AuthTextField> {
             : null,
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(vertical: 15),
-        enabledBorder: _border(AppColors.border),
+        enabledBorder: _border(AppColors.biru),
         focusedBorder: _border(AppColors.biru),
-        errorBorder: _border(Colors.red.shade400),
-        focusedErrorBorder: _border(Colors.red.shade400),
+        errorBorder: _border(AppColors.merah),
+        focusedErrorBorder: _border(AppColors.merah),
       ),
     );
   }

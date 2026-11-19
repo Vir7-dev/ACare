@@ -23,16 +23,17 @@ class Layanan {
   });
 }
 
-String rupiah(int nilai) =>
-    NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0)
-        .format(nilai);
+String rupiah(int nilai) => NumberFormat.currency(
+  locale: 'id_ID',
+  symbol: 'Rp ',
+  decimalDigits: 0,
+).format(nilai);
 
 // Data dummy, nanti diganti data dari API Laravel
 const List<Layanan> daftarLayanan = [
   Layanan(
     nama: 'Cuci AC',
-    deskripsi:
-        'Membersihkan filter, evaporator, dan bagian dalam AC agar lebih dingin dan hemat listrik.',
+    deskripsi: 'Membersihkan filter, evaporator, dan bagian dalam AC agar lebih dingin dan hemat listrik.',
     harga: 75000,
     durasiMenit: 45,
     ikon: Icons.water_drop_outlined,
@@ -42,8 +43,7 @@ const List<Layanan> daftarLayanan = [
   ),
   Layanan(
     nama: 'Service AC',
-    deskripsi:
-        'Pengecekan dan perbaikan kerusakan ringan hingga berat pada sistem pendingin AC.',
+    deskripsi: 'Perbaikan kerusakan AC seperti tidak dingin, bocor air, bunyi berisik, atau mati total.',
     harga: 100000,
     durasiMenit: 45,
     ikon: Icons.settings_outlined,
@@ -52,8 +52,7 @@ const List<Layanan> daftarLayanan = [
   ),
   Layanan(
     nama: 'Isi Freon',
-    deskripsi:
-        'Pengisian ulang freon berkualitas untuk menjaga performa pendinginan AC tetap optimal.',
+    deskripsi: 'Pengisian ulang freon berkualitas untuk menjaga performa pendinginan AC tetap optimal.',
     harga: 150000,
     durasiMenit: 45,
     ikon: Icons.propane_tank_outlined,
@@ -62,8 +61,7 @@ const List<Layanan> daftarLayanan = [
   ),
   Layanan(
     nama: 'Bongkar Pasang',
-    deskripsi:
-        'Melayani pemasangan AC baru atau pemindahan dan bongkar pasang unit AC lama.',
+    deskripsi: 'Melayani pemasangan AC baru atau pemindahan dan bongkar pasang unit AC lama.',
     harga: 100000,
     durasiMenit: 45,
     ikon: Icons.build_outlined,
@@ -72,12 +70,11 @@ const List<Layanan> daftarLayanan = [
   ),
   Layanan(
     nama: 'Cek AC',
-    deskripsi:
-        'Menangani berbagai kerusakan AC seperti tidak dingin, bocor, atau kendala kelistrikan.',
-    harga: 100000,
-    durasiMenit: 45,
+    deskripsi: 'Pemeriksaan kondisi AC oleh teknisi, cocok bila kamu belum tahu masalahnya atau sekadar ingin memastikan AC dalam kondisi baik.',
+    harga: 50000,
+    durasiMenit: 30,
     ikon: Icons.fact_check_outlined,
-    warnaIkon: Color(0xFF3B6FD6),
-    warnaLatar: Color(0xFFEAF0FF),
+    warnaIkon: Color(0xFF0F766E),
+    warnaLatar: Color(0xFFE0F5F2),
   ),
 ];

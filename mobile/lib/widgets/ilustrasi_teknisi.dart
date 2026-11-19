@@ -23,11 +23,7 @@ class IlustrasiTeknisi extends StatelessWidget {
           color: AppColors.biruMuda,
           shape: BoxShape.circle,
         ),
-        child: const Icon(
-          Icons.ac_unit,
-          size: 96,
-          color: AppColors.biruTua,
-        ),
+        child: const Icon(Icons.ac_unit, size: 96, color: AppColors.biruTua),
       ),
     );
   }

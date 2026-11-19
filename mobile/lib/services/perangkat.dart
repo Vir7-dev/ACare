@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class LokasiException implements Exception {
@@ -23,14 +24,37 @@ class Perangkat {
 
   static Future<String> Function() lokasiSaatIni = _lokasiAsli;
 
+  /// Koordinat GPS perangkat saat ini.
+  static Future<LatLng> Function() koordinatSaatIni = _koordinatAsli;
+
+  /// Cari koordinat dari teks alamat; `null` bila tidak ditemukan.
+  static Future<LatLng?> Function(String alamat) cariAlamat = _cariAlamatAsli;
+
   static void reset() {
     bukaUrl = (uri) => launchUrl(uri);
     ambilFoto = () =>
         ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 85);
     lokasiSaatIni = _lokasiAsli;
+    koordinatSaatIni = _koordinatAsli;
+    cariAlamat = _cariAlamatAsli;
   }
 
-  static Future<String> _lokasiAsli() async {
+  static Future<LatLng> _koordinatAsli() async {
+    final posisi = await _posisiAsli();
+    return LatLng(posisi.latitude, posisi.longitude);
+  }
+
+  static Future<LatLng?> _cariAlamatAsli(String alamat) async {
+    try {
+      final hasil = await Geocoding().locationFromAddress(alamat);
+      if (hasil.isEmpty) return null;
+      return LatLng(hasil.first.latitude, hasil.first.longitude);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<Position> _posisiAsli() async {
     if (!await Geolocator.isLocationServiceEnabled()) {
       throw const LokasiException('Layanan lokasi di perangkat belum aktif');
     }
@@ -46,12 +70,16 @@ class Perangkat {
       );
     }
 
-    final posisi = await Geolocator.getCurrentPosition(
+    return Geolocator.getCurrentPosition(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.high,
         timeLimit: Duration(seconds: 15),
       ),
     );
+  }
+
+  static Future<String> _lokasiAsli() async {
+    final posisi = await _posisiAsli();
 
     // Nama tempat dari koordinat; di web / saat gagal, tampilkan koordinat.
     try {

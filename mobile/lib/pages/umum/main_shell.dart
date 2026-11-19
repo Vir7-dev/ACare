@@ -20,11 +20,7 @@ class _MainShellState extends State<MainShell> {
     return Scaffold(
       body: IndexedStack(
         index: _tab,
-        children: const [
-          BerandaPage(),
-          RiwayatPesananPage(),
-          ProfilPage(),
-        ],
+        children: const [BerandaPage(), RiwayatPesananPage(), ProfilPage()],
       ),
       bottomNavigationBar: NavigationBar(
         backgroundColor: Colors.white,

@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../services/auth_service.dart';
 import 'pelanggan/masuk_page.dart';
+import '../theme/app_colors.dart';
 
 /// Layar pemilihan peran sebelum masuk.
 class RoleSelectPage extends StatefulWidget {
@@ -15,15 +16,14 @@ class RoleSelectPage extends StatefulWidget {
 class _RoleSelectPageState extends State<RoleSelectPage> {
   UserRole _pilihan = UserRole.pelanggan;
 
-  static const _primary = Color(0xFF0384C6);
-
   void _lanjutkan() {
     // TODO(backend): peran cukup dibawa ke halaman masuk; penyimpanan sesi
     // dilakukan AuthService.login setelah kredensial divalidasi.
     // pushReplacement: setelah memilih peran, kembali dari halaman masuk
     // berarti keluar aplikasi, bukan kembali ke pemilihan peran.
-    Navigator.of(context)
-        .pushReplacement(MaterialPageRoute(builder: (_) => MasukPage(role: _pilihan)));
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => MasukPage(role: _pilihan)),
+    );
   }
 
   @override
@@ -39,7 +39,7 @@ class _RoleSelectPageState extends State<RoleSelectPage> {
               height: 200,
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Color(0xFF1E88E5), Color(0xFFBBDEFB)],
+                  colors: [AppColors.biru, AppColors.biruGaris],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -73,7 +73,7 @@ class _RoleSelectPageState extends State<RoleSelectPage> {
                       'Masuk sebagai',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.plusJakartaSans(
-                        color: Colors.grey.shade700,
+                        color: AppColors.teksSamar,
                       ),
                     ),
                     const SizedBox(height: 28),
@@ -98,7 +98,7 @@ class _RoleSelectPageState extends State<RoleSelectPage> {
                       height: 52,
                       child: FilledButton(
                         style: FilledButton.styleFrom(
-                          backgroundColor: _primary,
+                          backgroundColor: AppColors.biru,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),
@@ -140,8 +140,6 @@ class _RoleCard extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  static const _primary = Color(0xFF0384C6);
-
   @override
   Widget build(BuildContext context) {
     return Semantics(
@@ -155,11 +153,11 @@ class _RoleCard extends StatelessWidget {
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: selected ? const Color(0xFFE8F4FB) : Colors.white,
+            color: selected ? AppColors.biruMuda : Colors.white,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: selected ? _primary : Colors.grey.shade400,
-              width: selected ? 1.5 : 1,
+              color: selected ? AppColors.biru : AppColors.garis,
+              width: 1.5,
             ),
           ),
           child: Row(
@@ -168,10 +166,10 @@ class _RoleCard extends StatelessWidget {
                 width: 56,
                 height: 56,
                 decoration: const BoxDecoration(
-                  color: Color(0xFFC5E1F3),
+                  color: AppColors.biruGaris,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(icon, color: const Color(0xFF2F6FD0), size: 28),
+                child: Icon(icon, color: AppColors.biru, size: 28),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -190,7 +188,7 @@ class _RoleCard extends StatelessWidget {
                       subtitle,
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 13,
-                        color: Colors.grey.shade700,
+                        color: AppColors.teksSamar,
                       ),
                     ),
                   ],
@@ -203,13 +201,13 @@ class _RoleCard extends StatelessWidget {
                     ? const Icon(
                         Icons.check_circle,
                         key: ValueKey('on'),
-                        color: _primary,
+                        color: AppColors.biru,
                         size: 26,
                       )
                     : Icon(
                         Icons.radio_button_unchecked,
                         key: const ValueKey('off'),
-                        color: Colors.grey.shade500,
+                        color: AppColors.teksSamar,
                         size: 26,
                       ),
               ),

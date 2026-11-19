@@ -51,7 +51,7 @@ class ServisTerakhirCard extends StatelessWidget {
                   Text(
                     'SERVIS TERAKHIR',
                     style: putih.copyWith(
-                      fontSize: 10,
+                      fontSize: 11,
                       letterSpacing: 0.8,
                       fontWeight: FontWeight.w500,
                       color: Colors.white70,
@@ -106,7 +106,7 @@ class ServisTerakhirCard extends StatelessWidget {
                 label: const Text('Jadwalkan ulang'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white,
-                  foregroundColor: AppColors.biruAksen,
+                  foregroundColor: AppColors.biruTua,
                   elevation: 0,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,

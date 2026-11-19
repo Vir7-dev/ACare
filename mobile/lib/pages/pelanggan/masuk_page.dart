@@ -8,6 +8,7 @@ import '../../widgets/auth_button.dart';
 import '../../widgets/auth_header.dart';
 import '../../widgets/auth_text_field.dart';
 import '../../widgets/wave_background.dart';
+import '../teknisi/registrasi_teknisi_page.dart';
 import '../teknisi/teknisi_shell.dart';
 import '../umum/main_shell.dart';
 import 'daftar_page.dart';
@@ -40,8 +41,14 @@ class _MasukPageState extends State<MasukPage> {
   }
 
   Future<void> _bukaDaftar() async {
-    await Navigator.of(context)
-        .push(MaterialPageRoute(builder: (_) => const DaftarPage()));
+    // Teknisi mendaftar lewat form 3 tahap (data diri, dokumen, rekening).
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => widget.role == UserRole.teknisi
+            ? const RegistrasiTeknisiPage()
+            : const DaftarPage(),
+      ),
+    );
     // Setelah mendaftar, email langsung terisi di form masuk.
     await _isiEmailDariAkun();
   }
@@ -56,22 +63,58 @@ class _MasukPageState extends State<MasukPage> {
   String? _wajib(String? v, String label) =>
       (v == null || v.trim().isEmpty) ? '$label wajib diisi' : null;
 
+  /// Login memakai email atau nomor telepon yang terdaftar.
+  String? _validasiIdentitas(String? v) {
+    final teks = v?.trim() ?? '';
+    if (teks.isEmpty) return 'Email atau nomor telepon wajib diisi';
+    final email = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(teks);
+    final telepon = RegExp(r'^\+?[0-9]{9,15}$').hasMatch(teks);
+    if (!email && !telepon) {
+      return 'Masukkan email atau nomor telepon yang valid';
+    }
+    return null;
+  }
+
   Future<void> _masuk() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _memproses = true);
-    final berhasil = await AuthService.login(
+    final hasil = await AuthService.login(
       _email.text,
       _sandi.text,
       widget.role,
     );
     if (!mounted) return;
     setState(() => _memproses = false);
-    if (!berhasil) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Email dan kata sandi wajib diisi')),
-      );
-      return;
+    switch (hasil) {
+      case HasilLogin.gagal:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Email/nomor telepon atau kata sandi salah'),
+          ),
+        );
+        return;
+      case HasilLogin.belumTerverifikasi:
+        await showDialog<void>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Akun belum diverifikasi'),
+            content: const Text(
+              'Akun kamu belum diverifikasi oleh Admin. Kami akan mengirim '
+              'notifikasi setelah dokumenmu selesai diperiksa.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+        return;
+      case HasilLogin.berhasil:
+        break;
     }
+    if (!mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (_) => widget.role == UserRole.teknisi
@@ -99,7 +142,7 @@ class _MasukPageState extends State<MasukPage> {
                     width: double.infinity,
                     padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFDFCFA),
+                      color: AppColors.latar,
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: const [
                         BoxShadow(
@@ -128,11 +171,12 @@ class _MasukPageState extends State<MasukPage> {
                           ),
                           const SizedBox(height: 28),
                           AuthTextField(
-                            hint: 'Email',
-                            icon: Icons.mail_outline,
+                            hint: 'Email atau Nomor Telepon',
+                            icon: Icons.person_outline,
                             controller: _email,
+                            keyboardType: TextInputType.emailAddress,
                             textInputAction: TextInputAction.next,
-                            validator: (v) => _wajib(v, 'Email'),
+                            validator: _validasiIdentitas,
                           ),
                           const SizedBox(height: 16),
                           AuthTextField(
@@ -147,6 +191,7 @@ class _MasukPageState extends State<MasukPage> {
                           AuthButton(
                             label: _memproses ? 'Memproses...' : 'Masuk',
                             onPressed: _masuk,
+                            memproses: _memproses,
                           ),
                           const SizedBox(height: 24),
                           Center(
@@ -166,7 +211,7 @@ class _MasukPageState extends State<MasukPage> {
                                     'Daftar Sekarang',
                                     style: GoogleFonts.plusJakartaSans(
                                       fontSize: 12,
-                                      color: AppColors.tautan,
+                                      color: AppColors.biruTua,
                                     ),
                                   ),
                                 ),

@@ -36,8 +36,11 @@ class _DaftarPageState extends State<DaftarPage> {
   String? _wajib(String? v, String label) =>
       (v == null || v.trim().isEmpty) ? '$label wajib diisi' : null;
 
+  bool _memproses = false;
+
   Future<void> _daftar() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (_memproses || !_formKey.currentState!.validate()) return;
+    setState(() => _memproses = true);
     // TODO: panggil API register Laravel; sementara disimpan di perangkat
     await SesiPengguna.simpanAkun(
       nama: _nama.text,
@@ -45,6 +48,7 @@ class _DaftarPageState extends State<DaftarPage> {
       email: _email.text,
     );
     if (!mounted) return;
+    setState(() => _memproses = false);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Pendaftaran berhasil, silakan masuk')),
     );
@@ -69,7 +73,7 @@ class _DaftarPageState extends State<DaftarPage> {
                     width: double.infinity,
                     padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFDFCFA),
+                      color: AppColors.latar,
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: const [
                         BoxShadow(
@@ -162,7 +166,11 @@ class _DaftarPageState extends State<DaftarPage> {
                                 : null,
                           ),
                           const SizedBox(height: 24),
-                          AuthButton(label: 'Daftar', onPressed: _daftar),
+                          AuthButton(
+                            label: _memproses ? 'Memproses...' : 'Daftar',
+                            onPressed: _daftar,
+                            memproses: _memproses,
+                          ),
                           const SizedBox(height: 16),
                           Center(
                             child: Text.rich(
@@ -178,7 +186,7 @@ class _DaftarPageState extends State<DaftarPage> {
                                   ),
                                   TextSpan(
                                     text: 'Syarat dan Ketentuan',
-                                    style: TextStyle(color: AppColors.tautan),
+                                    style: TextStyle(color: AppColors.biruTua),
                                   ),
                                   TextSpan(text: ' ACare'),
                                 ],

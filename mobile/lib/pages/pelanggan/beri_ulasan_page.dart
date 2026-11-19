@@ -16,7 +16,6 @@ class BeriUlasanPage extends StatefulWidget {
 
 class _BeriUlasanPageState extends State<BeriUlasanPage> {
   static const _maks = 500;
-  static const _bintang = Color(0xFFF5B800);
   static const _label = {
     1: 'Sangat Kecewa',
     2: 'Kurang Puas',
@@ -56,12 +55,13 @@ class _BeriUlasanPageState extends State<BeriUlasanPage> {
     final p = widget.pesanan;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FB),
+      backgroundColor: AppColors.latar,
       appBar: AppBar(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
         elevation: 0,
         leading: IconButton(
+          tooltip: 'Tutup',
           icon: const Icon(Icons.close),
           onPressed: () => Navigator.of(context).pop(),
         ),
@@ -72,6 +72,7 @@ class _BeriUlasanPageState extends State<BeriUlasanPage> {
         ),
         actions: [
           IconButton(
+            tooltip: 'Bantuan',
             icon: const Icon(Icons.help_outline),
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => PengaduanPage(pesanan: p)),
@@ -92,7 +93,7 @@ class _BeriUlasanPageState extends State<BeriUlasanPage> {
                     const Icon(
                       Icons.check_circle_outline,
                       size: 16,
-                      color: AppColors.biruAksen,
+                      color: AppColors.biruTua,
                     ),
                     const SizedBox(width: 6),
                     Text(
@@ -100,7 +101,7 @@ class _BeriUlasanPageState extends State<BeriUlasanPage> {
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.biruAksen,
+                        color: AppColors.biruTua,
                       ),
                     ),
                     const Spacer(),
@@ -110,14 +111,14 @@ class _BeriUlasanPageState extends State<BeriUlasanPage> {
                         vertical: 3,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFEAF2FF),
+                        color: AppColors.biruMuda,
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
                         '• Selesai Hari Ini',
                         style: GoogleFonts.plusJakartaSans(
-                          fontSize: 9,
-                          color: AppColors.biruAksen,
+                          fontSize: 11,
+                          color: AppColors.biruTua,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -129,7 +130,7 @@ class _BeriUlasanPageState extends State<BeriUlasanPage> {
                   children: [
                     const CircleAvatar(
                       radius: 26,
-                      backgroundColor: Color(0xFFD9DDE3),
+                      backgroundColor: AppColors.garis,
                       child: Icon(Icons.person, color: Colors.white),
                     ),
                     const SizedBox(width: 12),
@@ -142,7 +143,7 @@ class _BeriUlasanPageState extends State<BeriUlasanPage> {
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 15,
                               fontWeight: FontWeight.w700,
-                              color: AppColors.biruAksen,
+                              color: AppColors.biruTua,
                             ),
                           ),
                           const SizedBox(height: 3),
@@ -152,14 +153,14 @@ class _BeriUlasanPageState extends State<BeriUlasanPage> {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFEAF2FF),
+                              color: AppColors.biruMuda,
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
                               'Teknisi Tersertifikasi',
                               style: GoogleFonts.plusJakartaSans(
-                                fontSize: 9,
-                                color: AppColors.biruAksen,
+                                fontSize: 11,
+                                color: AppColors.biruTua,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -173,25 +174,29 @@ class _BeriUlasanPageState extends State<BeriUlasanPage> {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFFF4DF),
+                        color: AppColors.kuningMuda,
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.star, size: 12, color: _bintang),
+                          const Icon(
+                            Icons.star,
+                            size: 12,
+                            color: AppColors.bintang,
+                          ),
                           const SizedBox(width: 3),
                           Text(
                             '4.9 ',
                             style: GoogleFonts.plusJakartaSans(
-                              fontSize: 10,
+                              fontSize: 11,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
                           Text(
                             '(120+)',
                             style: GoogleFonts.plusJakartaSans(
-                              fontSize: 9,
+                              fontSize: 11,
                               color: AppColors.teksSamar,
                             ),
                           ),
@@ -204,7 +209,7 @@ class _BeriUlasanPageState extends State<BeriUlasanPage> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5FD),
+                    color: AppColors.biruMuda,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(
@@ -213,13 +218,13 @@ class _BeriUlasanPageState extends State<BeriUlasanPage> {
                         width: 36,
                         height: 36,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFDDE8FA),
+                          color: AppColors.biruMuda,
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Icon(
                           Icons.ac_unit,
                           size: 18,
-                          color: AppColors.biruAksen,
+                          color: AppColors.biruTua,
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -237,7 +242,7 @@ class _BeriUlasanPageState extends State<BeriUlasanPage> {
                             Text(
                               p.detailUnit,
                               style: GoogleFonts.plusJakartaSans(
-                                fontSize: 9.5,
+                                fontSize: 11,
                                 color: Colors.black54,
                               ),
                             ),
@@ -269,7 +274,7 @@ class _BeriUlasanPageState extends State<BeriUlasanPage> {
                 Text(
                   'Ketuk bintang untuk memberikan nilai pelayanan',
                   style: GoogleFonts.plusJakartaSans(
-                    fontSize: 10,
+                    fontSize: 11,
                     color: Colors.black54,
                   ),
                 ),
@@ -279,6 +284,7 @@ class _BeriUlasanPageState extends State<BeriUlasanPage> {
                   children: [
                     for (var i = 1; i <= 5; i++)
                       IconButton(
+                        tooltip: 'Beri $i bintang',
                         onPressed: () => setState(() => _nilai = i),
                         iconSize: 38,
                         padding: EdgeInsets.zero,
@@ -288,7 +294,7 @@ class _BeriUlasanPageState extends State<BeriUlasanPage> {
                         ),
                         icon: Icon(
                           i <= _nilai ? Icons.star : Icons.star_border,
-                          color: _bintang,
+                          color: AppColors.bintang,
                         ),
                       ),
                   ],
@@ -300,9 +306,9 @@ class _BeriUlasanPageState extends State<BeriUlasanPage> {
                     vertical: 5,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFF4DF),
+                    color: AppColors.kuningMuda,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFF6D58A)),
+                    border: Border.all(color: AppColors.kuningGaris),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -310,7 +316,7 @@ class _BeriUlasanPageState extends State<BeriUlasanPage> {
                       const Icon(
                         Icons.sentiment_satisfied_alt_outlined,
                         size: 14,
-                        color: Color(0xFFB7791F),
+                        color: AppColors.kuning,
                       ),
                       const SizedBox(width: 6),
                       Text(
@@ -318,7 +324,7 @@ class _BeriUlasanPageState extends State<BeriUlasanPage> {
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: const Color(0xFFB7791F),
+                          color: AppColors.kuning,
                         ),
                       ),
                     ],
@@ -348,7 +354,7 @@ class _BeriUlasanPageState extends State<BeriUlasanPage> {
                     Text(
                       'Pilihan ganda',
                       style: GoogleFonts.plusJakartaSans(
-                        fontSize: 10,
+                        fontSize: 11,
                         color: AppColors.teksSamar,
                       ),
                     ),
@@ -398,14 +404,14 @@ class _BeriUlasanPageState extends State<BeriUlasanPage> {
                     hintStyle: const TextStyle(fontSize: 12),
                     counterText: '',
                     filled: true,
-                    fillColor: const Color(0xFFF1F5FD),
+                    fillColor: AppColors.biruMuda,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Color(0xFFD5DCEB)),
+                      borderSide: const BorderSide(color: AppColors.garis),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Color(0xFFD5DCEB)),
+                      borderSide: const BorderSide(color: AppColors.garis),
                     ),
                   ),
                 ),
@@ -415,7 +421,7 @@ class _BeriUlasanPageState extends State<BeriUlasanPage> {
                   child: Text(
                     '${_ulasan.text.length} / $_maks karakter',
                     style: GoogleFonts.plusJakartaSans(
-                      fontSize: 10,
+                      fontSize: 11,
                       color: AppColors.teksSamar,
                     ),
                   ),
@@ -460,7 +466,7 @@ class _BeriUlasanPageState extends State<BeriUlasanPage> {
                   'Ulasanmu membantu teknisi kami berkembang & meningkatkan kualitas layanan.',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.plusJakartaSans(
-                    fontSize: 9,
+                    fontSize: 11,
                     color: AppColors.teksSamar,
                   ),
                 ),
@@ -486,7 +492,7 @@ class _Kartu extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE6EAF2)),
+        border: Border.all(color: AppColors.garisLembut),
       ),
       child: child,
     );
@@ -506,17 +512,17 @@ class _ChipPilihan extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final warna = dipilih ? AppColors.biruAksen : Colors.black54;
+    final warna = dipilih ? AppColors.biruTua : Colors.black54;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
         decoration: BoxDecoration(
-          color: dipilih ? const Color(0xFFE4EEFF) : const Color(0xFFF3F4F7),
+          color: dipilih ? AppColors.biruMuda : AppColors.latar,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: dipilih ? AppColors.biruAksen : const Color(0xFFE0E3EA),
+            color: dipilih ? AppColors.biruTua : AppColors.garisLembut,
           ),
         ),
         child: Row(
@@ -531,7 +537,7 @@ class _ChipPilihan extends StatelessWidget {
             Text(
               label,
               style: GoogleFonts.plusJakartaSans(
-                fontSize: 10.5,
+                fontSize: 11,
                 color: warna,
                 fontWeight: dipilih ? FontWeight.w600 : FontWeight.w400,
               ),
