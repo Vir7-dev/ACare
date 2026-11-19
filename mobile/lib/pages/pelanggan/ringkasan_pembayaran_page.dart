@@ -198,8 +198,6 @@ class _RingkasanPembayaranPageState extends State<RingkasanPembayaranPage> {
           height: 46,
           child: ElevatedButton.icon(
             onPressed: _bayar,
-            iconAlignment: IconAlignment.end,
-            icon: const Icon(Icons.lock_outline, size: 18),
             label: Text('Bayar ${rupiah(pesanan.biayaAwal)}'),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.biru,
