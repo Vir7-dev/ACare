@@ -65,7 +65,7 @@ class _MencariTeknisiPageState extends State<MencariTeknisiPage> {
         detailAlamat: '',
         jadwal: DateTime.now(),
         metodeBayar: widget.metodeBayar,
-        totalEstimasi: OrderService.hitungTotalEstimasi(layanan, 1),
+        biayaAwal: OrderService.hitungBiayaAwal(layanan, 1),
       );
 
   Future<void> _mulaiCari() async {
@@ -150,7 +150,7 @@ class _MencariTeknisiPageState extends State<MencariTeknisiPage> {
               const Spacer(),
               _LokasiAnda(lokasi: _lokasi),
               const SizedBox(height: 10),
-              _RingkasanBiaya(layanan: layanan),
+              _RingkasanBiaya(biayaAwal: _pesanan.biayaAwal),
               const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
@@ -190,7 +190,7 @@ class _LokasiAnda extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFEFF2FA),
+        color: AppColors.biruMuda,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -198,11 +198,7 @@ class _LokasiAnda extends StatelessWidget {
           const CircleAvatar(
             radius: 16,
             backgroundColor: AppColors.biruMuda,
-            child: Icon(
-              Icons.location_on,
-              size: 16,
-              color: AppColors.biruAksen,
-            ),
+            child: Icon(Icons.location_on, size: 16, color: AppColors.biruTua),
           ),
           const SizedBox(width: 12),
           Column(
@@ -218,7 +214,7 @@ class _LokasiAnda extends StatelessWidget {
               Text(
                 lokasi,
                 style: GoogleFonts.plusJakartaSans(
-                  fontSize: 10,
+                  fontSize: 11,
                   color: Colors.black54,
                 ),
               ),
@@ -231,9 +227,9 @@ class _LokasiAnda extends StatelessWidget {
 }
 
 class _RingkasanBiaya extends StatelessWidget {
-  final Layanan layanan;
+  final int biayaAwal;
 
-  const _RingkasanBiaya({required this.layanan});
+  const _RingkasanBiaya({required this.biayaAwal});
 
   @override
   Widget build(BuildContext context) {
@@ -241,7 +237,7 @@ class _RingkasanBiaya extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFD5D9DE)),
+        border: Border.all(color: AppColors.garis),
       ),
       child: IntrinsicHeight(
         child: Row(
@@ -254,12 +250,12 @@ class _RingkasanBiaya extends StatelessWidget {
                 catatan: 'Berdasarkan lokasi anda',
               ),
             ),
-            const VerticalDivider(width: 24, color: Color(0xFFD5D9DE)),
+            const VerticalDivider(width: 24, color: AppColors.garis),
             Expanded(
               child: _Kolom(
                 ikon: Icons.account_balance_wallet_outlined,
-                judul: 'Biaya Pemeriksaan',
-                nilai: rupiah(layanan.harga),
+                judul: 'Biaya Awal',
+                nilai: rupiah(biayaAwal),
                 badge: 'Pembayaran Selesai',
               ),
             ),
@@ -292,12 +288,12 @@ class _Kolom extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(ikon, size: 18, color: AppColors.biruAksen),
+            Icon(ikon, size: 18, color: AppColors.biruTua),
             const SizedBox(width: 6),
             Flexible(
               child: Text(
                 judul,
-                style: GoogleFonts.plusJakartaSans(fontSize: 10.5),
+                style: GoogleFonts.plusJakartaSans(fontSize: 11),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -316,7 +312,7 @@ class _Kolom extends StatelessWidget {
           Text(
             catatan!,
             style: GoogleFonts.plusJakartaSans(
-              fontSize: 9,
+              fontSize: 11,
               color: AppColors.teksSamar,
             ),
           ),
@@ -335,7 +331,7 @@ class _Kolom extends StatelessWidget {
                 Text(
                   badge!,
                   style: GoogleFonts.plusJakartaSans(
-                    fontSize: 9,
+                    fontSize: 11,
                     color: AppColors.hijau,
                     fontWeight: FontWeight.w600,
                   ),
@@ -395,8 +391,8 @@ class _DialogBatal extends StatelessWidget {
                   child: OutlinedButton(
                     onPressed: () => Navigator.of(context).pop(false),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.biruAksen,
-                      side: const BorderSide(color: AppColors.biruAksen),
+                      foregroundColor: AppColors.biruTua,
+                      side: const BorderSide(color: AppColors.biruTua),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(6),
                       ),
@@ -409,7 +405,7 @@ class _DialogBatal extends StatelessWidget {
                   child: ElevatedButton(
                     onPressed: () => Navigator.of(context).pop(true),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.biruAksen,
+                      backgroundColor: AppColors.biruTua,
                       foregroundColor: Colors.white,
                       elevation: 0,
                       shape: RoundedRectangleBorder(

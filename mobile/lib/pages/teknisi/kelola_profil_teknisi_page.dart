@@ -1,9 +1,13 @@
-
 import 'package:flutter/material.dart';
 
 import '../../services/auth_service.dart';
 import '../../services/sesi_pengguna.dart';
+import '../../services/teknisi_service.dart';
+import '../pelanggan/pengaduan_page.dart';
 import '../role_select_page.dart';
+import '../umum/notifikasi_page.dart';
+import '../umum/ubah_kata_sandi_page.dart';
+import '../../theme/app_colors.dart';
 
 class KelolaProfilTeknisiPage extends StatefulWidget {
   const KelolaProfilTeknisiPage({super.key});
@@ -13,23 +17,24 @@ class KelolaProfilTeknisiPage extends StatefulWidget {
       _KelolaProfilTeknisiPageState();
 }
 
-class _KelolaProfilTeknisiPageState
-    extends State<KelolaProfilTeknisiPage> {
-  static const Color biru = Color(0xFF0788C9);
-  static const Color abu = Color(0xFF777777);
-
+class _KelolaProfilTeknisiPageState extends State<KelolaProfilTeknisiPage> {
   final _formKey = GlobalKey<FormState>();
 
-  final _namaController = TextEditingController(text: 'Dina Safitri');
-  final _teleponController =
-      TextEditingController(text: '083862865166');
-  final _emailController =
-      TextEditingController(text: 'dina.safitri@gmail.com');
-  final _jenisController =
-      TextEditingController(text: 'Mekanik AC');
-  final _platController = TextEditingController(text: 'BP 676767');
+  // TODO(backend): isi dari data profil teknisi di API. Sementara data contoh.
+  final _namaController = TextEditingController(text: 'Teknisi Contoh');
+  final _teleponController = TextEditingController(text: '081200000003');
+  final _emailController = TextEditingController(text: 'teknisi@acare.id');
+  final _jenisController = TextEditingController(text: 'Mekanik AC');
+  final _platController = TextEditingController(text: 'BP 1234 AC');
 
   bool _modeEdit = false;
+
+  /// Inisial untuk avatar, misal "Teknisi Contoh" -> "TC".
+  static String _inisial(String nama) {
+    final kata = nama.trim().split(RegExp(r'\s+')).where((k) => k.isNotEmpty);
+    if (kata.isEmpty) return '?';
+    return kata.take(2).map((k) => k[0].toUpperCase()).join();
+  }
 
   @override
   void dispose() {
@@ -40,6 +45,9 @@ class _KelolaProfilTeknisiPageState
     _platController.dispose();
     super.dispose();
   }
+
+  void _buka(Widget halaman) =>
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => halaman));
 
   void _editProfil() {
     setState(() {
@@ -57,9 +65,7 @@ class _KelolaProfilTeknisiPageState
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Perubahan profil berhasil disimpan.'),
-      ),
+      const SnackBar(content: Text('Perubahan profil berhasil disimpan.')),
     );
   }
 
@@ -78,7 +84,7 @@ class _KelolaProfilTeknisiPageState
             onPressed: () => Navigator.pop(dialogContext, true),
             child: const Text(
               'Keluar',
-              style: TextStyle(color: Colors.red),
+              style: TextStyle(color: AppColors.merah),
             ),
           ),
         ],
@@ -87,6 +93,7 @@ class _KelolaProfilTeknisiPageState
     if (ya != true || !mounted) return;
 
     await AuthService.logout();
+    TeknisiService.instance.reset();
     await SesiPengguna.keluar();
     if (!mounted) return;
     // Kembali ke pemilihan peran, sama seperti saat pertama membuka aplikasi.
@@ -105,48 +112,46 @@ class _KelolaProfilTeknisiPageState
     String? Function(String?)? validator,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 5),
+      padding: const EdgeInsets.only(bottom: 10),
       child: TextFormField(
         controller: controller,
         readOnly: !_modeEdit,
         keyboardType: keyboardType,
         validator: validator,
-        style: const TextStyle(
-          fontSize: 11,
-          color: Colors.black87,
-        ),
+        style: const TextStyle(fontSize: 14, color: Colors.black87),
         decoration: InputDecoration(
+          labelText: label,
+          labelStyle: const TextStyle(fontSize: 13, color: AppColors.teksSamar),
+          floatingLabelBehavior: FloatingLabelBehavior.always,
           hintText: hint,
-          hintStyle: const TextStyle(fontSize: 10),
-          prefixIcon: Icon(icon, size: 15, color: abu),
+          hintStyle: const TextStyle(fontSize: 13),
+          prefixIcon: Icon(icon, size: 20, color: AppColors.teksSamar),
           prefixIconConstraints: const BoxConstraints(
-            minWidth: 32,
-            minHeight: 32,
+            minWidth: 44,
+            minHeight: 44,
           ),
           isDense: true,
           filled: true,
           fillColor: Colors.white,
           contentPadding: const EdgeInsets.symmetric(
-            horizontal: 8,
-            vertical: 9,
+            horizontal: 12,
+            vertical: 14,
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(6),
-            borderSide: const BorderSide(
-              color: Color(0xFFDDE6ED),
-            ),
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: AppColors.garis),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(6),
-            borderSide: const BorderSide(color: biru),
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: AppColors.biru),
           ),
           errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(6),
-            borderSide: const BorderSide(color: Colors.red),
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: AppColors.merah),
           ),
           focusedErrorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(6),
-            borderSide: const BorderSide(color: Colors.red),
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: AppColors.merah),
           ),
         ),
       ),
@@ -160,59 +165,28 @@ class _KelolaProfilTeknisiPageState
     VoidCallback? onTap,
   }) {
     return InkWell(
-      onTap: onTap ?? () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$title belum dihubungkan.')),
-        );
-      },
+      onTap:
+          onTap ??
+          () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('$title belum dihubungkan.')),
+            );
+          },
       child: Container(
-        height: 36,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
+        height: 52,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
         decoration: const BoxDecoration(
-          border: Border(
-            bottom: BorderSide(color: Color(0xFFE5E5E5)),
-          ),
+          border: Border(bottom: BorderSide(color: AppColors.garisLembut)),
         ),
         child: Row(
           children: [
-            Icon(icon, size: 14, color: color),
-            const SizedBox(width: 9),
-            Text(
-              title,
-              style: TextStyle(fontSize: 11, color: color),
-            ),
+            Icon(icon, size: 20, color: color),
+            const SizedBox(width: 12),
+            Text(title, style: TextStyle(fontSize: 14, color: color)),
             const Spacer(),
-            const Icon(
-              Icons.chevron_right,
-              size: 15,
-              color: Colors.black38,
-            ),
+            const Icon(Icons.chevron_right, size: 20, color: Colors.black38),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _bottomItem(IconData icon, String label,
-      {bool aktif = false}) {
-    return Expanded(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            icon,
-            size: 17,
-            color: aktif ? biru : Colors.grey,
-          ),
-          const SizedBox(height: 3),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 9,
-              color: aktif ? biru : Colors.grey,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -220,55 +194,20 @@ class _KelolaProfilTeknisiPageState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FA),
+      backgroundColor: AppColors.latar,
       appBar: AppBar(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back,
-            size: 20,
-            color: Colors.black87,
-          ),
-          onPressed: () => Navigator.maybePop(context),
-        ),
+        automaticallyImplyLeading: false,
         title: const Text(
           'Kelola Profil',
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 16,
             fontWeight: FontWeight.w600,
             color: Colors.black87,
           ),
         ),
-        actions: [
-          IconButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Pencarian belum dihubungkan.'),
-                ),
-              );
-            },
-            icon: const Icon(Icons.search, size: 19),
-            color: Colors.black54,
-          ),
-          IconButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Bantuan belum dihubungkan.'),
-                ),
-              );
-            },
-            icon: const Icon(
-              Icons.help_outline,
-              size: 18,
-            ),
-            color: Colors.black54,
-          ),
-          const SizedBox(width: 4),
-        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -284,15 +223,15 @@ class _KelolaProfilTeknisiPageState
                       Stack(
                         clipBehavior: Clip.none,
                         children: [
-                          const CircleAvatar(
-                            radius: 31,
-                            backgroundColor: Color(0xFFE0E9F9),
+                          CircleAvatar(
+                            radius: 40,
+                            backgroundColor: AppColors.biruMuda,
                             child: Text(
-                              'DS',
+                              _inisial(_namaController.text),
                               style: TextStyle(
                                 color: Colors.black87,
                                 fontWeight: FontWeight.w600,
-                                fontSize: 16,
+                                fontSize: 22,
                               ),
                             ),
                           ),
@@ -307,8 +246,8 @@ class _KelolaProfilTeknisiPageState
                               ),
                               child: const Icon(
                                 Icons.camera_alt,
-                                color: biru,
-                                size: 15,
+                                color: AppColors.biru,
+                                size: 18,
                               ),
                             ),
                           ),
@@ -320,7 +259,7 @@ class _KelolaProfilTeknisiPageState
                             ? 'Nama Teknisi'
                             : _namaController.text,
                         style: const TextStyle(
-                          fontSize: 13,
+                          fontSize: 17,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -333,7 +272,8 @@ class _KelolaProfilTeknisiPageState
                 const Text(
                   'Informasi Akun',
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
                     color: Colors.black87,
                   ),
                 ),
@@ -384,7 +324,8 @@ class _KelolaProfilTeknisiPageState
                 const Text(
                   'Informasi Teknisi',
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
                     color: Colors.black87,
                   ),
                 ),
@@ -417,46 +358,42 @@ class _KelolaProfilTeknisiPageState
 
                 const SizedBox(height: 5),
 
-                Align(
-                  alignment: Alignment.centerRight,
+                SizedBox(
+                  width: double.infinity,
                   child: _modeEdit
                       ? Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
                           children: [
-                            OutlinedButton(
-                              onPressed: () {
-                                setState(() {
-                                  _modeEdit = false;
-                                });
-                              },
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: biru,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 13,
-                                  vertical: 9,
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () {
+                                  setState(() {
+                                    _modeEdit = false;
+                                  });
+                                },
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppColors.biru,
+                                  minimumSize: const Size(0, 46),
                                 ),
-                                minimumSize: Size.zero,
-                              ),
-                              child: const Text(
-                                'Batal',
-                                style: TextStyle(fontSize: 11),
+                                child: const Text(
+                                  'Batal',
+                                  style: TextStyle(fontSize: 14),
+                                ),
                               ),
                             ),
-                            const SizedBox(width: 7),
-                            ElevatedButton(
-                              onPressed: _simpanProfil,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: biru,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 13,
-                                  vertical: 9,
+                            const SizedBox(width: 10),
+                            Expanded(
+                              flex: 2,
+                              child: ElevatedButton(
+                                onPressed: _simpanProfil,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.biru,
+                                  foregroundColor: Colors.white,
+                                  minimumSize: const Size(0, 46),
                                 ),
-                                minimumSize: Size.zero,
-                              ),
-                              child: const Text(
-                                'Simpan Perubahan',
-                                style: TextStyle(fontSize: 11),
+                                child: const Text(
+                                  'Simpan Perubahan',
+                                  style: TextStyle(fontSize: 14),
+                                ),
                               ),
                             ),
                           ],
@@ -464,17 +401,13 @@ class _KelolaProfilTeknisiPageState
                       : ElevatedButton(
                           onPressed: _editProfil,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: biru,
+                            backgroundColor: AppColors.biru,
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 13,
-                              vertical: 9,
-                            ),
-                            minimumSize: Size.zero,
+                            minimumSize: const Size(double.infinity, 46),
                           ),
                           child: const Text(
                             'Edit Profil',
-                            style: TextStyle(fontSize: 11),
+                            style: TextStyle(fontSize: 14),
                           ),
                         ),
                 ),
@@ -484,37 +417,41 @@ class _KelolaProfilTeknisiPageState
                 const Text(
                   'Pengaturan Akun',
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
                     color: Colors.black87,
                   ),
                 ),
                 const SizedBox(height: 6),
 
                 Container(
+                  clipBehavior: Clip.antiAlias,
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    border: Border.all(
-                      color: const Color(0xFFE5E5E5),
-                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.garisLembut),
                   ),
                   child: Column(
                     children: [
                       _menuItem(
                         icon: Icons.lock_outline,
                         title: 'Ubah Kata Sandi',
+                        onTap: () => _buka(const UbahKataSandiPage()),
                       ),
                       _menuItem(
                         icon: Icons.notifications_none,
                         title: 'Notifikasi',
+                        onTap: () => _buka(const NotifikasiPage()),
                       ),
                       _menuItem(
                         icon: Icons.support_agent,
                         title: 'Pusat Bantuan',
+                        onTap: () => _buka(const PengaduanPage()),
                       ),
                       _menuItem(
                         icon: Icons.logout,
                         title: 'Keluar',
-                        color: Colors.redAccent,
+                        color: AppColors.merah,
                         onTap: _konfirmasiKeluar,
                       ),
                     ],
@@ -525,27 +462,7 @@ class _KelolaProfilTeknisiPageState
           ),
         ),
       ),
-      bottomNavigationBar: Container(
-        height: 55,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(
-            top: BorderSide(color: Color(0xFFE5E5E5)),
-          ),
-        ),
-        child: Row(
-          children: [
-            _bottomItem(Icons.home_outlined, 'Beranda'),
-            _bottomItem(Icons.receipt_long_outlined, 'Pesanan'),
-            _bottomItem(Icons.calendar_month_outlined, 'Dampat'),
-            _bottomItem(
-              Icons.person_outline,
-              'Profil',
-              aktif: true,
-            ),
-          ],
-        ),
-      ),
+      // Navigasi bawah disediakan oleh TeknisiShell.
     );
   }
 }

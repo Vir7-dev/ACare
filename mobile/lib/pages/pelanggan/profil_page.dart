@@ -8,6 +8,9 @@ import '../../services/auth_service.dart';
 import '../../services/sesi_pengguna.dart';
 import '../../theme/app_colors.dart';
 import '../role_select_page.dart';
+import '../umum/notifikasi_page.dart';
+import '../umum/ubah_kata_sandi_page.dart';
+import 'kelola_alamat_page.dart';
 import 'pengaduan_page.dart';
 
 class ProfilPage extends StatefulWidget {
@@ -97,11 +100,6 @@ class _ProfilPageState extends State<ProfilPage> {
         .showSnackBar(const SnackBar(content: Text('Perubahan disimpan')));
   }
 
-  void _segera() {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('Fitur ini segera hadir')));
-  }
-
   Future<void> _keluar() async {
     final ya = await showDialog<bool>(
       context: context,
@@ -145,13 +143,6 @@ class _ProfilPageState extends State<ProfilPage> {
           'Kelola Profil',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.help_outline),
-            onPressed: () => Navigator.of(context)
-                .push(MaterialPageRoute(builder: (_) => const PengaduanPage())),
-          ),
-        ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
@@ -162,7 +153,7 @@ class _ProfilPageState extends State<ProfilPage> {
               children: [
                 CircleAvatar(
                   radius: 40,
-                  backgroundColor: const Color(0xFFDDE8FA),
+                  backgroundColor: AppColors.biruMuda,
                   backgroundImage: _foto == null ? null : MemoryImage(_foto!),
                   child: _foto != null
                       ? null
@@ -189,7 +180,7 @@ class _ProfilPageState extends State<ProfilPage> {
                       child: const Icon(
                         Icons.photo_camera_outlined,
                         size: 14,
-                        color: AppColors.biruAksen,
+                        color: AppColors.biruTua,
                       ),
                     ),
                   ),
@@ -211,7 +202,7 @@ class _ProfilPageState extends State<ProfilPage> {
           Text(
             'Informasi Akun',
             style: GoogleFonts.plusJakartaSans(
-              fontSize: 10,
+              fontSize: 11,
               color: AppColors.teksSamar,
             ),
           ),
@@ -266,25 +257,31 @@ class _ProfilPageState extends State<ProfilPage> {
           Text(
             'Pengaturan Akun',
             style: GoogleFonts.plusJakartaSans(
-              fontSize: 10,
+              fontSize: 11,
               color: AppColors.teksSamar,
             ),
           ),
           const SizedBox(height: 8),
           _MenuPengaturan(
+            ikon: Icons.location_on_outlined,
+            label: 'Alamat Tersimpan',
+            onTap: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const KelolaAlamatPage())),
+          ),
+          _MenuPengaturan(
             ikon: Icons.lock_outline,
             label: 'Ubah Kata Sandi',
-            onTap: _segera,
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const UbahKataSandiPage()),
+            ),
           ),
           _MenuPengaturan(
             ikon: Icons.notifications_none,
             label: 'Notifikasi',
-            onTap: _segera,
-          ),
-          _MenuPengaturan(
-            ikon: Icons.translate,
-            label: 'Bahasa',
-            onTap: _segera,
+            onTap: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const NotifikasiPage())),
           ),
           _MenuPengaturan(
             ikon: Icons.help_outline,
@@ -332,7 +329,7 @@ class _Isian extends StatelessWidget {
         contentPadding: const EdgeInsets.symmetric(vertical: 14),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFFD5D9DE)),
+          borderSide: const BorderSide(color: AppColors.garis),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
@@ -361,11 +358,11 @@ class _MenuPengaturan extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(6),
         border: const Border(
-          bottom: BorderSide(color: Color(0xFFBFC4CC), width: 2),
+          bottom: BorderSide(color: AppColors.teksNonaktif, width: 2),
         ),
       ),
       child: Material(
-        color: const Color(0xFFF1F3F6),
+        color: AppColors.latar,
         borderRadius: BorderRadius.circular(6),
         clipBehavior: Clip.antiAlias,
         child: ListTile(
@@ -382,7 +379,7 @@ class _MenuPengaturan extends StatelessWidget {
           trailing: const Icon(
             Icons.chevron_right,
             size: 20,
-            color: AppColors.biruAksen,
+            color: AppColors.biruTua,
           ),
         ),
       ),

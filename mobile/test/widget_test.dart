@@ -13,9 +13,7 @@ void main() {
   });
 
   testWidgets('Halaman riwayat pesanan tampil', (WidgetTester tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(home: RiwayatPesananPage()),
-    );
+    await tester.pumpWidget(const MaterialApp(home: RiwayatPesananPage()));
 
     expect(find.text('Riwayat Pesanan'), findsOneWidget);
     expect(find.text('Semua'), findsOneWidget);

@@ -43,17 +43,14 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('Total estimasi memakai harga layanan + biaya aplikasi', (
-    tester,
-  ) async {
-    final cuci = OrderService.layananDenganNama('Cuci AC');
+  testWidgets(
+    'Biaya awal = harga layanan x jumlah unit, tanpa biaya aplikasi',
+    (tester) async {
+      final cuci = OrderService.layananDenganNama('Cuci AC');
 
-    expect(
-      OrderService.hitungTotalEstimasi(cuci, 2),
-      cuci.harga * 2 + OrderService.biayaAplikasi,
-    );
-    expect(OrderService.hitungBiayaLayanan(cuci, 3), cuci.harga * 3);
-  });
+      expect(OrderService.hitungBiayaAwal(cuci, 2), cuci.harga * 2);
+    },
+  );
 
   testWidgets('Form detail pesanan: validasi lalu ke ringkasan pembayaran', (
     tester,
@@ -77,9 +74,13 @@ void main() {
 
     expect(find.text('Ringkasan Pembayaran'), findsOneWidget);
     expect(find.text('Rincian Harga'), findsOneWidget);
-    expect(find.text('Tunai'), findsOneWidget);
     expect(find.text('QRIS'), findsOneWidget);
-    expect(find.text('Transfer/E-Wallet'), findsOneWidget);
+    expect(find.text('E-Wallet'), findsOneWidget);
+    expect(find.text('Virtual Account'), findsOneWidget);
+    // Non-tunai saja dan tanpa biaya aplikasi.
+    expect(find.text('Tunai'), findsNothing);
+    expect(find.text('Biaya aplikasi'), findsNothing);
+    expect(find.textContaining('Bayar Rp'), findsOneWidget);
   });
 
   testWidgets('Service AC menampilkan info biaya tambahan', (tester) async {
@@ -88,7 +89,7 @@ void main() {
       BuatPesananPage(layanan: OrderService.layananDenganNama('Service AC')),
     );
 
-    // Checklist keluhan hanya untuk Service AC & Cek AC.
+    // Checklist keluhan hanya untuk Service AC.
     expect(find.text('Keluhan'), findsOneWidget);
     expect(find.text('Tidak dingin'), findsOneWidget);
 
@@ -117,6 +118,17 @@ void main() {
     expect(find.text('Keluhan'), findsNothing);
     expect(find.text('Jenis Freon'), findsNothing);
     expect(find.text('Jenis Pekerjaan'), findsNothing);
+  });
+
+  testWidgets('Cek AC: tanpa keluhan, cukup catatan, Rp50.000, biaya '
+      'perbaikan bisa diajukan setelah pengecekan', (tester) async {
+    final cek = OrderService.layananDenganNama('Cek AC');
+    expect(cek.harga, 50000);
+    expect(OrderService.layananBerbiayaTambahan.contains('Cek AC'), isTrue);
+
+    await buka(tester, BuatPesananPage(layanan: cek));
+    expect(find.text('Keluhan'), findsNothing);
+    expect(find.text('Ceritakan kondisi AC (opsional)'), findsOneWidget);
   });
 
   testWidgets('Isi Freon wajib memilih jenis freon', (tester) async {
@@ -230,21 +242,17 @@ void main() {
     await isiAlamat(tester, 'Blok C No. 12');
     await tapLanjut(tester);
 
-    // Pilih QRIS: harus lewat halaman kode QRIS dulu.
-    await tester.tap(find.text('QRIS'));
-    await tester.pumpAndSettle();
-    await tester.pump();
-    expect(find.text('Lanjut ke Pembayaran'), findsOneWidget);
-
-    await tester.tap(find.text('Lanjut ke Pembayaran'));
+    // Bayar biaya awal (QRIS default) sebelum mencari teknisi.
+    await tester.tap(find.textContaining('Bayar Rp'));
     // Jangan pumpAndSettle: timer 5 detik akan ikut berjalan sampai habis.
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.text('Pembayaran QRIS'), findsOneWidget);
     expect(find.text('Menunggu Pembayaran'), findsOneWidget);
 
-    // 5 detik dummy: pembayaran dianggap berhasil -> mencari teknisi.
+    // 5 detik dummy: pembayaran berhasil -> mencari teknisi.
     await tester.pump(const Duration(seconds: 5));
+    await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();
     expect(find.text('Mencari Teknisi Terdekat...'), findsOneWidget);
     expect(OrderService.instance.pesananAktif.value?.metodeBayar, 'QRIS');
@@ -259,12 +267,31 @@ void main() {
     await tester.pump();
     expect(find.text('Detail Pesanan'), findsOneWidget);
     expect(find.text('Pengecekan Awal'), findsWidgets);
-    expect(find.text('Menunggu Pembayaran'), findsNothing);
+    // Teknisi sudah ditemukan: pesanan tidak bisa dibatalkan.
+    expect(find.text('Batalkan Pesanan'), findsNothing);
 
-    // Update langsung ke langkah terakhir supaya timer sisa cepat habis.
-    await tester.pump(const Duration(milliseconds: 5500));
+    // Teknisi mengajukan biaya perbaikan -> pelanggan menyetujui.
+    await tester.pump(const Duration(milliseconds: 2600));
     await tester.pump();
-    expect(find.text('Selesai'), findsWidgets);
+    expect(find.text('Rincian Biaya Perbaikan'), findsOneWidget);
+    await tester.ensureVisible(find.text('Setuju'));
+    await tester.tap(find.text('Setuju'));
+    await tester.pump();
+    expect(find.text('Melakukan Perbaikan'), findsWidgets);
+
+    // Perbaikan selesai -> pelunasan.
+    await tester.pump(const Duration(milliseconds: 2600));
+    await tester.pump();
+    await tester.ensureVisible(find.text('Bayar Pesanan'));
+    await tester.tap(find.text('Bayar Pesanan'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('BAYAR'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    expect(find.text('Detail Pesanan'), findsOneWidget);
+    expect(find.text('Total dibayar'), findsOneWidget);
 
     // Back dari detail pesanan -> beranda dengan section "Sedang Berlangsung".
     await tester.tap(find.byIcon(Icons.arrow_back));

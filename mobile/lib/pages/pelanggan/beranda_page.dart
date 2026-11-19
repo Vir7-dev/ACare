@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/layanan.dart';
+import '../../services/alamat_service.dart';
+import '../../services/notifikasi_service.dart';
 import '../../services/order_service.dart';
 import '../../services/perangkat.dart';
 import '../../services/sesi_pengguna.dart';
@@ -11,6 +13,8 @@ import '../../widgets/servis_terakhir_card.dart';
 import 'buat_pesanan_page.dart';
 import 'chat_teknisi_page.dart';
 import 'detail_layanan_page.dart';
+import 'kelola_alamat_page.dart';
+import '../umum/notifikasi_page.dart';
 import 'tracking_teknisi_page.dart';
 
 class BerandaPage extends StatefulWidget {
@@ -21,16 +25,8 @@ class BerandaPage extends StatefulWidget {
 }
 
 class _BerandaPageState extends State<BerandaPage> {
-  // Data dummy, nanti diganti daftar lokasi tersimpan dari API / GPS
-  static const _daftarLokasi = [
-    'Batu Aji, Batam',
-    'Nagoya, Batam',
-    'Batam Centre, Batam',
-    'Sekupang, Batam',
-    'Tiban, Batam',
-  ];
-
   static const _lokasiSaatIni = '__lokasi_saat_ini__';
+  static const _kelolaAlamat = '__kelola_alamat__';
 
   String? _lokasi;
   String? _nama;
@@ -97,70 +93,53 @@ class _BerandaPageState extends State<BerandaPage> {
               ),
             ),
             ListTile(
-              leading: const Icon(
-                Icons.my_location,
-                color: AppColors.biruAksen,
-              ),
+              leading: const Icon(Icons.my_location, color: AppColors.biruTua),
               title: const Text('Gunakan lokasi saya saat ini'),
               onTap: () => Navigator.of(context).pop(_lokasiSaatIni),
             ),
             const Divider(height: 1),
-            for (final l in _daftarLokasi)
+            for (final a in AlamatService.instance.daftar.value)
               ListTile(
                 leading: const Icon(Icons.location_on_outlined),
-                title: Text(l),
-                trailing: l == _lokasi
-                    ? const Icon(Icons.check, color: AppColors.biruAksen)
+                title: Text(a.label),
+                subtitle: Text(
+                  a.alamatLengkap,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                trailing: a.alamatLengkap == _lokasi
+                    ? const Icon(Icons.check, color: AppColors.biruTua)
                     : null,
-                onTap: () => Navigator.of(context).pop(l),
+                onTap: () => Navigator.of(context).pop(a.alamatLengkap),
               ),
+            ListTile(
+              leading: const Icon(
+                Icons.edit_location_alt_outlined,
+                color: AppColors.biruTua,
+              ),
+              title: const Text('Kelola alamat tersimpan'),
+              onTap: () => Navigator.of(context).pop(_kelolaAlamat),
+            ),
           ],
         ),
       ),
     );
-    if (dipilih == null) return;
+    if (dipilih == null || !mounted) return;
     if (dipilih == _lokasiSaatIni) {
       await _pakaiLokasiSaatIni();
+    } else if (dipilih == _kelolaAlamat) {
+      final a = await Navigator.of(context).push<AlamatTersimpan>(
+        MaterialPageRoute(
+          builder: (_) => const KelolaAlamatPage(modePilih: true),
+        ),
+      );
+      if (a != null) await _simpanLokasi(a.alamatLengkap);
     } else {
       await _simpanLokasi(dipilih);
     }
   }
 
-  void _bukaNotifikasi() {
-    // Data dummy, nanti diganti notifikasi dari API
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-              child: Text(
-                'Notifikasi',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            const ListTile(
-              leading: Icon(Icons.two_wheeler, color: AppColors.hijau),
-              title: Text('Teknisi menuju lokasimu'),
-              subtitle: Text('GanAnWo tiba sekitar 12 menit lagi'),
-            ),
-            const ListTile(
-              leading: Icon(Icons.schedule, color: AppColors.biruAksen),
-              title: Text('Waktunya servis berkala'),
-              subtitle: Text('Sudah 3 bulan sejak Cuci AC terakhir'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  void _bukaNotifikasi() => _buka(context, const NotifikasiPage());
 
   void _buka(BuildContext context, Widget halaman) {
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => halaman));
@@ -178,7 +157,7 @@ class _BerandaPageState extends State<BerandaPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.latarBeranda,
+      backgroundColor: AppColors.latar,
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
@@ -210,7 +189,7 @@ class _BerandaPageState extends State<BerandaPage> {
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.black87,
                       backgroundColor: Colors.white,
-                      side: const BorderSide(color: Color(0xFFE2E6EE)),
+                      side: const BorderSide(color: AppColors.garisLembut),
                       shape: const StadiumBorder(),
                       textStyle: GoogleFonts.plusJakartaSans(fontSize: 12),
                     ),
@@ -225,23 +204,33 @@ class _BerandaPageState extends State<BerandaPage> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         shape: BoxShape.circle,
-                        border: Border.all(color: const Color(0xFFE2E6EE)),
+                        border: Border.all(color: AppColors.garisLembut),
                       ),
                       child: IconButton(
+                        tooltip: 'Notifikasi',
                         onPressed: _bukaNotifikasi,
                         icon: const Icon(Icons.notifications_none, size: 20),
                       ),
                     ),
+                    // Titik merah hanya bila ada notifikasi belum dibaca.
                     Positioned(
                       right: 9,
                       top: 9,
-                      child: Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(
-                          color: AppColors.biruAksen,
-                          shape: BoxShape.circle,
-                        ),
+                      child: ValueListenableBuilder<List<Notifikasi>>(
+                        valueListenable: NotifikasiService.instance.daftar,
+                        builder: (context, _, _) {
+                          if (NotifikasiService.instance.belumDibaca == 0) {
+                            return const SizedBox.shrink();
+                          }
+                          return Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                              color: AppColors.merah,
+                              shape: BoxShape.circle,
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ],
@@ -280,7 +269,7 @@ class _BerandaPageState extends State<BerandaPage> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: const Color(0xFFE9EDF4)),
+                border: Border.all(color: AppColors.garisLembut),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -307,13 +296,13 @@ class _BerandaPageState extends State<BerandaPage> {
                               'Lihat Detail',
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: 11,
-                                color: AppColors.biruAksen,
+                                color: AppColors.biruTua,
                               ),
                             ),
                             const Icon(
                               Icons.chevron_right,
                               size: 16,
-                              color: AppColors.biruAksen,
+                              color: AppColors.biruTua,
                             ),
                           ],
                         ),
@@ -360,23 +349,30 @@ class _BerandaPageState extends State<BerandaPage> {
                     ),
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.hijauMuda,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    'Menuju Lokasi',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 10,
-                      color: AppColors.hijau,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                // Label status hanya tampil bila ada pesanan aktif.
+                ValueListenableBuilder<PesananPelanggan?>(
+                  valueListenable: OrderService.instance.pesananAktif,
+                  builder: (context, aktif, _) {
+                    if (aktif?.teknisi == null) return const SizedBox.shrink();
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.hijauMuda,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        aktif!.status.label,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11,
+                          color: AppColors.hijau,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
@@ -392,7 +388,7 @@ class _BerandaPageState extends State<BerandaPage> {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: const Color(0xFFE9EDF4)),
+                      border: Border.all(color: AppColors.garisLembut),
                     ),
                     child: Text(
                       'Belum ada pesanan yang sedang berlangsung.',
@@ -458,7 +454,7 @@ class _KategoriItem extends StatelessWidget {
               layanan.nama,
               textAlign: TextAlign.center,
               style: GoogleFonts.plusJakartaSans(
-                fontSize: 10,
+                fontSize: 11,
                 fontWeight: FontWeight.w500,
               ),
             ),

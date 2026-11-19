@@ -55,7 +55,7 @@ void main() {
     await tester.tap(find.text('Masuk'));
     await tester.pump();
 
-    expect(find.text('Email wajib diisi'), findsOneWidget);
+    expect(find.text('Email atau nomor telepon wajib diisi'), findsOneWidget);
     expect(find.text('Kata sandi wajib diisi'), findsOneWidget);
   });
 

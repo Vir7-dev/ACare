@@ -1,19 +1,18 @@
-
 import 'package:flutter/material.dart';
+
+import '../../services/auth_service.dart';
+import '../../services/perangkat.dart';
+import '../../services/sesi_pengguna.dart';
+import '../../theme/app_colors.dart';
 
 class RegistrasiTeknisiPage extends StatefulWidget {
   const RegistrasiTeknisiPage({super.key});
 
   @override
-  State<RegistrasiTeknisiPage> createState() =>
-      _RegistrasiTeknisiPageState();
+  State<RegistrasiTeknisiPage> createState() => _RegistrasiTeknisiPageState();
 }
 
-class _RegistrasiTeknisiPageState
-    extends State<RegistrasiTeknisiPage> {
-  static const Color biru = Color(0xFF0788D1);
-  static const Color biruMuda = Color(0xFFB9DFFF);
-
+class _RegistrasiTeknisiPageState extends State<RegistrasiTeknisiPage> {
   final formKey = GlobalKey<FormState>();
 
   int tahap = 1;
@@ -28,8 +27,22 @@ class _RegistrasiTeknisiPageState
   final namaPemilik = TextEditingController();
 
   String bank = 'BNI (Bank Negara Indonesia)';
-  String? fotoKtp;
-  String? fotoSelfie;
+  bool mengirim = false;
+
+  /// Dokumen verifikasi yang wajib diunggah (sesuai SKPPL & Figma).
+  static const daftarDokumen = {
+    'cv': 'CV',
+    'lamaran_kerja': 'Lamaran Kerja',
+    'ktp': 'KTP',
+    'ijazah': 'Ijazah',
+    'pas_foto': 'Pas Foto',
+  };
+
+  /// Batas ukuran tiap dokumen.
+  static const int maksUkuranByte = 5 * 1024 * 1024;
+
+  /// Nama berkas yang sudah dipilih per jenis dokumen.
+  final Map<String, String> dokumen = {};
 
   @override
   void dispose() {
@@ -57,12 +70,14 @@ class _RegistrasiTeknisiPageState
     }
 
     if (tahap == 2) {
-      if (fotoKtp == null || fotoSelfie == null) {
+      final kurang = daftarDokumen.entries
+          .where((e) => !dokumen.containsKey(e.key))
+          .map((e) => e.value)
+          .toList();
+      if (kurang.isNotEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Silakan lengkapi foto KTP dan foto selfie.',
-            ),
+          SnackBar(
+            content: Text('Dokumen wajib diunggah: ${kurang.join(', ')}'),
           ),
         );
         return;
@@ -77,29 +92,71 @@ class _RegistrasiTeknisiPageState
     if (!setuju) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Anda harus menyetujui syarat dan ketentuan.',
-          ),
+          content: Text('Anda harus menyetujui syarat dan ketentuan.'),
         ),
       );
       return;
     }
 
-    showDialog<void>(
+    _kirim();
+  }
+
+  Future<void> _kirim() async {
+    setState(() => mengirim = true);
+    await AuthService.registerTeknisi(
+      nama: nama.text,
+      telepon: telepon.text,
+      email: email.text,
+      bank: bank,
+      nomorRekening: nomorRekening.text,
+      namaPemilik: namaPemilik.text,
+      dokumen: dokumen,
+    );
+    // Email & nomor diingat supaya terisi otomatis di halaman Masuk.
+    await SesiPengguna.simpanAkun(
+      nama: nama.text,
+      telepon: telepon.text,
+      email: email.text,
+    );
+    if (!mounted) return;
+    setState(() => mengirim = false);
+
+    await showDialog<void>(
       context: context,
+      barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Registrasi Berhasil'),
+        title: const Text('Pendaftaran berhasil'),
         content: const Text(
-          'Data sudah diperiksa. Hubungkan proses ini '
-          'ke backend untuk menyimpan data teknisi.',
+          'Akun kamu menunggu verifikasi Admin. Kami akan mengirim '
+          'notifikasi setelah dokumenmu selesai diperiksa, biasanya '
+          'dalam 1x24 jam.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('OK'),
+            child: const Text('Kembali ke Masuk'),
           ),
         ],
       ),
+    );
+    if (mounted) Navigator.of(context).maybePop();
+  }
+
+  Future<void> pilihDokumen(String jenis) async {
+    final berkas = await Perangkat.ambilFoto();
+    if (berkas == null || !mounted) return;
+    if (await berkas.length() > maksUkuranByte) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ukuran berkas maksimal 5 MB')),
+      );
+      return;
+    }
+    if (!mounted) return;
+    setState(
+      () => dokumen[jenis] = berkas.name.isEmpty
+          ? 'Berkas terpilih'
+          : berkas.name,
     );
   }
 
@@ -127,10 +184,7 @@ class _RegistrasiTeknisiPageState
         children: [
           Text(
             label,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 5),
           TextFormField(
@@ -141,13 +195,13 @@ class _RegistrasiTeknisiPageState
             style: const TextStyle(fontSize: 12),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: const TextStyle(
-                fontSize: 11,
-                color: Colors.black38,
-              ),
-              prefixIcon: Icon(icon, color: biru, size: 18),
+              hintStyle: const TextStyle(fontSize: 11, color: Colors.black38),
+              prefixIcon: Icon(icon, color: AppColors.biru, size: 18),
               suffixIcon: passwordField
                   ? IconButton(
+                      tooltip: sembunyikanPassword
+                          ? 'Tampilkan kata sandi'
+                          : 'Sembunyikan kata sandi',
                       onPressed: () {
                         setState(() {
                           sembunyikanPassword = !sembunyikanPassword;
@@ -158,7 +212,7 @@ class _RegistrasiTeknisiPageState
                             ? Icons.visibility_off_outlined
                             : Icons.visibility_outlined,
                         size: 17,
-                        color: Colors.grey,
+                        color: AppColors.teksSamar,
                       ),
                     )
                   : null,
@@ -169,24 +223,19 @@ class _RegistrasiTeknisiPageState
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(
-                  color: Color(0xFF80C9F5),
-                ),
+                borderSide: const BorderSide(color: AppColors.biruGaris),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(
-                  color: biru,
-                  width: 1.5,
-                ),
+                borderSide: const BorderSide(color: AppColors.biru, width: 1.5),
               ),
               errorBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Colors.red),
+                borderSide: const BorderSide(color: AppColors.merah),
               ),
               focusedErrorBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Colors.red),
+                borderSide: const BorderSide(color: AppColors.merah),
               ),
             ),
           ),
@@ -201,24 +250,22 @@ class _RegistrasiTeknisiPageState
     bool utama = true,
   }) {
     return ElevatedButton(
-      onPressed: aksi,
+      onPressed: mengirim ? null : aksi,
       style: ElevatedButton.styleFrom(
-        backgroundColor: utama ? biru : Colors.white,
-        foregroundColor: utama ? Colors.white : biru,
+        backgroundColor: utama ? AppColors.biru : Colors.white,
+        foregroundColor: utama ? Colors.white : AppColors.biru,
         elevation: utama ? 1 : 0,
-        padding: const EdgeInsets.symmetric(
-          horizontal: 18,
-          vertical: 10,
-        ),
-        minimumSize: const Size(0, 34),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(5),
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+        minimumSize: const Size(0, 48),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
       ),
-      child: Text(
-        teks,
-        style: const TextStyle(fontSize: 12),
-      ),
+      child: mengirim && utama
+          ? const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Text(teks, style: const TextStyle(fontSize: 13)),
     );
   }
 
@@ -234,10 +281,7 @@ class _RegistrasiTeknisiPageState
         children: [
           Text(
             judul,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 7),
           InkWell(
@@ -272,10 +316,10 @@ class _RegistrasiTeknisiPageState
                         ),
                         const SizedBox(height: 5),
                         const Text(
-                          'Format JPG, PNG, PDF | Maks. 5MB',
+                          'Foto JPG atau PNG | Maks. 5 MB',
                           style: TextStyle(
-                            fontSize: 9,
-                            color: Colors.grey,
+                            fontSize: 11,
+                            color: AppColors.teksSamar,
                           ),
                         ),
                       ],
@@ -305,15 +349,12 @@ class _RegistrasiTeknisiPageState
         const Text(
           'Aplikasi Layanan AC yang Cepat dan Terpercaya',
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 10),
+          style: TextStyle(fontSize: 11),
         ),
         const SizedBox(height: 24),
         const Text(
           'Informasi Pribadi',
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 20),
         input(
@@ -339,23 +380,22 @@ class _RegistrasiTeknisiPageState
           },
         ),
         input(
-          label: 'Gmail',
-          hint: 'Masukkan Gmail',
+          label: 'Email',
+          hint: 'Masukkan email',
           icon: Icons.mail_outline,
           controller: email,
           keyboard: TextInputType.emailAddress,
           validator: (value) {
             if (value == null ||
-                !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
-                    .hasMatch(value.trim())) {
+                !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value.trim())) {
               return 'Email tidak valid';
             }
             return null;
           },
         ),
         input(
-          label: 'Verifikasi kata sandi',
-          hint: 'Masukkan kata sandi',
+          label: 'Kata sandi',
+          hint: 'Minimal 8 karakter',
           icon: Icons.lock_outline,
           controller: password,
           passwordField: true,
@@ -369,19 +409,16 @@ class _RegistrasiTeknisiPageState
         const SizedBox(height: 10),
         Align(
           alignment: Alignment.centerRight,
-          child: tombol(
-            teks: 'Selanjutnya',
-            aksi: lanjut,
-          ),
+          child: tombol(teks: 'Selanjutnya', aksi: lanjut),
         ),
         const SizedBox(height: 14),
         const Text(
           'Dengan Mendaftar Anda Menyetujui',
-          style: TextStyle(fontSize: 10, color: Colors.black45),
+          style: TextStyle(fontSize: 11, color: Colors.black45),
         ),
         const Text(
           'Syarat dan Ketentuan ACare',
-          style: TextStyle(fontSize: 10, color: biru),
+          style: TextStyle(fontSize: 11, color: AppColors.biru),
         ),
       ],
     );
@@ -394,59 +431,48 @@ class _RegistrasiTeknisiPageState
         const SizedBox(height: 8),
         const Center(
           child: Text(
-            'Informasi Tambahan',
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.bold,
-            ),
+            'Unggah Dokumen',
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
           ),
         ),
         const SizedBox(height: 24),
-        uploadFoto(
-          judul: 'Foto KTP',
-          file: fotoKtp,
-          onTap: () {
-            setState(() => fotoKtp = 'KTP dipilih (contoh)');
-          },
-        ),
-        uploadFoto(
-          judul: 'Foto Selfie dengan KTP',
-          file: fotoSelfie,
-          onTap: () {
-            setState(() => fotoSelfie = 'Foto selfie dipilih (contoh)');
-          },
-        ),
+        for (final d in daftarDokumen.entries)
+          uploadFoto(
+            judul: d.value,
+            file: dokumen[d.key],
+            onTap: () => pilihDokumen(d.key),
+          ),
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: const Color(0xFFEAF6FF),
-            border: Border.all(color: biruMuda),
+            color: AppColors.biruMuda,
+            border: Border.all(color: AppColors.biruGaris),
             borderRadius: BorderRadius.circular(10),
           ),
           child: const Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'ⓘ Tips Foto',
+                'ⓘ Tips',
                 style: TextStyle(
                   fontSize: 12,
-                  color: biru,
+                  color: AppColors.biru,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               SizedBox(height: 7),
               Text(
-                '• Pastikan foto terang dan jelas',
-                style: TextStyle(fontSize: 10, color: Colors.black54),
+                '• Semua dokumen harus jelas dan tidak buram',
+                style: TextStyle(fontSize: 11, color: Colors.black54),
               ),
               Text(
-                '• KTP terlihat penuh dan tidak terpotong',
-                style: TextStyle(fontSize: 10, color: Colors.black54),
+                '• Foto dokumen secara utuh, tidak terpotong',
+                style: TextStyle(fontSize: 11, color: Colors.black54),
               ),
               Text(
-                '• Wajah dan data pada KTP dapat terbaca',
-                style: TextStyle(fontSize: 10, color: Colors.black54),
+                '• Ukuran tiap berkas maksimal 5 MB',
+                style: TextStyle(fontSize: 11, color: Colors.black54),
               ),
             ],
           ),
@@ -455,15 +481,8 @@ class _RegistrasiTeknisiPageState
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            tombol(
-              teks: 'Kembali',
-              aksi: kembali,
-              utama: false,
-            ),
-            tombol(
-              teks: 'Selanjutnya',
-              aksi: lanjut,
-            ),
+            tombol(teks: 'Kembali', aksi: kembali, utama: false),
+            tombol(teks: 'Selanjutnya', aksi: lanjut),
           ],
         ),
       ],
@@ -478,19 +497,13 @@ class _RegistrasiTeknisiPageState
         const Center(
           child: Text(
             'Data Rekening Bank',
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
           ),
         ),
         const SizedBox(height: 25),
         const Text(
           'Pilih Bank Penerima',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-          ),
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
@@ -498,11 +511,11 @@ class _RegistrasiTeknisiPageState
           decoration: InputDecoration(
             prefixIcon: const Icon(
               Icons.account_balance_outlined,
-              color: biru,
+              color: AppColors.biru,
               size: 18,
             ),
             filled: true,
-            fillColor: const Color(0xFFF0F6FF),
+            fillColor: AppColors.biruMuda,
             isDense: true,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 10,
@@ -510,7 +523,7 @@ class _RegistrasiTeknisiPageState
             ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: biruMuda),
+              borderSide: const BorderSide(color: AppColors.biruGaris),
             ),
           ),
           items: const [
@@ -537,10 +550,7 @@ class _RegistrasiTeknisiPageState
             ),
             DropdownMenuItem(
               value: 'Mandiri',
-              child: Text(
-                'Mandiri',
-                style: TextStyle(fontSize: 11),
-              ),
+              child: Text('Mandiri', style: TextStyle(fontSize: 11)),
             ),
           ],
           onChanged: (value) {
@@ -562,36 +572,41 @@ class _RegistrasiTeknisiPageState
           controller: namaPemilik,
         ),
         const SizedBox(height: 8),
-        CheckboxListTile(
-          value: setuju,
-          onChanged: (value) {
-            setState(() => setuju = value ?? false);
-          },
-          dense: true,
-          contentPadding: EdgeInsets.zero,
-          controlAffinity: ListTileControlAffinity.leading,
-          activeColor: biru,
-          title: const Text.rich(
-            TextSpan(
-              style: TextStyle(fontSize: 10, color: Colors.black54),
-              children: [
-                TextSpan(text: 'Saya Menyetujui '),
-                TextSpan(
-                  text: 'Syarat & Ketentuan Kemitraan Teknisi',
-                  style: TextStyle(
-                    color: biru,
-                    decoration: TextDecoration.underline,
+        // Material transparan supaya efek sentuh ListTile tidak tertutup
+        // latar putih kartu (menghilangkan peringatan debug Flutter).
+        Material(
+          type: MaterialType.transparency,
+          child: CheckboxListTile(
+            value: setuju,
+            onChanged: (value) {
+              setState(() => setuju = value ?? false);
+            },
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            controlAffinity: ListTileControlAffinity.leading,
+            activeColor: AppColors.biru,
+            title: const Text.rich(
+              TextSpan(
+                style: TextStyle(fontSize: 11, color: Colors.black54),
+                children: [
+                  TextSpan(text: 'Saya Menyetujui '),
+                  TextSpan(
+                    text: 'Syarat & Ketentuan Kemitraan Teknisi',
+                    style: TextStyle(
+                      color: AppColors.biru,
+                      decoration: TextDecoration.underline,
+                    ),
                   ),
-                ),
-                TextSpan(text: ' serta '),
-                TextSpan(
-                  text: 'Kebijakan Privasi',
-                  style: TextStyle(
-                    color: biru,
-                    decoration: TextDecoration.underline,
+                  TextSpan(text: ' serta '),
+                  TextSpan(
+                    text: 'Kebijakan Privasi',
+                    style: TextStyle(
+                      color: AppColors.biru,
+                      decoration: TextDecoration.underline,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -599,15 +614,8 @@ class _RegistrasiTeknisiPageState
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            tombol(
-              teks: 'Kembali',
-              aksi: kembali,
-              utama: false,
-            ),
-            tombol(
-              teks: 'Registrasi',
-              aksi: lanjut,
-            ),
+            tombol(teks: 'Kembali', aksi: kembali, utama: false),
+            tombol(teks: 'Registrasi', aksi: lanjut),
           ],
         ),
       ],
@@ -637,11 +645,7 @@ class _RegistrasiTeknisiPageState
               height: constraints.maxHeight,
               child: Stack(
                 children: [
-                  Positioned.fill(
-                    child: CustomPaint(
-                      painter: _LatarPainter(),
-                    ),
-                  ),
+                  Positioned.fill(child: CustomPaint(painter: _LatarPainter())),
                   SingleChildScrollView(
                     padding: const EdgeInsets.fromLTRB(18, 95, 18, 30),
                     child: Center(
@@ -649,9 +653,7 @@ class _RegistrasiTeknisiPageState
                         constraints: const BoxConstraints(maxWidth: 400),
                         child: Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.fromLTRB(
-                            15, 22, 15, 18,
-                          ),
+                          padding: const EdgeInsets.fromLTRB(15, 22, 15, 18),
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(18),
@@ -663,10 +665,7 @@ class _RegistrasiTeknisiPageState
                               ),
                             ],
                           ),
-                          child: Form(
-                            key: formKey,
-                            child: isiTahap(),
-                          ),
+                          child: Form(key: formKey, child: isiTahap()),
                         ),
                       ),
                     ),
@@ -686,7 +685,7 @@ class _LatarPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final paint = Paint();
 
-    paint.color = const Color(0xFF087BEA);
+    paint.color = AppColors.biru;
     final atas = Path()
       ..moveTo(0, 0)
       ..lineTo(size.width * 0.62, 0)
@@ -694,7 +693,7 @@ class _LatarPainter extends CustomPainter {
       ..close();
     canvas.drawPath(atas, paint);
 
-    paint.color = const Color(0xFFB9DFFF);
+    paint.color = AppColors.biruGaris;
     final atasMuda = Path()
       ..moveTo(0, size.height * 0.07)
       ..quadraticBezierTo(
@@ -708,7 +707,7 @@ class _LatarPainter extends CustomPainter {
       ..close();
     canvas.drawPath(atasMuda, paint);
 
-    paint.color = const Color(0xFF087BEA);
+    paint.color = AppColors.biru;
     final bawah = Path()
       ..moveTo(0, size.height * 0.92)
       ..quadraticBezierTo(
@@ -722,7 +721,7 @@ class _LatarPainter extends CustomPainter {
       ..close();
     canvas.drawPath(bawah, paint);
 
-    paint.color = const Color(0xFFB9DFFF);
+    paint.color = AppColors.biruGaris;
     final bawahMuda = Path()
       ..moveTo(0, size.height * 0.89)
       ..quadraticBezierTo(

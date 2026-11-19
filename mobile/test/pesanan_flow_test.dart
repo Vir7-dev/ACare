@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:acare_mobile/models/status_layanan.dart';
+import 'package:acare_mobile/models/tagihan.dart';
 import 'package:acare_mobile/models/teknisi.dart';
 import 'package:acare_mobile/pages/pelanggan/chat_teknisi_page.dart';
 import 'package:acare_mobile/pages/pelanggan/detail_pesanan_page.dart';
@@ -21,7 +22,7 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: halaman));
   }
 
-  testWidgets('Detail pesanan: mulai pengecekan awal, tombolnya sesuai', (
+  testWidgets('Detail pesanan: pengecekan awal tanpa tombol batal', (
     tester,
   ) async {
     // Mode manual supaya status tidak berubah sendiri saat test.
@@ -35,31 +36,81 @@ void main() {
 
     expect(find.text('Detail Pesanan'), findsOneWidget);
     expect(find.text('Pengecekan Awal'), findsWidgets);
-
-    final batal = tester.widget<OutlinedButton>(
-      find.widgetWithText(OutlinedButton, 'Batalkan Pesanan'),
-    );
-    expect(batal.onPressed, isNotNull);
+    // Garis waktu memuat 4 langkah, termasuk Menunggu Pembayaran.
+    expect(find.text('Menunggu Pembayaran'), findsOneWidget);
+    expect(find.text('Menunggu hasil pengecekan'), findsOneWidget);
+    // Teknisi sudah ditemukan: pesanan tidak bisa dibatalkan.
+    expect(find.text('Batalkan Pesanan'), findsNothing);
   });
 
-  testWidgets('Detail pesanan: status berjalan otomatis tanpa tahap bayar', (
+  testWidgets('Detail pesanan: setujui biaya perbaikan lalu menunggu bayar', (
     tester,
   ) async {
     await buka(tester, const DetailPesananPage());
-
-    // Tahap "Menunggu Pembayaran" disembunyikan dari timeline.
-    expect(find.text('Pengecekan Awal'), findsWidgets);
-    expect(find.text('Menunggu Pembayaran'), findsNothing);
     expect(find.text('Sedang berjalan'), findsOneWidget);
 
+    // Pengecekan selesai -> menunggu persetujuan, timer berhenti di sini.
     await tester.pump(const Duration(milliseconds: 2600));
     await tester.pump();
+    expect(find.text('Menunggu Persetujuan Biaya'), findsOneWidget);
+    expect(find.text('Rincian Biaya Perbaikan'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 10));
+    expect(find.text('Rincian Biaya Perbaikan'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Setuju'));
+    await tester.tap(find.text('Setuju'));
+    await tester.pump();
+    expect(find.text('Rincian Biaya Perbaikan'), findsNothing);
     expect(find.text('Melakukan Perbaikan'), findsWidgets);
-    expect(find.text('Menunggu Pembayaran'), findsNothing);
 
     await tester.pump(const Duration(milliseconds: 2600));
     await tester.pump();
-    expect(find.text('Selesai'), findsWidgets);
+    expect(find.text('Sisa tagihan'), findsOneWidget);
+    expect(find.text('Bayar Pesanan'), findsOneWidget);
+  });
+
+  testWidgets('Detail pesanan: tolak biaya perbaikan -> selesai biaya awal', (
+    tester,
+  ) async {
+    await buka(
+      tester,
+      const DetailPesananPage(
+        status: StatusLayanan.menungguPersetujuanBiaya,
+        otomatis: false,
+      ),
+    );
+
+    await tester.ensureVisible(find.text('Tolak'));
+    await tester.tap(find.text('Tolak'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ya, Tolak'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ditolak'), findsOneWidget);
+    expect(find.text('Total dibayar'), findsOneWidget);
+    expect(find.text('Bayar Pesanan'), findsNothing);
+    // Langkah perbaikan & pembayaran tidak ditampilkan lagi.
+    expect(find.text('Melakukan Perbaikan'), findsNothing);
+  });
+
+  testWidgets('Detail pesanan tanpa biaya perbaikan langsung selesai', (
+    tester,
+  ) async {
+    await buka(
+      tester,
+      const DetailPesananPage(
+        tagihan: Tagihan(pemeriksaan: 75000, komponen: []),
+      ),
+    );
+
+    await tester.pump(const Duration(milliseconds: 2600));
+    await tester.pump();
+    expect(find.text('Rincian Biaya Perbaikan'), findsNothing);
+    expect(find.text('Melakukan Perbaikan'), findsWidgets);
+
+    await tester.pump(const Duration(milliseconds: 2600));
+    await tester.pump();
+    expect(find.text('Total dibayar'), findsOneWidget);
     expect(find.text('Bayar Pesanan'), findsNothing);
   });
 
@@ -82,18 +133,52 @@ void main() {
     expect(find.text('TOTAL PEMBAYARAN'), findsOneWidget);
   });
 
-  testWidgets('Pembayaran menampilkan rincian dan metode', (tester) async {
-    await buka(tester, const PembayaranPage());
+  testWidgets('Pelunasan: non-tunai, hanya menagih biaya perbaikan', (
+    tester,
+  ) async {
+    bool? hasil;
+    await buka(
+      tester,
+      Builder(
+        builder: (context) => Scaffold(
+          body: Center(
+            child: ElevatedButton(
+              onPressed: () async {
+                hasil = await Navigator.of(context).push<bool>(
+                  MaterialPageRoute(builder: (_) => const PembayaranPage()),
+                );
+              },
+              child: const Text('Buka'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Buka'));
+    await tester.pumpAndSettle();
 
     expect(find.text('Rincian Pembayaran'), findsOneWidget);
     expect(find.text('Filter'), findsOneWidget);
     expect(find.text('Blower'), findsOneWidget);
+    expect(find.text('Biaya awal (sudah dibayar)'), findsOneWidget);
+    expect(find.text('QRIS'), findsOneWidget);
     expect(find.text('E-Wallet'), findsOneWidget);
+    expect(find.text('Virtual Account'), findsOneWidget);
+    expect(find.text('Cash'), findsNothing);
 
-    await tester.tap(find.text('Cash'));
+    await tester.tap(find.text('Virtual Account'));
     await tester.pump();
     await tester.tap(find.text('BAYAR'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Pembayaran Virtual Account'), findsOneWidget);
+    expect(find.text('Nomor Virtual Account'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();
+    expect(find.text('Buka'), findsOneWidget);
+    expect(hasil, isTrue);
   });
 
   testWidgets('Tracking teknisi tampil dan bisa buka chat', (tester) async {

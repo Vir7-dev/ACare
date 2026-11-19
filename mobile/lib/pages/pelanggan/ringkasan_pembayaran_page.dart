@@ -3,15 +3,17 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import '../../models/layanan.dart';
+import '../../models/metode_bayar.dart';
 import '../../services/order_service.dart';
 import '../../theme/app_colors.dart';
 import 'mencari_teknisi_page.dart';
-import 'qris_page.dart';
+import 'menunggu_pembayaran_page.dart';
 
-/// Ringkasan pesanan + pilihan metode bayar sebelum mencari teknisi.
+/// Ringkasan pesanan + pembayaran biaya awal sebelum mencari teknisi.
 ///
-/// Pembayaran masih mock: metode hanya disimpan di [PesananPelanggan], tidak
-/// ada transaksi sungguhan. // TODO(backend): integrasikan payment gateway.
+/// Biaya awal wajib dibayar non-tunai lebih dulu; teknisi baru dicari
+/// setelah pembayaran berhasil.
+// TODO(backend): simpan pesanan dan buat invoice Xendit lewat API.
 class RingkasanPembayaranPage extends StatefulWidget {
   const RingkasanPembayaranPage({super.key, required this.pesanan});
 
@@ -23,39 +25,47 @@ class RingkasanPembayaranPage extends StatefulWidget {
 }
 
 class _RingkasanPembayaranPageState extends State<RingkasanPembayaranPage> {
-  static const Map<String, IconData> _metodeBayar = {
-    'Tunai': Icons.payments_outlined,
-    'QRIS': Icons.qr_code_2,
-    'Transfer/E-Wallet': Icons.account_balance_wallet_outlined,
-  };
-
-  String _metode = 'Tunai';
+  MetodeBayar _metode = MetodeBayar.qris;
 
   PesananPelanggan get pesanan => widget.pesanan;
 
   bool get _perluPersetujuanTambahan =>
       OrderService.layananBerbiayaTambahan.contains(pesanan.layanan.nama);
 
-  void _cariTeknisi() {
-    // TODO(backend): simpan pesanan ke API sebelum pencarian.
-    // QRIS punya halaman kode QR dulu; metode lain langsung mencari teknisi.
-    final Widget halaman = _metode == 'QRIS'
-        ? QrisPage(pesanan: pesanan)
-        : MencariTeknisiPage(
-            layanan: pesanan.layanan,
-            pesanan: pesanan,
-            metodeBayar: _metode,
-          );
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => halaman));
+  Future<void> _bayar() async {
+    final berhasil = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => MenungguPembayaranPage(
+          metode: _metode,
+          nominal: pesanan.biayaAwal,
+          keterangan: 'Biaya awal ${pesanan.layanan.nama}',
+          pesanBerhasil:
+              'Terima kasih, pembayaran kamu sudah kami terima. Kami carikan '
+              'teknisi terdekat sekarang.',
+        ),
+      ),
+    );
+    if (berhasil != true || !mounted) return;
+
+    final dibayar = pesanan.copyWith(metodeBayar: _metode.label);
+    OrderService.instance.pesananAktif.value = dibayar;
+
+    // Halaman form dan pembayaran dibuang dari stack supaya tombol kembali
+    // dari alur pencarian tidak membuka lagi pembayaran yang sudah lunas.
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (_) => MencariTeknisiPage(
+          layanan: dibayar.layanan,
+          pesanan: dibayar,
+          metodeBayar: dibayar.metodeBayar,
+        ),
+      ),
+      (route) => route.isFirst,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final biayaLayanan = OrderService.hitungBiayaLayanan(
-      pesanan.layanan,
-      pesanan.jumlahUnit,
-    );
-
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -68,7 +78,7 @@ class _RingkasanPembayaranPageState extends State<RingkasanPembayaranPage> {
         ),
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
-          child: Divider(height: 1, color: Color(0xFFEEF0F4)),
+          child: Divider(height: 1, color: AppColors.garisLembut),
         ),
       ),
       body: ListView(
@@ -89,25 +99,21 @@ class _RingkasanPembayaranPageState extends State<RingkasanPembayaranPage> {
           const SizedBox(height: 14),
           _kartu('Rincian Harga', [
             _baris(
-              '${rupiah(pesanan.layanan.harga)} x ${pesanan.jumlahUnit} unit',
-              rupiah(biayaLayanan),
+              'Biaya awal ${rupiah(pesanan.layanan.harga)} x '
+              '${pesanan.jumlahUnit} unit',
+              rupiah(pesanan.biayaAwal),
             ),
-            _baris('Biaya aplikasi', rupiah(OrderService.biayaAplikasi)),
-            const Divider(height: 20, color: Color(0xFFEEF0F4)),
-            _baris(
-              'Total estimasi',
-              rupiah(pesanan.totalEstimasi),
-              tebal: true,
-            ),
+            const Divider(height: 20, color: AppColors.garisLembut),
+            _baris('Dibayar sekarang', rupiah(pesanan.biayaAwal), tebal: true),
           ]),
           if (_perluPersetujuanTambahan) ...[
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFF4DF),
+                color: AppColors.kuningMuda,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFF3D9A4)),
+                border: Border.all(color: AppColors.kuningGaris),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -115,7 +121,7 @@ class _RingkasanPembayaranPageState extends State<RingkasanPembayaranPage> {
                   const Icon(
                     Icons.info_outline,
                     size: 16,
-                    color: Color(0xFFB7791F),
+                    color: AppColors.kuning,
                   ),
                   const SizedBox(width: 8),
                   Expanded(
@@ -124,7 +130,7 @@ class _RingkasanPembayaranPageState extends State<RingkasanPembayaranPage> {
                       'perlu persetujuanmu',
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 11,
-                        color: const Color(0xFF8A5B12),
+                        color: AppColors.kuning,
                       ),
                     ),
                   ),
@@ -141,20 +147,18 @@ class _RingkasanPembayaranPageState extends State<RingkasanPembayaranPage> {
             ),
           ),
           const SizedBox(height: 8),
-          for (final m in _metodeBayar.entries)
+          for (final m in MetodeBayar.values)
             Container(
               margin: const EdgeInsets.only(bottom: 8),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: _metode == m.key
-                      ? AppColors.biru
-                      : const Color(0xFFD5D9DE),
-                  width: _metode == m.key ? 1.5 : 1,
+                  color: _metode == m ? AppColors.biru : AppColors.garis,
+                  width: 1.5,
                 ),
               ),
-              child: RadioListTile<String>(
-                value: m.key,
+              child: RadioListTile<MetodeBayar>(
+                value: m,
                 // ignore: deprecated_member_use
                 groupValue: _metode,
                 // ignore: deprecated_member_use
@@ -162,22 +166,27 @@ class _RingkasanPembayaranPageState extends State<RingkasanPembayaranPage> {
                 dense: true,
                 activeColor: AppColors.biru,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                secondary: Icon(m.value, size: 20, color: AppColors.teksSamar),
+                secondary: Icon(m.ikon, size: 20, color: AppColors.teksSamar),
                 title: Text(
-                  m.key,
+                  m.label,
                   style: GoogleFonts.plusJakartaSans(fontSize: 12),
+                ),
+                subtitle: Text(
+                  m.keterangan,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11,
+                    color: AppColors.teksSamar,
+                  ),
                 ),
               ),
             ),
           const SizedBox(height: 6),
           Text(
-            _metode == 'QRIS'
-                ? 'Setelah menekan tombol di bawah, kamu akan diarahkan ke kode '
-                      'QRIS untuk menyelesaikan pembayaran.'
-                : 'Pembayaran belum diproses sekarang; kamu membayar setelah '
-                      'pekerjaan selesai.',
+            'Teknisi dicari setelah biaya awal dibayar. Jika ada perbaikan '
+            'tambahan, rinciannya dikirim untuk kamu setujui dan dibayar '
+            'setelah pekerjaan selesai.',
             style: GoogleFonts.plusJakartaSans(
-              fontSize: 10,
+              fontSize: 11,
               color: AppColors.teksSamar,
             ),
           ),
@@ -188,15 +197,10 @@ class _RingkasanPembayaranPageState extends State<RingkasanPembayaranPage> {
         child: SizedBox(
           height: 46,
           child: ElevatedButton.icon(
-            onPressed: _cariTeknisi,
+            onPressed: _bayar,
             iconAlignment: IconAlignment.end,
-            icon: Icon(
-              _metode == 'QRIS' ? Icons.qr_code_2 : Icons.search,
-              size: 18,
-            ),
-            label: Text(
-              _metode == 'QRIS' ? 'Lanjut ke Pembayaran' : 'Cari Teknisi',
-            ),
+            icon: const Icon(Icons.lock_outline, size: 18),
+            label: Text('Bayar ${rupiah(pesanan.biayaAwal)}'),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.biru,
               foregroundColor: Colors.white,
@@ -220,7 +224,7 @@ class _RingkasanPembayaranPageState extends State<RingkasanPembayaranPage> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE6EAF2)),
+        border: Border.all(color: AppColors.garisLembut),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -263,7 +267,7 @@ class _RingkasanPembayaranPageState extends State<RingkasanPembayaranPage> {
               kanan,
               textAlign: rataKanan ? TextAlign.right : TextAlign.left,
               style: gaya.copyWith(
-                color: tebal ? AppColors.biruAksen : Colors.black87,
+                color: tebal ? AppColors.biruTua : Colors.black87,
                 fontWeight: tebal ? FontWeight.w700 : FontWeight.w600,
               ),
             ),

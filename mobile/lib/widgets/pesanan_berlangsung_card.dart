@@ -42,7 +42,7 @@ class PesananBerlangsungCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFE6EAF2)),
+          border: Border.all(color: AppColors.garisLembut),
         ),
         child: Column(
           children: [
@@ -95,14 +95,14 @@ class PesananBerlangsungCard extends StatelessWidget {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFEAF0FF),
+                              color: AppColors.biruMuda,
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
                               'Mitra Pro',
                               style: GoogleFonts.plusJakartaSans(
-                                fontSize: 9,
-                                color: AppColors.biruAksen,
+                                fontSize: 11,
+                                color: AppColors.biruTua,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -112,7 +112,11 @@ class PesananBerlangsungCard extends StatelessWidget {
                       const SizedBox(height: 2),
                       Row(
                         children: [
-                          const Icon(Icons.star, size: 13, color: Colors.amber),
+                          const Icon(
+                            Icons.star,
+                            size: 13,
+                            color: AppColors.bintang,
+                          ),
                           const SizedBox(width: 2),
                           Text(
                             rating,
@@ -144,8 +148,8 @@ class PesananBerlangsungCard extends StatelessWidget {
                 ),
                 _AksiBulat(
                   ikon: Icons.chat_bubble_outline,
-                  warna: AppColors.biruAksen,
-                  latar: const Color(0xFFEAF0FF),
+                  warna: AppColors.biruTua,
+                  latar: AppColors.biruMuda,
                   onTap: onChat ?? () {},
                 ),
                 const SizedBox(width: 8),
@@ -158,7 +162,7 @@ class PesananBerlangsungCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 10),
-            const Divider(height: 1, color: Color(0xFFEEF0F4)),
+            const Divider(height: 1, color: AppColors.garisLembut),
             const SizedBox(height: 10),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -187,13 +191,13 @@ class PesananBerlangsungCard extends StatelessWidget {
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.biruAksen,
+                          color: AppColors.biruTua,
                         ),
                       ),
                       const Icon(
                         Icons.chevron_right,
                         size: 16,
-                        color: AppColors.biruAksen,
+                        color: AppColors.biruTua,
                       ),
                     ],
                   ),
@@ -225,11 +229,18 @@ class _AksiBulat extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       customBorder: const CircleBorder(),
-      child: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(color: latar, shape: BoxShape.circle),
-        child: Icon(ikon, size: 18, color: warna),
+      // Lingkaran 40 px, area sentuh 48 px.
+      child: SizedBox(
+        width: 48,
+        height: 48,
+        child: Center(
+          child: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(color: latar, shape: BoxShape.circle),
+            child: Icon(ikon, size: 20, color: warna),
+          ),
+        ),
       ),
     );
   }

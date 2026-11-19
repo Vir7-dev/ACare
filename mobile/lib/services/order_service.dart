@@ -53,7 +53,7 @@ class PesananPelanggan {
   final DateTime jadwal;
   final String? catatan;
   final String metodeBayar;
-  final int totalEstimasi;
+  final int biayaAwal;
   final StatusPesananPelanggan status;
   final String? namaTeknisi;
   final String? plat;
@@ -72,7 +72,7 @@ class PesananPelanggan {
     required this.jadwal,
     this.catatan,
     required this.metodeBayar,
-    required this.totalEstimasi,
+    required this.biayaAwal,
     this.status = StatusPesananPelanggan.mencariTeknisi,
     this.namaTeknisi,
     this.plat,
@@ -103,7 +103,8 @@ class PesananPelanggan {
       nama: namaTeknisi!,
       rating: rating ?? '-',
       jumlahUlasan: jumlahUlasan ?? 0,
-      kendaraan: layanan.nama,
+      // TODO(backend): ambil kendaraan teknisi dari API.
+      kendaraan: teknisiDummy.kendaraan,
       plat: plat ?? '-',
       telepon: _teleponTeknisi,
       testimoni: 'Teknisi yang hebat mantep pokoknya',
@@ -135,7 +136,7 @@ class PesananPelanggan {
       jadwal: jadwal,
       catatan: catatan,
       metodeBayar: metodeBayar ?? this.metodeBayar,
-      totalEstimasi: totalEstimasi,
+      biayaAwal: biayaAwal,
       status: status ?? this.status,
       namaTeknisi: namaTeknisi ?? this.namaTeknisi,
       plat: plat ?? this.plat,
@@ -153,18 +154,16 @@ String _pkLabel(double pk) =>
 /// Sumber tunggal mock data pesanan pelanggan.
 ///
 /// Harga layanan TIDAK disimpan di sini: semuanya dibaca dari
-/// [daftarLayanan] (lihat [layananDenganNama] dan [hitungTotalEstimasi])
+/// [daftarLayanan] (lihat [layananDenganNama] dan [hitungBiayaAwal])
 /// supaya tidak ada angka yang di-hardcode di halaman.
 class OrderService {
   OrderService._();
 
   static final OrderService instance = OrderService._();
 
-  /// Biaya aplikasi tetap (mock). // TODO(backend): ambil dari konfigurasi API.
-  static const int biayaAplikasi = 5000;
-
   /// Biaya layanan yang belum termasuk komponen, jadi diagnosis teknisi bisa
-  /// menambah tagihan (Service AC & Cek AC).
+  /// menambah tagihan. Cek AC: setelah pemeriksaan teknisi boleh
+  /// mengajukan biaya perbaikan sesuai masalah yang ditemukan.
   static const Set<String> layananBerbiayaTambahan = {'Service AC', 'Cek AC'};
 
   /// Pesanan yang sedang berjalan. `null` berarti pelanggan belum punya
@@ -186,12 +185,10 @@ class OrderService {
     throw ArgumentError.value(nama, 'nama', 'Layanan tidak dikenal');
   }
 
-  /// Total estimasi = harga layanan x jumlah unit + biaya aplikasi.
-  static int hitungTotalEstimasi(Layanan layanan, int jumlahUnit) =>
-      layanan.harga * jumlahUnit + biayaAplikasi;
-
-  /// Biaya layanan (harga x unit) tanpa biaya aplikasi.
-  static int hitungBiayaLayanan(Layanan layanan, int jumlahUnit) =>
+  /// Biaya awal yang dibayar di muka sebelum mencari teknisi:
+  /// harga layanan x jumlah unit. Biaya perbaikan (bila ada) diajukan
+  /// teknisi setelah pengecekan dan dibayar saat pelunasan.
+  static int hitungBiayaAwal(Layanan layanan, int jumlahUnit) =>
       layanan.harga * jumlahUnit;
 
   /// Nomor pencarian yang sedang berjalan; dinaikkan tiap [batalkan] supaya

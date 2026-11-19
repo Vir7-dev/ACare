@@ -31,7 +31,7 @@ class TeknisiInfoCard extends StatelessWidget {
           children: [
             const CircleAvatar(
               radius: 30,
-              backgroundColor: Color(0xFFD9DDE3),
+              backgroundColor: AppColors.garis,
               child: Icon(Icons.person, size: 32, color: Colors.white),
             ),
             const SizedBox(width: 14),
@@ -49,7 +49,11 @@ class TeknisiInfoCard extends StatelessWidget {
                   const SizedBox(height: 2),
                   Row(
                     children: [
-                      const Icon(Icons.star, size: 14, color: Colors.amber),
+                      const Icon(
+                        Icons.star,
+                        size: 14,
+                        color: AppColors.bintang,
+                      ),
                       const SizedBox(width: 3),
                       Text(
                         teknisi.rating,
@@ -81,7 +85,7 @@ class TeknisiInfoCard extends StatelessWidget {
                           Text(
                             'Teknisi Terverifikasi',
                             style: GoogleFonts.plusJakartaSans(
-                              fontSize: 9,
+                              fontSize: 11,
                               color: AppColors.hijau,
                               fontWeight: FontWeight.w600,
                             ),
@@ -112,8 +116,8 @@ class TeknisiInfoCard extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  'BP : ${teknisi.plat}',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 10),
+                  'Plat : ${teknisi.plat}',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 11),
                 ),
               ],
             ),
@@ -122,7 +126,7 @@ class TeknisiInfoCard extends StatelessWidget {
         const SizedBox(height: 10),
         Text(
           teknisi.testimoni,
-          style: GoogleFonts.plusJakartaSans(fontSize: 10.5),
+          style: GoogleFonts.plusJakartaSans(fontSize: 11),
         ),
         const SizedBox(height: 14),
         Row(

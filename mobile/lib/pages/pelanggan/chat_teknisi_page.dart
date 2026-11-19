@@ -99,7 +99,7 @@ class _ChatTeknisiPageState extends State<ChatTeknisiPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F8FF),
+      backgroundColor: AppColors.latar,
       appBar: AppBar(
         backgroundColor: AppColors.biru,
         foregroundColor: Colors.white,
@@ -109,7 +109,7 @@ class _ChatTeknisiPageState extends State<ChatTeknisiPage> {
           children: [
             const CircleAvatar(
               radius: 18,
-              backgroundColor: Color(0xFFD9DDE3),
+              backgroundColor: AppColors.garis,
               child: Icon(Icons.person, size: 20, color: Colors.white),
             ),
             const SizedBox(width: 10),
@@ -127,9 +127,9 @@ class _ChatTeknisiPageState extends State<ChatTeknisiPage> {
                     ),
                   ),
                   Text(
-                    'Teknisi ACare â€¢ Online',
+                    'Teknisi ACare • Online',
                     style: GoogleFonts.plusJakartaSans(
-                      fontSize: 10.5,
+                      fontSize: 11,
                       color: Colors.white70,
                     ),
                   ),
@@ -156,12 +156,12 @@ class _ChatTeknisiPageState extends State<ChatTeknisiPage> {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFFE4E6EA)),
+                      border: Border.all(color: AppColors.garisLembut),
                     ),
                     child: Text(
                       'Hari ini',
                       style: GoogleFonts.plusJakartaSans(
-                        fontSize: 9.5,
+                        fontSize: 11,
                         color: AppColors.teksSamar,
                       ),
                     ),
@@ -190,7 +190,7 @@ class _KolomInput extends StatelessWidget {
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFE4E6EA))),
+        border: Border(top: BorderSide(color: AppColors.garisLembut)),
       ),
       child: SafeArea(
         top: false,
@@ -214,7 +214,7 @@ class _KolomInput extends StatelessWidget {
                       color: AppColors.teksSamar,
                     ),
                     filled: true,
-                    fillColor: const Color(0xFFF5F8FF),
+                    fillColor: AppColors.latar,
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 14,
@@ -250,7 +250,7 @@ class _KolomInput extends StatelessWidget {
   }
 }
 
-OutlineInputBorder _garisInput({Color color = const Color(0xFFCBD0D8)}) =>
+OutlineInputBorder _garisInput({Color color = AppColors.garis}) =>
     OutlineInputBorder(
       borderRadius: BorderRadius.circular(22),
       borderSide: BorderSide(color: color),
@@ -281,7 +281,7 @@ class _Gelembung extends StatelessWidget {
             bottomLeft: Radius.circular(dariSaya ? 12 : 2),
             bottomRight: Radius.circular(dariSaya ? 2 : 12),
           ),
-          border: dariSaya ? null : Border.all(color: const Color(0xFFE4E6EA)),
+          border: dariSaya ? null : Border.all(color: AppColors.garisLembut),
         ),
         child: Column(
           crossAxisAlignment: dariSaya
@@ -300,7 +300,7 @@ class _Gelembung extends StatelessWidget {
             Text(
               pesan.jam,
               style: GoogleFonts.plusJakartaSans(
-                fontSize: 8.5,
+                fontSize: 11,
                 color: dariSaya ? Colors.white70 : AppColors.teksSamar,
               ),
             ),

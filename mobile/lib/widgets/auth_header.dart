@@ -19,7 +19,10 @@ class AuthHeader extends StatelessWidget {
         Text(
           'Aplikasi Layanan AC yang Cepat dan Terpercaya',
           textAlign: TextAlign.center,
-          style: GoogleFonts.plusJakartaSans(fontSize: 12, color: Colors.black87),
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 12,
+            color: Colors.black87,
+          ),
         ),
       ],
     );

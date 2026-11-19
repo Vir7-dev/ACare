@@ -1,13 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 
 import '../../models/layanan.dart';
+import '../../models/metode_bayar.dart';
 import '../../models/tagihan.dart';
 import '../../models/teknisi.dart';
+import '../../services/order_service.dart';
 import '../../theme/app_colors.dart';
+import 'menunggu_pembayaran_page.dart';
 
-enum _Metode { transferBank, eWallet, cash }
-
+/// Pelunasan biaya perbaikan setelah pekerjaan selesai.
+///
+/// Biaya awal sudah dibayar saat memesan, jadi yang ditagih di sini hanya
+/// biaya perbaikan yang sudah disetujui pelanggan. Pembayaran non-tunai.
+/// Halaman ditutup dengan hasil `true` bila pembayaran berhasil.
 class PembayaranPage extends StatefulWidget {
   final Teknisi teknisi;
   final Tagihan tagihan;
@@ -23,19 +30,27 @@ class PembayaranPage extends StatefulWidget {
 }
 
 class _PembayaranPageState extends State<PembayaranPage> {
-  _Metode _metode = _Metode.eWallet;
+  MetodeBayar _metode = MetodeBayar.eWallet;
 
-  void _bayar() {
-    // TODO: panggil API pembayaran sesuai metode yang dipilih
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Pembayaran berhasil')),
+  Future<void> _bayar() async {
+    // TODO(backend): buat invoice pelunasan Xendit lewat API.
+    final berhasil = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => MenungguPembayaranPage(
+          metode: _metode,
+          nominal: widget.tagihan.sisaTagihan,
+          keterangan: 'Pelunasan biaya perbaikan',
+        ),
+      ),
     );
-    Navigator.of(context).pop(true);
+    if (berhasil == true && mounted) Navigator.of(context).pop(true);
   }
 
   @override
   Widget build(BuildContext context) {
     final t = widget.tagihan;
+    // Jadwal & alamat dari pesanan yang sedang berjalan.
+    final aktif = OrderService.instance.pesananAktif.value;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -63,7 +78,7 @@ class _PembayaranPageState extends State<PembayaranPage> {
                   children: [
                     const CircleAvatar(
                       radius: 18,
-                      backgroundColor: Color(0xFFD9DDE3),
+                      backgroundColor: AppColors.garis,
                       child: Icon(Icons.person, color: Colors.white),
                     ),
                     const SizedBox(width: 10),
@@ -80,7 +95,7 @@ class _PembayaranPageState extends State<PembayaranPage> {
                         Text(
                           '★ ${widget.teknisi.rating}  (${widget.teknisi.jumlahUlasan} ulasan)',
                           style: GoogleFonts.plusJakartaSans(
-                            fontSize: 10,
+                            fontSize: 11,
                             color: AppColors.teksSamar,
                           ),
                         ),
@@ -90,9 +105,17 @@ class _PembayaranPageState extends State<PembayaranPage> {
                 ),
                 const SizedBox(height: 10),
                 const Divider(height: 1),
-                const _BarisKecil('Jadwal', 'Senin, 12 Sep 2026 | 12.00 - 14.30'),
+                _BarisKecil(
+                  'Jadwal',
+                  aktif == null
+                      ? '-'
+                      : DateFormat(
+                          'EEEE, d MMM yyyy | HH.mm',
+                          'id_ID',
+                        ).format(aktif.jadwal),
+                ),
                 const Divider(height: 1),
-                const _BarisKecil('Alamat', 'Perumahan Batu Aji, Batam'),
+                _BarisKecil('Alamat', aktif?.alamatLengkap ?? '-'),
               ],
             ),
           ),
@@ -101,9 +124,13 @@ class _PembayaranPageState extends State<PembayaranPage> {
             judul: 'Rincian Pembayaran',
             anak: Column(
               children: [
-                _BarisHarga('Pemeriksaan', rupiah(t.pemeriksaan)),
+                _BarisHarga(
+                  'Biaya awal (sudah dibayar)',
+                  rupiah(t.pemeriksaan),
+                  samar: true,
+                ),
                 const SizedBox(height: 8),
-                _BarisHarga('Komponen', rupiah(t.totalKomponen)),
+                _BarisHarga('Biaya perbaikan', rupiah(t.totalKomponen)),
                 for (final k in t.komponen)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
@@ -113,14 +140,14 @@ class _PembayaranPageState extends State<PembayaranPage> {
                         Text(
                           k.nama,
                           style: GoogleFonts.plusJakartaSans(
-                            fontSize: 10,
+                            fontSize: 11,
                             color: Colors.black54,
                           ),
                         ),
                         Text(
                           rupiah(k.harga),
                           style: GoogleFonts.plusJakartaSans(
-                            fontSize: 10,
+                            fontSize: 11,
                             color: Colors.black54,
                           ),
                         ),
@@ -128,7 +155,11 @@ class _PembayaranPageState extends State<PembayaranPage> {
                     ),
                   ),
                 const SizedBox(height: 14),
-                _BarisHarga('Total Pembayaran', rupiah(t.total), tebal: true),
+                _BarisHarga(
+                  'Total Pembayaran',
+                  rupiah(t.sisaTagihan),
+                  tebal: true,
+                ),
               ],
             ),
           ),
@@ -137,26 +168,14 @@ class _PembayaranPageState extends State<PembayaranPage> {
             judul: 'Metode Pembayaran',
             anak: Column(
               children: [
-                _PilihanMetode(
-                  judul: 'Transfer Bank',
-                  keterangan: 'BNI, MANDIRI, BCA',
-                  ikon: Icons.account_balance_outlined,
-                  dipilih: _metode == _Metode.transferBank,
-                  onTap: () => setState(() => _metode = _Metode.transferBank),
-                ),
-                _PilihanMetode(
-                  judul: 'E-Wallet',
-                  keterangan: 'Dana, Gopay, OVO',
-                  ikon: Icons.account_balance_wallet_outlined,
-                  dipilih: _metode == _Metode.eWallet,
-                  onTap: () => setState(() => _metode = _Metode.eWallet),
-                ),
-                _PilihanMetode(
-                  judul: 'Cash',
-                  ikon: Icons.payments_outlined,
-                  dipilih: _metode == _Metode.cash,
-                  onTap: () => setState(() => _metode = _Metode.cash),
-                ),
+                for (final m in MetodeBayar.values)
+                  _PilihanMetode(
+                    judul: m.label,
+                    keterangan: m.keterangan,
+                    ikon: m.ikon,
+                    dipilih: _metode == m,
+                    onTap: () => setState(() => _metode = m),
+                  ),
               ],
             ),
           ),
@@ -180,12 +199,12 @@ class _PembayaranPageState extends State<PembayaranPage> {
                       Text(
                         'TOTAL PEMBAYARAN',
                         style: GoogleFonts.plusJakartaSans(
-                          fontSize: 10,
+                          fontSize: 11,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                       Text(
-                        rupiah(t.total),
+                        rupiah(t.sisaTagihan),
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 20,
                           fontWeight: FontWeight.w800,
@@ -274,7 +293,7 @@ class _BarisKecil extends StatelessWidget {
             child: Text(
               kanan,
               textAlign: TextAlign.right,
-              style: GoogleFonts.plusJakartaSans(fontSize: 9),
+              style: GoogleFonts.plusJakartaSans(fontSize: 11),
             ),
           ),
         ],
@@ -287,18 +306,28 @@ class _BarisHarga extends StatelessWidget {
   final String kiri;
   final String kanan;
   final bool tebal;
+  final bool samar;
 
-  const _BarisHarga(this.kiri, this.kanan, {this.tebal = false});
+  const _BarisHarga(
+    this.kiri,
+    this.kanan, {
+    this.tebal = false,
+    this.samar = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     final gaya = GoogleFonts.plusJakartaSans(
       fontSize: 12,
       fontWeight: tebal ? FontWeight.w700 : FontWeight.w500,
+      color: samar ? AppColors.teksSamar : Colors.black87,
     );
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [Text(kiri, style: gaya), Text(kanan, style: gaya)],
+      children: [
+        Text(kiri, style: gaya),
+        Text(kanan, style: gaya),
+      ],
     );
   }
 }
@@ -343,7 +372,7 @@ class _PilihanMetode extends StatelessWidget {
                     Text(
                       keterangan!,
                       style: GoogleFonts.plusJakartaSans(
-                        fontSize: 9,
+                        fontSize: 11,
                         color: AppColors.teksSamar,
                       ),
                     ),
@@ -354,13 +383,13 @@ class _PilihanMetode extends StatelessWidget {
               width: 22,
               height: 22,
               decoration: BoxDecoration(
-                color: dipilih ? AppColors.hijau : const Color(0xFFE4E6EA),
+                color: dipilih ? AppColors.hijau : AppColors.garisLembut,
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 Icons.check,
                 size: 14,
-                color: dipilih ? Colors.white : const Color(0xFFBFC4CC),
+                color: dipilih ? Colors.white : AppColors.teksNonaktif,
               ),
             ),
           ],

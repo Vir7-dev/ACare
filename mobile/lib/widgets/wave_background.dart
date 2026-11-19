@@ -32,14 +32,14 @@ class _WavePainter extends CustomPainter {
       ..lineTo(w, h * 0.04)
       ..cubicTo(w * 0.7, h * 0.12, w * 0.35, h * 0.02, 0, h * 0.12)
       ..close();
-    canvas.drawPath(atasMuda, Paint()..color = AppColors.biruMuda);
+    canvas.drawPath(atasMuda, Paint()..color = AppColors.biruGaris);
 
     final atasTua = Path()
       ..moveTo(0, 0)
       ..lineTo(w * 0.55, 0)
       ..cubicTo(w * 0.35, h * 0.03, w * 0.2, h * 0.02, 0, h * 0.075)
       ..close();
-    canvas.drawPath(atasTua, Paint()..color = AppColors.biruTua);
+    canvas.drawPath(atasTua, Paint()..color = AppColors.biru);
 
     // Bawah: kebalikan dari atas
     final bawahMuda = Path()
@@ -48,14 +48,14 @@ class _WavePainter extends CustomPainter {
       ..lineTo(w, h * 0.88)
       ..cubicTo(w * 0.7, h * 0.96, w * 0.35, h * 0.9, 0, h * 0.97)
       ..close();
-    canvas.drawPath(bawahMuda, Paint()..color = AppColors.biruMuda);
+    canvas.drawPath(bawahMuda, Paint()..color = AppColors.biruGaris);
 
     final bawahTua = Path()
       ..moveTo(w, h)
       ..lineTo(w * 0.35, h)
       ..cubicTo(w * 0.6, h * 0.97, w * 0.8, h * 0.9, w, h * 0.9)
       ..close();
-    canvas.drawPath(bawahTua, Paint()..color = AppColors.biruTua);
+    canvas.drawPath(bawahTua, Paint()..color = AppColors.biru);
   }
 
   @override

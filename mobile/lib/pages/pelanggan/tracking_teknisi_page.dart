@@ -53,8 +53,7 @@ class _TrackingTeknisiPageState extends State<TrackingTeknisiPage> {
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (_) =>
-            DetailPesananPage(teknisi: widget.teknisi, bisaDibatalkan: false),
+        builder: (_) => DetailPesananPage(teknisi: widget.teknisi),
       ),
     );
   }
@@ -83,6 +82,7 @@ class _TrackingTeknisiPageState extends State<TrackingTeknisiPage> {
                     Row(
                       children: [
                         IconButton(
+                          tooltip: 'Kembali',
                           onPressed: () => Navigator.of(context).pop(),
                           icon: const Icon(
                             Icons.arrow_back,
@@ -172,7 +172,7 @@ class _TrackingTeknisiPageState extends State<TrackingTeknisiPage> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFD5D9DE)),
+                border: Border.all(color: AppColors.garis),
               ),
               child: TeknisiInfoCard(
                 teknisi: teknisi,
@@ -223,11 +223,7 @@ class _PetaTeknisi extends StatelessWidget {
         ),
         PolylineLayer(
           polylines: [
-            Polyline(
-              points: _rute,
-              strokeWidth: 4,
-              color: const Color(0xFF2F6BE0),
-            ),
+            Polyline(points: _rute, strokeWidth: 4, color: AppColors.biru),
           ],
         ),
         MarkerLayer(
@@ -244,8 +240,8 @@ class _PetaTeknisi extends StatelessWidget {
             ),
             Marker(
               point: _lokasiTeknisi,
-              width: 140,
-              height: 70,
+              width: 190,
+              height: 80,
               child: Column(
                 children: [
                   Container(
@@ -264,7 +260,7 @@ class _PetaTeknisi extends StatelessWidget {
                       'Teknisi sedang menuju lokasi',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.plusJakartaSans(
-                        fontSize: 8.5,
+                        fontSize: 11,
                         fontWeight: FontWeight.w600,
                       ),
                     ),

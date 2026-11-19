@@ -22,6 +22,9 @@ enum UserRole {
   }
 }
 
+/// Hasil percobaan masuk.
+enum HasilLogin { berhasil, gagal, belumTerverifikasi }
+
 /// Satu-satunya pintu untuk autentikasi.
 ///
 /// Saat ini masih mock lokal (SharedPreferences) karena backend belum ada.
@@ -30,6 +33,7 @@ enum UserRole {
 class AuthService {
   static const _kRole = 'role';
   static const _kMasuk = 'is_logged_in';
+  static const _kTeknisiMenunggu = 'teknisi_menunggu_verifikasi';
 
   /// Mock: email apa pun yang tidak kosong dianggap ada.
   static const _placeholderEmail = 'pengguna@acare.id';
@@ -53,27 +57,50 @@ class AuthService {
     return UserRole.dari(p.getString(_kRole)) != null;
   }
 
-  /// Login mock: sukses bila email dan password tidak kosong.
-  static Future<bool> login(
+  /// Login mock: sukses bila email/nomor telepon dan password tidak kosong.
+  /// Teknisi yang baru mendaftar ditolak sampai diverifikasi Admin (UC-02).
+  static Future<HasilLogin> login(
     String email,
     String password,
     UserRole role,
   ) async {
-    // TODO(backend): ganti dengan POST /api/login (email, password) dan
-    // simpan token hasil respons ke secure storage.
+    // TODO(backend): ganti dengan POST /api/login (email atau no. telepon,
+    // password) dan simpan token hasil respons ke secure storage.
     await Future<void>.delayed(const Duration(milliseconds: 800));
-    if (email.trim().isEmpty || password.trim().isEmpty) return false;
+    if (email.trim().isEmpty || password.trim().isEmpty) {
+      return HasilLogin.gagal;
+    }
 
     final p = await SharedPreferences.getInstance();
+    final menunggu = p.getStringList(_kTeknisiMenunggu) ?? const [];
+    if (role == UserRole.teknisi &&
+        menunggu.contains(email.trim().toLowerCase())) {
+      return HasilLogin.belumTerverifikasi;
+    }
+
     await p.setBool(_kMasuk, true);
     await p.setString(_kRole, role.nilai);
-    return true;
+    return HasilLogin.berhasil;
   }
 
-  /// Registrasi teknisi mock.
+  /// Ubah kata sandi (mock). Mengembalikan pesan galat atau `null`.
+  static Future<String?> ubahKataSandi({
+    required String lama,
+    required String baru,
+  }) async {
+    // TODO(backend): PUT /api/profil/kata-sandi; server memeriksa kata
+    // sandi lama dan mengembalikan "Kata sandi lama tidak sesuai".
+    await Future<void>.delayed(const Duration(milliseconds: 600));
+    if (lama.isEmpty) return 'Kata sandi lama tidak sesuai';
+    if (lama == baru) return 'Kata sandi baru harus berbeda dari yang lama';
+    return null;
+  }
+
+  /// Registrasi teknisi mock. Akun baru berstatus menunggu verifikasi Admin.
   ///
-  /// Data sensitif (password, foto KTP/selfie, rekening) sengaja TIDAK
-  /// disimpan di SharedPreferences; nanti dikirim langsung ke backend.
+  /// Data sensitif (password, dokumen, rekening) sengaja TIDAK disimpan di
+  /// SharedPreferences; nanti dikirim langsung ke backend. Yang diingat
+  /// hanya email, untuk meniru status "menunggu verifikasi" saat login.
   static Future<bool> registerTeknisi({
     required String nama,
     required String telepon,
@@ -81,10 +108,17 @@ class AuthService {
     required String bank,
     required String nomorRekening,
     required String namaPemilik,
+    required Map<String, String> dokumen,
   }) async {
-    // TODO(backend): kirim payload (beserta file KTP/selfie sebagai multipart)
-    // ke POST /api/registrasi-teknisi dan tangani hasil verifikasi admin.
+    // TODO(backend): kirim payload beserta file dokumen (multipart) ke
+    // POST /api/registrasi-teknisi; status verifikasi dikelola Admin.
     await Future<void>.delayed(const Duration(seconds: 1));
+    final p = await SharedPreferences.getInstance();
+    final menunggu = p.getStringList(_kTeknisiMenunggu) ?? <String>[];
+    final kunci = email.trim().toLowerCase();
+    if (!menunggu.contains(kunci)) {
+      await p.setStringList(_kTeknisiMenunggu, [...menunggu, kunci]);
+    }
     return true;
   }
 

@@ -1,17 +1,27 @@
-/// Tahapan pekerjaan teknisi yang tampil di halaman detail pesanan.
+/// Tahapan pekerjaan teknisi yang dilihat pelanggan di halaman detail pesanan.
 ///
-/// [menungguPembayaran] sengaja tidak dimasukkan ke [langkahTampil] karena
-/// alur pembayaran masih disembunyikan; nilainya tetap ada supaya
-/// `DetailPesananPage` masih bisa dibuka dengan status itu.
+/// Urutan nilai mengikuti alur pesanan. [menungguPersetujuanBiaya] tidak
+/// punya langkah sendiri di garis waktu: ia digabung ke langkah
+/// [pengecekanAwal] (lihat [langkah]), sesuai pengelompokan status pelanggan.
 enum StatusLayanan {
   pengecekanAwal('Pengecekan Awal'),
+  menungguPersetujuanBiaya('Menunggu Persetujuan Biaya'),
   melakukanPerbaikan('Melakukan Perbaikan'),
   menungguPembayaran('Menunggu Pembayaran'),
   selesai('Selesai');
 
-  /// Status yang ditampilkan di timeline (tanpa "Menunggu Pembayaran").
-  static const langkahTampil = [pengecekanAwal, melakukanPerbaikan, selesai];
+  /// Langkah yang tampil di garis waktu pelanggan.
+  static const langkahTampil = [
+    pengecekanAwal,
+    melakukanPerbaikan,
+    menungguPembayaran,
+    selesai,
+  ];
 
   final String label;
   const StatusLayanan(this.label);
+
+  /// Langkah garis waktu tempat status ini ditampilkan.
+  StatusLayanan get langkah =>
+      this == menungguPersetujuanBiaya ? pengecekanAwal : this;
 }
