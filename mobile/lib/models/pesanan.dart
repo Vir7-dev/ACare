@@ -9,7 +9,6 @@ class Pesanan {
   final int totalBiaya;
   final StatusPesanan status;
   final String? alasanBatal;
-  final String? statusPembayaran;
 
   const Pesanan({
     required this.kode,
@@ -20,7 +19,6 @@ class Pesanan {
     required this.totalBiaya,
     required this.status,
     this.alasanBatal,
-    this.statusPembayaran,
   });
 }
 
@@ -58,11 +56,11 @@ final List<Pesanan> dummyPesanan = [
     tanggal: DateTime(2026, 9, 9, 16, 20),
     namaLayanan: 'Isi Freon R410A',
     detailUnit: '1 Unit AC Sharp 2 PK • Ruang Tamu',
-    namaTeknisi: 'Dedi Kurniawan',
-    totalBiaya: 265000,
+    // Dibatalkan saat mencari teknisi: biaya awal tertahan, belum refund.
+    namaTeknisi: '-',
+    totalBiaya: 150000,
     status: StatusPesanan.dibatalkan,
-    alasanBatal: 'Dibatalkan oleh pelanggan',
-    statusPembayaran: 'Dana Dikembalikan 100%',
+    alasanBatal: 'Dibatalkan oleh pelanggan saat mencari teknisi',
   ),
   Pesanan(
     kode: '#AC-6950',
@@ -78,11 +76,11 @@ final List<Pesanan> dummyPesanan = [
     tanggal: DateTime(2026, 8, 15, 16, 45),
     namaLayanan: 'Perbaikan Modul PCB & Sensor Suhu',
     detailUnit: '1 Unit AC Sharp 1 PK • Kamar Tidur',
-    namaTeknisi: 'Rudi Hartono',
-    totalBiaya: 0,
+    // Refund-nya sudah ditransfer (lihat RefundService).
+    namaTeknisi: '-',
+    totalBiaya: 100000,
     status: StatusPesanan.dibatalkan,
-    alasanBatal: 'Teknisi terhambat cuaca buruk / Reschedule ditolak',
-    statusPembayaran: 'Dana Dikembalikan 100%',
+    alasanBatal: 'Tidak ada teknisi yang menerima dalam batas waktu',
   ),
   Pesanan(
     kode: '#AC-6403',
@@ -99,9 +97,8 @@ final List<Pesanan> dummyPesanan = [
     namaLayanan: 'Servis AC',
     detailUnit: '1 Unit AC Midea 0.5 PK • Kamar Tidur',
     namaTeknisi: 'Andi Wijaya',
-    totalBiaya: 50000,
-    status: StatusPesanan.dibatalkan,
-    alasanBatal: 'Perbaikan tidak disetujui pelanggan (biaya cek saja)',
-    statusPembayaran: 'Biaya Cek Terbayar',
+    // Biaya perbaikan ditolak: pesanan selesai dengan biaya awal saja.
+    totalBiaya: 100000,
+    status: StatusPesanan.selesai,
   ),
 ];

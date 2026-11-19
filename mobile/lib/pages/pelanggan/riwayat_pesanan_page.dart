@@ -1,8 +1,10 @@
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/material.dart';
 
-import '../models/pesanan.dart';
-import '../widgets/pesanan_card.dart';
+import '../../models/pesanan.dart';
+import '../../widgets/pesanan_card.dart';
+import 'pengaduan_page.dart';
+import '../../theme/app_colors.dart';
 
 class RiwayatPesananPage extends StatefulWidget {
   const RiwayatPesananPage({super.key});
@@ -12,8 +14,6 @@ class RiwayatPesananPage extends StatefulWidget {
 }
 
 class _RiwayatPesananPageState extends State<RiwayatPesananPage> {
-  static const _biru = Color(0xFF0B6E99);
-
   String _filter = 'Semua';
   String _query = '';
   bool _terbaru = true;
@@ -57,7 +57,12 @@ class _RiwayatPesananPageState extends State<RiwayatPesananPage> {
           style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
         ),
         actions: [
-          IconButton(icon: const Icon(Icons.help_outline), onPressed: () {}),
+          IconButton(
+            tooltip: 'Bantuan',
+            icon: const Icon(Icons.help_outline),
+            onPressed: () => Navigator.of(context)
+                .push(MaterialPageRoute(builder: (_) => const PengaduanPage())),
+          ),
         ],
       ),
       body: Column(
@@ -69,11 +74,17 @@ class _RiwayatPesananPageState extends State<RiwayatPesananPage> {
               onChanged: (v) => setState(() => _query = v),
               decoration: InputDecoration(
                 hintText: 'Cari ID, teknisi, atau layanan...',
-                hintStyle: const TextStyle(fontSize: 13, color: Colors.grey),
+                hintStyle: const TextStyle(
+                  fontSize: 13,
+                  color: AppColors.teksSamar,
+                ),
                 hintMaxLines: 1,
-                prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                prefixIcon: const Icon(
+                  Icons.search,
+                  color: AppColors.teksSamar,
+                ),
                 filled: true,
-                fillColor: const Color(0xFFF1F3F5),
+                fillColor: AppColors.latar,
                 isDense: true,
                 contentPadding: const EdgeInsets.symmetric(vertical: 14),
                 border: OutlineInputBorder(
@@ -101,10 +112,10 @@ class _RiwayatPesananPageState extends State<RiwayatPesananPage> {
                         vertical: 8,
                       ),
                       decoration: BoxDecoration(
-                        color: aktif ? _biru : Colors.white,
+                        color: aktif ? AppColors.biru : Colors.white,
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: aktif ? _biru : const Color(0xFFD5D9DE),
+                          color: aktif ? AppColors.biru : AppColors.garis,
                         ),
                       ),
                       child: Text(
@@ -137,12 +148,12 @@ class _RiwayatPesananPageState extends State<RiwayatPesananPage> {
                   icon: Icon(
                     _terbaru ? Icons.arrow_downward : Icons.arrow_upward,
                     size: 16,
-                    color: _biru,
+                    color: AppColors.biru,
                   ),
                   label: Text(
                     _terbaru ? 'Terbaru' : 'Terlama',
                     style: const TextStyle(
-                      color: _biru,
+                      color: AppColors.biru,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -161,33 +172,6 @@ class _RiwayatPesananPageState extends State<RiwayatPesananPage> {
                     separatorBuilder: (_, _) => const SizedBox(height: 12),
                     itemBuilder: (_, i) => PesananCard(pesanan: hasil[i]),
                   ),
-          ),
-        ],
-      ),
-      bottomNavigationBar: NavigationBar(
-        backgroundColor: Colors.white,
-        indicatorColor: Colors.transparent,
-        surfaceTintColor: Colors.white,
-        // sisanya tetap
-        selectedIndex: 1,
-        onDestinationSelected: (_) {
-          // TODO: pindah tab (Beranda / Riwayat / Profil)
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Beranda',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.description_outlined),
-            selectedIcon: Icon(Icons.description),
-            label: 'Riwayat',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Profil',
           ),
         ],
       ),

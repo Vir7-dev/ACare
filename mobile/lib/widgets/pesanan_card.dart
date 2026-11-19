@@ -2,21 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
+import '../models/layanan.dart';
 import '../models/pesanan.dart';
+import '../pages/pelanggan/ajukan_refund_page.dart';
+import '../pages/pelanggan/beri_ulasan_page.dart';
+import '../pages/pelanggan/buat_pesanan_page.dart';
+import '../services/refund_service.dart';
+import '../theme/app_colors.dart';
 
 class PesananCard extends StatelessWidget {
   final Pesanan pesanan;
   const PesananCard({super.key, required this.pesanan});
 
-  static const _biru = Color(0xFF0B6E99);
-  static const _biruMuda = Color(0xFFDDEBF6);
-  static const _hijau = Color(0xFF1E9E5A);
-  static const _merah = Color(0xFFD93A3A);
-  static const _abu = Color(0xFF5A606A);
-
   ButtonStyle get _outlineStyle => OutlinedButton.styleFrom(
-    foregroundColor: const Color(0xFF2B2F36),
-    side: const BorderSide(color: Color(0xFFD5D9DE)),
+    foregroundColor: AppColors.teks,
+    side: const BorderSide(color: AppColors.garis),
     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
     textStyle: GoogleFonts.plusJakartaSans(
       fontSize: 13,
@@ -25,9 +25,38 @@ class PesananCard extends StatelessWidget {
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
   );
 
+  void _detailPembatalan(BuildContext context, PengajuanRefund? refund) {
+    final baris = <String>[
+      pesanan.kode,
+      '',
+      'Alasan: ${pesanan.alasanBatal ?? '-'}',
+      'Biaya awal: ${rupiah(pesanan.totalBiaya)}',
+      if (refund == null)
+        'Status: Dana tertahan, belum diajukan refund'
+      else ...[
+        'Refund ke: ${refund.namaBank} ${refund.nomorSamar} '
+            'a.n ${refund.atasNama}',
+        'Status: ${refund.status.label}',
+      ],
+    ];
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Detail Pembatalan'),
+        content: Text(baris.join('\n')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Tutup'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _badge(bool selesai) {
-    final warna = selesai ? _hijau : _merah;
-    final bg = selesai ? const Color(0xFFDDF5E6) : const Color(0xFFFDE3E3);
+    final warna = selesai ? AppColors.hijau : AppColors.merah;
+    final bg = selesai ? AppColors.hijauMuda : AppColors.merahMuda;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
@@ -61,9 +90,9 @@ class PesananCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: selesai ? Colors.white : const Color(0xFFF6F6F6),
+        color: selesai ? Colors.white : AppColors.latar,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE3E6EA)),
+        border: Border.all(color: AppColors.garisLembut),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -85,7 +114,10 @@ class PesananCard extends StatelessWidget {
                     ),
                     Text(
                       '$tanggal WIB',
-                      style: const TextStyle(color: _abu, fontSize: 12),
+                      style: const TextStyle(
+                        color: AppColors.teksSamar,
+                        fontSize: 12,
+                      ),
                     ),
                   ],
                 ),
@@ -103,12 +135,12 @@ class PesananCard extends StatelessWidget {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: selesai ? _biruMuda : const Color(0xFFE9E9E9),
+                  color: selesai ? AppColors.biruMuda : AppColors.garisLembut,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
                   selesai ? Icons.air : Icons.power_off_outlined,
-                  color: selesai ? _biru : _abu,
+                  color: selesai ? AppColors.biru : AppColors.teksSamar,
                 ),
               ),
               const SizedBox(width: 12),
@@ -121,7 +153,7 @@ class PesananCard extends StatelessWidget {
                       style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 15,
-                        color: selesai ? Colors.black : const Color(0xFF3A3F47),
+                        color: selesai ? Colors.black : AppColors.teks,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -129,7 +161,10 @@ class PesananCard extends StatelessWidget {
                       selesai
                           ? pesanan.detailUnit
                           : 'Alasan: ${pesanan.alasanBatal ?? '-'}',
-                      style: const TextStyle(color: _abu, fontSize: 12),
+                      style: const TextStyle(
+                        color: AppColors.teksSamar,
+                        fontSize: 12,
+                      ),
                     ),
                   ],
                 ),
@@ -142,7 +177,7 @@ class PesananCard extends StatelessWidget {
           if (selesai) ...[
             const Text(
               'Total Selesai',
-              style: TextStyle(color: _abu, fontSize: 12),
+              style: TextStyle(color: AppColors.teksSamar, fontSize: 12),
             ),
             const SizedBox(height: 2),
             Text(
@@ -159,9 +194,11 @@ class PesananCard extends StatelessWidget {
                 Expanded(
                   child: OutlinedButton(
                     style: _outlineStyle,
-                    onPressed: () {
-                      // TODO: halaman Rating/Ulasan
-                    },
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => BeriUlasanPage(pesanan: pesanan),
+                      ),
+                    ),
                     child: const Text('Beri Ulasan'),
                   ),
                 ),
@@ -169,8 +206,8 @@ class PesananCard extends StatelessWidget {
                 Expanded(
                   child: FilledButton.icon(
                     style: FilledButton.styleFrom(
-                      backgroundColor: _biruMuda,
-                      foregroundColor: _biru,
+                      backgroundColor: AppColors.biruMuda,
+                      foregroundColor: AppColors.biru,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 14,
                         vertical: 10,
@@ -183,9 +220,16 @@ class PesananCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-                    onPressed: () {
-                      // TODO: halaman Memesan Layanan (Pesan Lagi)
-                    },
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => BuatPesananPage(
+                          layanan: daftarLayanan.firstWhere(
+                            (l) => pesanan.namaLayanan.contains(l.nama),
+                            orElse: () => daftarLayanan.first,
+                          ),
+                        ),
+                      ),
+                    ),
                     icon: const Icon(Icons.refresh, size: 18),
                     label: const Text('Pesan Lagi'),
                   ),
@@ -193,35 +237,76 @@ class PesananCard extends StatelessWidget {
               ],
             ),
           ] else
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Status Pembayaran',
-                        style: TextStyle(color: _abu, fontSize: 12),
+            // Pesanan dibatalkan: biaya awal tertahan sampai refund diajukan
+            // dan ditransfer manual oleh Admin.
+            ValueListenableBuilder<Map<String, PengajuanRefund>>(
+              valueListenable: RefundService.instance.pengajuan,
+              builder: (context, _, _) {
+                final refund = RefundService.instance.untuk(pesanan.kode);
+                final status = refund == null
+                    ? 'Dana tertahan ${rupiah.format(pesanan.totalBiaya)}'
+                    : 'Refund: ${refund.status.label}';
+                final warna = refund?.status == StatusRefund.selesai
+                    ? AppColors.hijau
+                    : refund?.status == StatusRefund.ditolak
+                    ? AppColors.merah
+                    : AppColors.kuning;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Status Pembayaran',
+                      style: TextStyle(
+                        color: AppColors.teksSamar,
+                        fontSize: 12,
                       ),
-                      Text(
-                        pesanan.statusPembayaran ?? '-',
-                        style: const TextStyle(
-                          color: _hijau,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
+                    ),
+                    Text(
+                      status,
+                      style: TextStyle(
+                        color: warna,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            style: _outlineStyle,
+                            onPressed: () => _detailPembatalan(context, refund),
+                            child: const Text('Detail Pembatalan'),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-                OutlinedButton(
-                  style: _outlineStyle,
-                  onPressed: () {
-                    // TODO: halaman Detail Pembatalan
-                  },
-                  child: const Text('Detail Pembatalan'),
-                ),
-              ],
+                        if (refund == null) ...[
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: FilledButton(
+                              style: FilledButton.styleFrom(
+                                backgroundColor: AppColors.biru,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 10,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              onPressed: () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      AjukanRefundPage(pesanan: pesanan),
+                                ),
+                              ),
+                              child: const Text('Ajukan Refund'),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                );
+              },
             ),
         ],
       ),
