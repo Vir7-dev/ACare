@@ -24,7 +24,6 @@ class _KelolaProfilTeknisiPageState extends State<KelolaProfilTeknisiPage> {
   final _namaController = TextEditingController(text: 'Teknisi Contoh');
   final _teleponController = TextEditingController(text: '081200000003');
   final _emailController = TextEditingController(text: 'teknisi@acare.id');
-  final _jenisController = TextEditingController(text: 'Mekanik AC');
   final _platController = TextEditingController(text: 'BP 1234 AC');
 
   bool _modeEdit = false;
@@ -41,7 +40,6 @@ class _KelolaProfilTeknisiPageState extends State<KelolaProfilTeknisiPage> {
     _namaController.dispose();
     _teleponController.dispose();
     _emailController.dispose();
-    _jenisController.dispose();
     _platController.dispose();
     super.dispose();
   }
@@ -331,18 +329,6 @@ class _KelolaProfilTeknisiPageState extends State<KelolaProfilTeknisiPage> {
                 ),
                 const SizedBox(height: 5),
 
-                _field(
-                  label: 'Jenis Teknisi',
-                  hint: 'Jenis teknisi',
-                  icon: Icons.home_repair_service_outlined,
-                  controller: _jenisController,
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Jenis teknisi wajib diisi';
-                    }
-                    return null;
-                  },
-                ),
                 _field(
                   label: 'Nomor Kendaraan',
                   hint: 'Nomor kendaraan',
