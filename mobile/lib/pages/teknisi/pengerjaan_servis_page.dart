@@ -139,10 +139,7 @@ class PengerjaanServisPage extends StatelessWidget {
                                         fontWeight: FontWeight.w700,
                                       ),
                                     ),
-                                    Text(
-                                      '★ ${p.ratingPelanggan} • ${p.unitAc}',
-                                      style: _kecil,
-                                    ),
+                                    Text(p.unitAc, style: _kecil),
                                   ],
                                 ),
                               ),
