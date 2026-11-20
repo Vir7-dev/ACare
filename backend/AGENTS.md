@@ -1,47 +1,37 @@
-<laravel-boost-guidelines>
-# Laravel Application
+# Backend ACare
 
-This repository contains a Laravel application. Complete the following setup before working on the user's request.
+API dan panel Admin untuk aplikasi pemesanan servis AC ACare.
 
-## Prerequisites
+## Lingkungan
 
-Verify that PHP and Composer are available:
+- Laravel 13, PHP 8.4, MySQL 8.4 (lokal lewat Laragon, database `acare`)
+- Test memakai SQLite in-memory: `php artisan test`
+- Gaya kode: `vendor/bin/pint --dirty` sebelum commit
 
-```sh
-php -v
-composer -V
-```
+## Konvensi
 
-If either command is unavailable, detect the user's operating system and install the prerequisites with the appropriate command:
+- Penamaan berbahasa Indonesia: tabel `pengguna`, kunci `id_pengguna`,
+  waktu `dibuat_pada` / `diubah_pada` (atur `CREATED_AT` / `UPDATED_AT`
+  di model).
+- Semua peran (pelanggan, teknisi, admin) ada di tabel `pengguna`; model
+  autentikasinya `App\Models\Pengguna`. Tidak ada tabel `users`.
+- Aplikasi mobile login dengan token Laravel Sanctum (`auth:sanctum`).
+- Jangan mengubah migrasi yang sudah masuk `main`; buat migrasi baru.
+- Trigger dan CHECK constraint hanya untuk MySQL, dibungkus
+  `if (DB::getDriverName() === 'mysql')` agar test SQLite tetap jalan.
 
-macOS:
+## Aturan bisnis penting
 
-```sh
-/bin/bash -c "$(curl -fsSL https://php.new/install/mac/8.5)"
-```
-
-Windows PowerShell:
-
-```powershell
-Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://php.new/install/windows/8.5'))
-```
-
-Linux:
-
-```sh
-/bin/bash -c "$(curl -fsSL https://php.new/install/linux/8.5)"
-```
-
-After installation, ask the user to restart their terminal. If the agent needs the restarted shell to continue, ask the user to reopen their terminal and rerun their original prompt.
-
-## Agent Setup
-
-Install Laravel Boost from the application root before making application changes:
-
-```sh
-composer require laravel/boost --dev
-php artisan boost:install
-```
-
-Boost replaces these bootstrap instructions with guidelines tailored to the application. After installation, read `AGENTS.md` again and continue with the user's original request using the generated guidelines.
-</laravel-boost-guidelines>
+- Status pesanan (9): `mencari_teknisi`, `menuju_lokasi`, `tiba`,
+  `pengecekan_awal`, `menunggu_persetujuan_biaya`, `dikerjakan`,
+  `menunggu_pembayaran`, `selesai`, `dibatalkan`. Pelanggan melihat
+  versi ringkas (`Pesanan::LABEL_PELANGGAN`).
+- Pembayaran 2 tahap lewat Xendit: biaya awal sebelum mencari teknisi,
+  pelunasan biaya perbaikan setelah pekerjaan selesai.
+- Biaya perbaikan dari teknisi hanya ditagih bila `status_biaya`
+  disetujui pelanggan.
+- Pelanggan hanya bisa membatalkan saat status `mencari_teknisi`.
+- Komisi platform per layanan (`layanan.persentase_platform`, bawaan 10%),
+  dicatat di `pendapatan` setelah pelunasan. Pencairan minimal Rp50.000.
+- Akun admin, pelanggan, dan teknisi contoh ada di `PenggunaSeeder`
+  (kata sandi `password`).
