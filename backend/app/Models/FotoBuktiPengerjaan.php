@@ -7,6 +7,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class FotoBuktiPengerjaan extends Model
 {
+    // Nilai kolom tahap; kondisi = foto dari pelanggan saat memesan.
+    public const TAHAP = ['kondisi', 'pemeriksaan', 'sebelum', 'sesudah', 'tambahan'];
+
     public const CREATED_AT = 'dibuat_pada';
 
     public const UPDATED_AT = null;

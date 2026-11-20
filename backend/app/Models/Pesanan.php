@@ -27,6 +27,13 @@ class Pesanan extends Model
 
     public const DIBATALKAN = 'dibatalkan';
 
+    // Hasil persetujuan biaya perbaikan (kolom status_biaya).
+    public const BIAYA_MENUNGGU = 'menunggu';
+
+    public const BIAYA_DISETUJUI = 'disetujui';
+
+    public const BIAYA_DITOLAK = 'ditolak';
+
     /**
      * Status yang ditampilkan ke pelanggan. Beberapa status database
      * digabung supaya garis waktu di aplikasi tetap ringkas.
@@ -60,7 +67,8 @@ class Pesanan extends Model
     protected $fillable = [
         'id_pelanggan', 'id_teknisi', 'id_lokasi', 'jadwal_service', 'jenis_ac', 'pk', 'merek',
         'catatan_pelanggan', 'catatan_biaya', 'catatan_pengerjaan', 'status_pesanan', 'total_biaya',
-        'batas_tawaran', 'teknisi_menolak', 'batas_persetujuan_biaya', 'alasan_pembatalan',
+        'status_biaya', 'batas_tawaran', 'teknisi_menolak', 'batas_persetujuan_biaya',
+        'biaya_ditanggapi_pada', 'alasan_pembatalan',
         'diterima_pada', 'tiba_pada', 'pengecekan_pada', 'dikerjakan_pada',
         'menunggu_pembayaran_pada', 'selesai_pada', 'dibatalkan_pada',
     ];
@@ -74,6 +82,7 @@ class Pesanan extends Model
             'batas_tawaran' => 'datetime',
             'teknisi_menolak' => 'array',
             'batas_persetujuan_biaya' => 'datetime',
+            'biaya_ditanggapi_pada' => 'datetime',
             'diterima_pada' => 'datetime',
             'tiba_pada' => 'datetime',
             'pengecekan_pada' => 'datetime',
@@ -99,6 +108,26 @@ class Pesanan extends Model
     public function bisaDibatalkan(): bool
     {
         return $this->status_pesanan === self::MENCARI_TEKNISI;
+    }
+
+    /**
+     * Baris biaya yang benar-benar ditagih: layanan selalu, item biaya
+     * teknisi hanya bila disetujui pelanggan. Item yang ditolak tetap
+     * tersimpan sebagai riwayat.
+     */
+    public function detailDitagih(): HasMany
+    {
+        $query = $this->detail();
+        if ($this->status_biaya !== self::BIAYA_DISETUJUI) {
+            $query->where('jenis_item', DetailPesanan::JENIS_LAYANAN);
+        }
+
+        return $query;
+    }
+
+    public function hitungTotalBiaya(): float
+    {
+        return (float) $this->detailDitagih()->get()->sum->subtotal;
     }
 
     public function pelanggan(): BelongsTo

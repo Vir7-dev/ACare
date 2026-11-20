@@ -6,14 +6,16 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 
 /**
  * Akun ACare untuk semua peran (pelanggan, teknisi, admin).
- * Login memakai email atau nomor telepon.
+ * Login memakai email atau nomor telepon. Aplikasi mobile memakai token
+ * Sanctum (tabel personal_access_tokens).
  */
 class Pengguna extends Authenticatable
 {
-    use Notifiable;
+    use HasApiTokens, Notifiable;
 
     public const ROLE_PELANGGAN = 'pelanggan';
 

@@ -17,7 +17,15 @@ class DetailPesanan extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['id_pesanan', 'id_layanan', 'nama_item', 'jumlah', 'harga', 'diajukan_oleh'];
+    public const JENIS_LAYANAN = 'layanan';
+
+    public const JENIS_JASA = 'jasa';
+
+    public const JENIS_SUKU_CADANG = 'suku_cadang';
+
+    protected $fillable = ['id_pesanan', 'id_layanan', 'jenis_item', 'nama_item', 'jumlah', 'harga'];
+
+    protected $attributes = ['jenis_item' => self::JENIS_LAYANAN];
 
     protected function casts(): array
     {
@@ -35,6 +43,12 @@ class DetailPesanan extends Model
     public function layanan(): BelongsTo
     {
         return $this->belongsTo(Layanan::class, 'id_layanan', 'id_layanan');
+    }
+
+    /** Item jasa/suku cadang diajukan teknisi; layanan dipesan pelanggan. */
+    public function dariTeknisi(): bool
+    {
+        return $this->jenis_item !== self::JENIS_LAYANAN;
     }
 
     public function getSubtotalAttribute(): float
