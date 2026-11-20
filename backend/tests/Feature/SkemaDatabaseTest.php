@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\DetailPesanan;
+use App\Models\FotoBuktiPengerjaan;
 use App\Models\Layanan;
 use App\Models\Lokasi;
 use App\Models\Pembayaran;
@@ -16,6 +17,7 @@ use Database\Seeders\DatabaseSeeder;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class SkemaDatabaseTest extends TestCase
@@ -63,20 +65,21 @@ class SkemaDatabaseTest extends TestCase
 
     public function test_alur_pesanan_sampai_pendapatan_dan_pencairan(): void
     {
-        $layanan = Layanan::where('nama_layanan', 'Cek AC')->firstOrFail();
+        $layanan = Layanan::where('nama_layanan', 'Service AC')->firstOrFail();
         $teknisi = $this->teknisi();
         $pesanan = $this->buatPesanan(['id_teknisi' => $teknisi->id_pengguna]);
 
         DetailPesanan::create([
             'id_pesanan' => $pesanan->id_pesanan, 'id_layanan' => $layanan->id_layanan,
-            'nama_item' => $layanan->nama_layanan, 'harga' => $layanan->harga, 'diajukan_oleh' => 'pelanggan',
+            'nama_item' => $layanan->nama_layanan, 'harga' => $layanan->harga,
         ]);
         DetailPesanan::create([
             'id_pesanan' => $pesanan->id_pesanan, 'nama_item' => 'Isi Freon R32',
-            'harga' => 150000, 'diajukan_oleh' => 'teknisi',
+            'jenis_item' => DetailPesanan::JENIS_SUKU_CADANG, 'harga' => 150000,
         ]);
+        $pesanan->update(['status_biaya' => Pesanan::BIAYA_DISETUJUI]);
 
-        $total = (float) $pesanan->detail()->get()->sum->subtotal;
+        $total = $pesanan->hitungTotalBiaya();
         $this->assertSame(250000.0, $total);
 
         Pembayaran::create([
@@ -178,5 +181,101 @@ class SkemaDatabaseTest extends TestCase
             'jenis_pengaduan' => 'Teknisi Datang Terlambat', 'deskripsi' => 'Terlambat 1 jam.',
         ]);
         $this->assertSame($teknisi->id_pengguna, $aduanLayanan->terlapor()->id_pengguna);
+    }
+
+    public function test_cek_ac_layanan_paling_ringan(): void
+    {
+        $cek = Layanan::where('nama_layanan', 'Cek AC')->firstOrFail();
+
+        $this->assertSame(50000.0, (float) $cek->harga);
+        $this->assertSame((float) Layanan::min('harga'), (float) $cek->harga);
+    }
+
+    public function test_biaya_teknisi_yang_ditolak_tidak_ditagih_tetapi_tersimpan(): void
+    {
+        $layanan = Layanan::where('nama_layanan', 'Cek AC')->firstOrFail();
+        $pesanan = $this->buatPesanan(['id_teknisi' => $this->teknisi()->id_pengguna]);
+
+        DetailPesanan::create([
+            'id_pesanan' => $pesanan->id_pesanan, 'id_layanan' => $layanan->id_layanan,
+            'nama_item' => $layanan->nama_layanan, 'harga' => $layanan->harga,
+        ]);
+        DetailPesanan::create([
+            'id_pesanan' => $pesanan->id_pesanan, 'nama_item' => 'Las pipa',
+            'jenis_item' => DetailPesanan::JENIS_JASA, 'harga' => 120000,
+        ]);
+
+        // Menunggu persetujuan: belum ditagih.
+        $pesanan->update(['status_biaya' => Pesanan::BIAYA_MENUNGGU]);
+        $this->assertSame(50000.0, $pesanan->hitungTotalBiaya());
+
+        // Ditolak: tetap biaya awal, item teknisi tetap ada sebagai riwayat.
+        $pesanan->update(['status_biaya' => Pesanan::BIAYA_DITOLAK, 'biaya_ditanggapi_pada' => now()]);
+        $this->assertSame(50000.0, $pesanan->hitungTotalBiaya());
+        $this->assertSame(2, $pesanan->detail()->count());
+        $this->assertTrue($pesanan->detail()->where('jenis_item', 'jasa')->first()->dariTeknisi());
+
+        // Disetujui: ikut ditagih.
+        $pesanan->update(['status_biaya' => Pesanan::BIAYA_DISETUJUI]);
+        $this->assertSame(170000.0, $pesanan->hitungTotalBiaya());
+    }
+
+    public function test_alamat_dihapus_lunak_dan_pesanan_lama_tetap_punya_alamat(): void
+    {
+        $pelanggan = $this->pelanggan();
+        $alamat = $pelanggan->lokasi()->first();
+        $pesanan = $this->buatPesanan(['status_pesanan' => Pesanan::MENUJU_LOKASI]);
+
+        // Sedang dipakai pesanan berjalan: tidak boleh dihapus.
+        $this->assertFalse($alamat->bisaDihapus());
+
+        $pesanan->update(['status_pesanan' => Pesanan::SELESAI]);
+        $this->assertTrue($alamat->bisaDihapus());
+
+        $alamat->delete();
+        $this->assertSame(0, $pelanggan->lokasi()->count());
+        $this->assertNotNull(Lokasi::withTrashed()->find($alamat->id_lokasi)->dihapus_pada);
+        $this->assertSame($alamat->alamat_lengkap, $pesanan->lokasi()->withTrashed()->first()->alamat_lengkap);
+    }
+
+    public function test_foto_kondisi_ac_dari_pelanggan(): void
+    {
+        $pesanan = $this->buatPesanan();
+
+        $foto = FotoBuktiPengerjaan::create([
+            'id_pesanan' => $pesanan->id_pesanan, 'tahap' => 'kondisi', 'path_foto' => 'kondisi/ac.jpg',
+        ]);
+
+        $this->assertSame('kondisi', $foto->fresh()->tahap);
+    }
+
+    public function test_penolakan_verifikasi_teknisi_menyimpan_alasan(): void
+    {
+        $admin = Pengguna::where('email', 'admin@acare.id')->firstOrFail();
+        $teknisi = $this->teknisi();
+
+        $teknisi->update([
+            'status_verifikasi' => 'ditolak',
+            'alasan_penolakan' => 'Foto KTP buram, mohon unggah ulang.',
+            'diverifikasi_oleh' => $admin->id_pengguna,
+            'diverifikasi_pada' => now(),
+        ]);
+
+        $teknisi->refresh();
+        $this->assertSame('Foto KTP buram, mohon unggah ulang.', $teknisi->alasan_penolakan);
+        $this->assertSame($admin->id_pengguna, $teknisi->verifikator->id_pengguna);
+        $this->assertFalse($teknisi->isTerverifikasi());
+    }
+
+    public function test_login_api_memakai_token_sanctum_pada_tabel_pengguna(): void
+    {
+        $this->assertFalse(Schema::hasTable('users'));
+
+        $token = $this->pelanggan()->createToken('mobile')->plainTextToken;
+
+        $this->withToken($token)->getJson('/api/user')
+            ->assertOk()
+            ->assertJsonPath('email', 'pelanggan@acare.id')
+            ->assertJsonMissingPath('kata_sandi');
     }
 }

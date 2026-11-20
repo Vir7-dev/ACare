@@ -18,8 +18,8 @@ class Teknisi extends Model
 
     protected $fillable = [
         'id_pengguna', 'pengalaman', 'deskripsi', 'kendaraan', 'nama_bank', 'no_rekening',
-        'atas_nama', 'status_verifikasi', 'status_ketersediaan', 'latitude', 'longitude',
-        'lokasi_diperbarui_pada',
+        'atas_nama', 'status_verifikasi', 'alasan_penolakan', 'diverifikasi_oleh', 'diverifikasi_pada',
+        'status_ketersediaan', 'latitude', 'longitude', 'lokasi_diperbarui_pada',
     ];
 
     protected function casts(): array
@@ -29,6 +29,7 @@ class Teknisi extends Model
             'latitude' => 'decimal:7',
             'longitude' => 'decimal:7',
             'lokasi_diperbarui_pada' => 'datetime',
+            'diverifikasi_pada' => 'datetime',
         ];
     }
 
@@ -50,6 +51,12 @@ class Teknisi extends Model
     public function pendapatan(): HasMany
     {
         return $this->hasMany(Pendapatan::class, 'id_teknisi', 'id_pengguna');
+    }
+
+    /** Admin yang memverifikasi atau menolak pendaftaran. */
+    public function verifikator(): BelongsTo
+    {
+        return $this->belongsTo(Pengguna::class, 'diverifikasi_oleh', 'id_pengguna');
     }
 
     public function isTerverifikasi(): bool
