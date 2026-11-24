@@ -185,7 +185,7 @@ class TeknisiService {
   static const int minimumPencairan = 50000;
 
   /// Rekening tujuan pencairan dari data registrasi (tiruan).
-  static const String rekeningTujuan = 'BNI • 1234567890 a.n Teknisi Contoh';
+  static const String rekeningTujuan = 'BNI • 1234567890 a.n Rizky Pratama';
 
   /// Lama tawaran menunggu jawaban sebelum diteruskan ke teknisi lain.
   Duration batasTawaran = const Duration(seconds: 30);

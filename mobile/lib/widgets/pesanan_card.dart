@@ -22,7 +22,7 @@ class PesananCard extends StatelessWidget {
       fontSize: 13,
       fontWeight: FontWeight.w600,
     ),
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
   );
 
   void _detailPembatalan(BuildContext context, PengajuanRefund? refund) {
@@ -217,7 +217,7 @@ class PesananCard extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                       ),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                     onPressed: () => Navigator.of(context).push(
@@ -289,7 +289,7 @@ class PesananCard extends StatelessWidget {
                                   vertical: 10,
                                 ),
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
                               ),
                               onPressed: () => Navigator.of(context).push(

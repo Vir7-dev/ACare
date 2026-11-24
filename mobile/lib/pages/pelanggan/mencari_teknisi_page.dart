@@ -163,7 +163,7 @@ class _MencariTeknisiPageState extends State<MencariTeknisiPage> {
                     foregroundColor: AppColors.merah,
                     side: const BorderSide(color: AppColors.merah),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     textStyle: GoogleFonts.plusJakartaSans(
                       fontSize: 15,
@@ -394,7 +394,7 @@ class _DialogBatal extends StatelessWidget {
                       foregroundColor: AppColors.biruTua,
                       side: const BorderSide(color: AppColors.biruTua),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                     child: const Text('Kembali'),
@@ -409,7 +409,7 @@ class _DialogBatal extends StatelessWidget {
                       foregroundColor: Colors.white,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                     child: const Text('Ya, Batalkan'),

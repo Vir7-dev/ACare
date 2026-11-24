@@ -58,6 +58,7 @@ void main() {
     expect(find.text('Rincian Biaya Perbaikan'), findsOneWidget);
 
     await tester.ensureVisible(find.text('Setuju'));
+    await tester.pump();
     await tester.tap(find.text('Setuju'));
     await tester.pump();
     expect(find.text('Rincian Biaya Perbaikan'), findsNothing);
@@ -81,6 +82,7 @@ void main() {
     );
 
     await tester.ensureVisible(find.text('Tolak'));
+    await tester.pump();
     await tester.tap(find.text('Tolak'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Ya, Tolak'));
@@ -126,6 +128,7 @@ void main() {
     );
 
     await tester.ensureVisible(find.text('Bayar Pesanan'));
+    await tester.pump();
     await tester.tap(find.text('Bayar Pesanan'));
     await tester.pumpAndSettle();
 
@@ -168,7 +171,7 @@ void main() {
 
     await tester.tap(find.text('Virtual Account'));
     await tester.pump();
-    await tester.tap(find.text('BAYAR'));
+    await tester.tap(find.text('Bayar'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.text('Pembayaran Virtual Account'), findsOneWidget);

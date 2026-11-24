@@ -83,15 +83,22 @@ void main() {
     expect(find.text('Kelola Profil'), findsOneWidget);
     expect(find.text('DS'), findsOneWidget);
 
-    await tester.tap(find.text('Simpan Perubahan'));
+    // Data terkunci sampai menekan Edit Profil.
+    await tester.tap(find.text('Edit Profil'));
     await tester.pump();
+    await tester.tap(find.text('Simpan Perubahan'));
+    await tester.pumpAndSettle();
     expect(find.text('Perubahan disimpan'), findsOneWidget);
+    expect(find.text('Edit Profil'), findsOneWidget);
 
     await tester.scrollUntilVisible(
       find.text('Keluar'),
       200,
       scrollable: find.byType(Scrollable).first,
     );
+    // Gulir sampai menu Keluar utuh terlihat, tidak terpotong tepi layar.
+    await tester.ensureVisible(find.text('Keluar'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Keluar'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(TextButton, 'Keluar'));

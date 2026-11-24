@@ -22,11 +22,11 @@ class Teknisi {
 
 // Data dummy, nanti diganti data dari API Laravel
 const teknisiDummy = Teknisi(
-  nama: 'GanAnWo',
+  nama: 'Andi Saputra',
   rating: '4.9',
   jumlahUlasan: 67,
   kendaraan: 'Honda Beat',
   plat: 'BP 4892 QL',
   telepon: '081234567890',
-  testimoni: 'Teknisi yang hebat mantep pokoknya',
+  testimoni: 'Berpengalaman 5 tahun menangani AC rumah dan kantor. Selalu menjelaskan masalah sebelum mulai bekerja.',
 );

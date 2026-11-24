@@ -7,6 +7,7 @@ import '../../services/notifikasi_service.dart';
 import '../../services/order_service.dart';
 import '../../services/perangkat.dart';
 import '../../services/sesi_pengguna.dart';
+import '../../widgets/keadaan_kosong.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/pesanan_berlangsung_card.dart';
 import '../../widgets/servis_terakhir_card.dart';
@@ -239,7 +240,9 @@ class _BerandaPageState extends State<BerandaPage> {
             ),
             const SizedBox(height: 28),
             Text(
-              'Selamat Datang, ${_nama ?? 'Pengguna'}!',
+              _nama == null || _nama!.trim().isEmpty
+                  ? 'Selamat Datang!'
+                  : 'Selamat Datang, ${_nama!.split(' ').first}!',
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 22,
                 fontWeight: FontWeight.w800,
@@ -390,12 +393,12 @@ class _BerandaPageState extends State<BerandaPage> {
                       borderRadius: BorderRadius.circular(18),
                       border: Border.all(color: AppColors.garisLembut),
                     ),
-                    child: Text(
-                      'Belum ada pesanan yang sedang berlangsung.',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 11.5,
-                        color: AppColors.teksSamar,
-                      ),
+                    child: const KeadaanKosong(
+                      ringkas: true,
+                      judul: 'Belum ada pesanan berjalan',
+                      keterangan:
+                          'Pilih layanan di atas, teknisi kami siap datang '
+                          'ke rumahmu.',
                     ),
                   );
                 }

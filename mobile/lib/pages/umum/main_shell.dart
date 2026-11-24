@@ -23,9 +23,6 @@ class _MainShellState extends State<MainShell> {
         children: const [BerandaPage(), RiwayatPesananPage(), ProfilPage()],
       ),
       bottomNavigationBar: NavigationBar(
-        backgroundColor: Colors.white,
-        indicatorColor: Colors.transparent,
-        surfaceTintColor: Colors.white,
         selectedIndex: _tab,
         onDestinationSelected: (i) => setState(() => _tab = i),
         destinations: const [

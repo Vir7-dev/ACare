@@ -452,7 +452,7 @@ class _BeriUlasanPageState extends State<BeriUlasanPage> {
                       foregroundColor: Colors.white,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                       textStyle: GoogleFonts.plusJakartaSans(
                         fontSize: 14,
