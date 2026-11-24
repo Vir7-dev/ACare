@@ -22,7 +22,7 @@ void main() {
   testWidgets('Beranda menampilkan seluruh bagian', (tester) async {
     await bukaShell(tester);
 
-    expect(find.text('Selamat Datang, Pengguna!'), findsOneWidget);
+    expect(find.text('Selamat Datang!'), findsOneWidget);
     expect(find.text('SERVIS TERAKHIR'), findsOneWidget);
     expect(find.text('Kategori Layanan'), findsOneWidget);
     expect(find.text('Sedang Berlangsung'), findsOneWidget);

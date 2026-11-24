@@ -17,7 +17,7 @@ class Teknisi extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'id_pengguna', 'pengalaman', 'deskripsi', 'kendaraan', 'nama_bank', 'no_rekening',
+        'id_pengguna', 'deskripsi', 'jenis_kendaraan', 'plat_nomor', 'nama_bank', 'no_rekening',
         'atas_nama', 'status_verifikasi', 'alasan_penolakan', 'diverifikasi_oleh', 'diverifikasi_pada',
         'status_ketersediaan', 'latitude', 'longitude', 'lokasi_diperbarui_pada',
     ];
@@ -25,7 +25,6 @@ class Teknisi extends Model
     protected function casts(): array
     {
         return [
-            'pengalaman' => 'integer',
             'latitude' => 'decimal:7',
             'longitude' => 'decimal:7',
             'lokasi_diperbarui_pada' => 'datetime',

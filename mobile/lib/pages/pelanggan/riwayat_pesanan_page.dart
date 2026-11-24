@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../models/pesanan.dart';
 import '../../widgets/pesanan_card.dart';
 import 'pengaduan_page.dart';
+import '../../widgets/keadaan_kosong.dart';
 import '../../theme/app_colors.dart';
 
 class RiwayatPesananPage extends StatefulWidget {
@@ -165,7 +166,12 @@ class _RiwayatPesananPageState extends State<RiwayatPesananPage> {
           // List
           Expanded(
             child: hasil.isEmpty
-                ? const Center(child: Text('Tidak ada pesanan'))
+                ? const KeadaanKosong(
+                    judul: 'Belum ada pesanan',
+                    keterangan:
+                        'Pesanan yang sudah selesai atau dibatalkan akan '
+                        'muncul di sini.',
+                  )
                 : ListView.separated(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                     itemCount: hasil.length,

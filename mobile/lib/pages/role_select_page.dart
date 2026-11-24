@@ -100,7 +100,7 @@ class _RoleSelectPageState extends State<RoleSelectPage> {
                         style: FilledButton.styleFrom(
                           backgroundColor: AppColors.biru,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(12),
                           ),
                         ),
                         onPressed: _lanjutkan,

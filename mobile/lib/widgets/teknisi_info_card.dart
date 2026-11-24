@@ -141,7 +141,7 @@ class TeknisiInfoCard extends StatelessWidget {
                   side: const BorderSide(color: AppColors.biru),
                   minimumSize: const Size.fromHeight(42),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(6),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
               ),
@@ -158,7 +158,7 @@ class TeknisiInfoCard extends StatelessWidget {
                   elevation: 0,
                   minimumSize: const Size.fromHeight(42),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(6),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
               ),

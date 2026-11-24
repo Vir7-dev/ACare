@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../models/layanan.dart';
+import '../../models/tagihan.dart';
 import '../../services/perangkat.dart';
 import '../../services/teknisi_service.dart';
 import '../../theme/app_colors.dart';
@@ -139,10 +140,7 @@ class PengerjaanServisPage extends StatelessWidget {
                                         fontWeight: FontWeight.w700,
                                       ),
                                     ),
-                                    Text(
-                                      '★ ${p.ratingPelanggan} • ${p.unitAc}',
-                                      style: _kecil,
-                                    ),
+                                    Text(p.unitAc, style: _kecil),
                                   ],
                                 ),
                               ),
@@ -368,15 +366,29 @@ class _KartuBiaya extends StatelessWidget {
                 ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  menunggu
-                      ? 'Menunggu persetujuan pelanggan'
-                      : 'Disetujui pelanggan',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: menunggu ? Colors.black87 : AppColors.hijau,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      menunggu
+                          ? 'Menunggu persetujuan pelanggan'
+                          : 'Disetujui pelanggan',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: menunggu ? Colors.black87 : AppColors.hijau,
+                      ),
+                    ),
+                    if (menunggu)
+                      Text(
+                        'Maks. ${batasPersetujuanBiaya.inMinutes} menit. '
+                        'Jika tidak ditanggapi, lanjut tanpa biaya tambahan.',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11,
+                          color: AppColors.teksSamar,
+                        ),
+                      ),
+                  ],
                 ),
               ),
               Text(

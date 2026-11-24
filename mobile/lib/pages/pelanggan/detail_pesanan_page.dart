@@ -170,7 +170,7 @@ class _DetailPesananPageState extends State<DetailPesananPage> {
     final selesai = _status == StatusLayanan.selesai;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.latar,
       appBar: AppBar(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
@@ -190,23 +190,23 @@ class _DetailPesananPageState extends State<DetailPesananPage> {
         ),
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
-          child: Divider(height: 1, color: AppColors.biru),
+          child: Divider(height: 1, color: AppColors.garisLembut),
         ),
       ),
       body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
         children: [
-          const _BarJudul('Detail Teknisi'),
-          Padding(
-            padding: const EdgeInsets.all(16),
+          _KartuBagian(
+            judul: 'Teknisi',
             child: TeknisiInfoCard(
               teknisi: widget.teknisi,
               onPesan: _pesan,
               onTelepon: () => teleponKe(context, widget.teknisi.telepon),
             ),
           ),
-          const _BarJudul('Status Layanan'),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          const SizedBox(height: 12),
+          _KartuBagian(
+            judul: 'Status Layanan',
             child: Column(
               children: [
                 for (var i = 0; i < _daftarTampil.length; i++)
@@ -227,27 +227,19 @@ class _DetailPesananPageState extends State<DetailPesananPage> {
           ),
           if (_status == StatusLayanan.menungguPersetujuanBiaya)
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+              padding: const EdgeInsets.only(top: 12),
               child: _KartuPersetujuanBiaya(
                 tagihan: _tagihan,
                 onSetuju: _setujuiBiaya,
                 onTolak: _tolakBiaya,
               ),
             ),
-          const Divider(height: 1, color: AppColors.garisLembut),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+          const SizedBox(height: 12),
+          _KartuBagian(
+            judul: 'Pembayaran',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Pembayaran',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 8),
                 _Baris('Biaya awal', '${rupiah(_tagihan.pemeriksaan)} • Lunas'),
                 const SizedBox(height: 10),
                 ..._rincianPerbaikan(),
@@ -256,12 +248,13 @@ class _DetailPesananPageState extends State<DetailPesananPage> {
           ),
           if (_status == StatusLayanan.menungguPembayaran)
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+              padding: const EdgeInsets.fromLTRB(0, 16, 0, 24),
               child: _TombolAksi(
                 label: 'Bayar Pesanan',
                 ikon: Icons.check,
-                warna: AppColors.hijau,
+                warna: AppColors.biru,
                 aktif: true,
+                utama: true,
                 onTap: _bayar,
               ),
             )
@@ -428,8 +421,9 @@ class _KartuPersetujuanBiaya extends StatelessWidget {
           ],
           const SizedBox(height: 6),
           Text(
-            'Jika ditolak atau tidak ditanggapi dalam 30 menit, pesanan '
-            'selesai dengan biaya awal saja.',
+            'Jika ditolak atau tidak ditanggapi dalam '
+            '${batasPersetujuanBiaya.inMinutes} menit, pesanan selesai '
+            'dengan biaya awal saja.',
             style: GoogleFonts.plusJakartaSans(
               fontSize: 11,
               color: AppColors.teksSamar,
@@ -452,8 +446,9 @@ class _KartuPersetujuanBiaya extends StatelessWidget {
                 child: _TombolAksi(
                   label: 'Setuju',
                   ikon: Icons.check,
-                  warna: AppColors.hijau,
+                  warna: AppColors.biru,
                   aktif: true,
+                  utama: true,
                   onTap: onSetuju,
                 ),
               ),
@@ -465,24 +460,36 @@ class _KartuPersetujuanBiaya extends StatelessWidget {
   }
 }
 
-class _BarJudul extends StatelessWidget {
-  final String teks;
+/// Kartu putih berjudul, gaya bagian yang sama dengan layar lain.
+class _KartuBagian extends StatelessWidget {
+  final String judul;
+  final Widget child;
 
-  const _BarJudul(this.teks);
+  const _KartuBagian({required this.judul, required this.child});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      color: AppColors.biru,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Text(
-        teks,
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          color: Colors.white,
-        ),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.garisLembut),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            judul,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 12),
+          child,
+        ],
       ),
     );
   }
@@ -568,7 +575,7 @@ class _LangkahStatus extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(jam!, style: const TextStyle(fontSize: 11)),
-                  const Text('Today', style: TextStyle(fontSize: 11)),
+                  const Text('Hari ini', style: TextStyle(fontSize: 11)),
                 ],
               ),
             ),
@@ -655,16 +662,39 @@ class _TombolAksi extends StatelessWidget {
   final bool aktif;
   final VoidCallback onTap;
 
+  /// Aksi utama digambar penuh agar menonjol dari aksi sekunder.
+  final bool utama;
+
   const _TombolAksi({
     required this.label,
     required this.ikon,
     required this.warna,
     required this.aktif,
     required this.onTap,
+    this.utama = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final gayaTeks = GoogleFonts.plusJakartaSans(
+      fontSize: 15,
+      fontWeight: FontWeight.w600,
+    );
+    if (utama) {
+      return SizedBox(
+        width: double.infinity,
+        height: 48,
+        child: FilledButton.icon(
+          onPressed: aktif ? onTap : null,
+          icon: Icon(ikon, size: 18),
+          label: Text(label),
+          style: FilledButton.styleFrom(
+            backgroundColor: warna,
+            textStyle: gayaTeks,
+          ),
+        ),
+      );
+    }
     return SizedBox(
       width: double.infinity,
       height: 48,
@@ -676,7 +706,9 @@ class _TombolAksi extends StatelessWidget {
           foregroundColor: warna,
           disabledForegroundColor: AppColors.teksSamar,
           side: BorderSide(color: aktif ? warna : AppColors.garis),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           textStyle: GoogleFonts.plusJakartaSans(
             fontSize: 15,
             fontWeight: FontWeight.w500,

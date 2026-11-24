@@ -34,7 +34,7 @@ class _ChatTeknisiPageState extends State<ChatTeknisiPage> {
   // Data dummy, nanti diganti chat realtime dari API.
   static const List<_Pesan> _pesanAwal = [
     _Pesan(
-      'Selamat siang, Bapak/Ibu. Saya GanAnWo, teknisi ACare yang akan '
+      'Selamat siang, Bapak/Ibu. Saya Andi Saputra, teknisi ACare yang akan '
       'menangani servis AC di rumah Anda.',
       dariSaya: false,
       jam: '12.20',

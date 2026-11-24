@@ -53,7 +53,7 @@ class _PembayaranPageState extends State<PembayaranPage> {
     final aktif = OrderService.instance.pesananAktif.value;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.latar,
       appBar: AppBar(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
@@ -64,13 +64,13 @@ class _PembayaranPageState extends State<PembayaranPage> {
         ),
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
-          child: Divider(height: 1, color: AppColors.biru),
+          child: Divider(height: 1, color: AppColors.garisLembut),
         ),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _KartuBiru(
+          _KartuBagian(
             judul: 'Ringkasan Pesanan',
             anak: Column(
               children: [
@@ -120,7 +120,7 @@ class _PembayaranPageState extends State<PembayaranPage> {
             ),
           ),
           const SizedBox(height: 14),
-          _KartuBiru(
+          _KartuBagian(
             judul: 'Rincian Pembayaran',
             anak: Column(
               children: [
@@ -164,7 +164,7 @@ class _PembayaranPageState extends State<PembayaranPage> {
             ),
           ),
           const SizedBox(height: 14),
-          _KartuBiru(
+          _KartuBagian(
             judul: 'Metode Pembayaran',
             anak: Column(
               children: [
@@ -184,7 +184,7 @@ class _PembayaranPageState extends State<PembayaranPage> {
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           color: Colors.white,
-          border: Border(top: BorderSide(color: AppColors.biru)),
+          border: Border(top: BorderSide(color: AppColors.garisLembut)),
         ),
         child: SafeArea(
           child: Padding(
@@ -213,21 +213,20 @@ class _PembayaranPageState extends State<PembayaranPage> {
                     ],
                   ),
                 ),
-                OutlinedButton(
+                FilledButton(
                   onPressed: _bayar,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.hijau,
-                    side: const BorderSide(color: AppColors.hijau),
-                    minimumSize: const Size(110, 40),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.biru,
+                    minimumSize: const Size(120, 48),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     textStyle: GoogleFonts.plusJakartaSans(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  child: const Text('BAYAR'),
+                  child: const Text('Bayar'),
                 ),
               ],
             ),
@@ -238,37 +237,35 @@ class _PembayaranPageState extends State<PembayaranPage> {
   }
 }
 
-class _KartuBiru extends StatelessWidget {
+/// Kartu putih berjudul, sama dengan gaya bagian di layar lain.
+class _KartuBagian extends StatelessWidget {
   final String judul;
   final Widget anak;
 
-  const _KartuBiru({required this.judul, required this.anak});
+  const _KartuBagian({required this.judul, required this.anak});
 
   @override
   Widget build(BuildContext context) {
     return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.biru),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.garisLembut),
       ),
-      clipBehavior: Clip.antiAlias,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: double.infinity,
-            color: AppColors.biru,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-            child: Text(
-              judul,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
+          Text(
+            judul,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
             ),
           ),
-          Padding(padding: const EdgeInsets.all(12), child: anak),
+          const SizedBox(height: 12),
+          anak,
         ],
       ),
     );

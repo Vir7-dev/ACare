@@ -44,3 +44,8 @@ const tagihanDummy = Tagihan(
       'Filter sudah rusak dan blower kotor, perlu diganti agar AC '
       'kembali dingin.',
 );
+
+/// Batas waktu pelanggan menanggapi rincian biaya perbaikan. Bila lewat,
+/// biaya dianggap ditolak dan pesanan selesai dengan biaya awal saja.
+/// Harus sama dengan Pesanan::BATAS_PERSETUJUAN_MENIT di backend.
+const batasPersetujuanBiaya = Duration(minutes: 5);

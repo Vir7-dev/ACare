@@ -39,19 +39,19 @@ class PenggunaSeeder extends Seeder
         );
 
         $teknisi = Pengguna::updateOrCreate(['email' => 'teknisi@acare.id'], [
-            'nama' => 'Teknisi Contoh',
+            'nama' => 'Rizky Pratama',
             'no_telepon' => '081200000003',
             'kata_sandi' => 'password',
             'role' => Pengguna::ROLE_TEKNISI,
         ]);
 
         Teknisi::updateOrCreate(['id_pengguna' => $teknisi->id_pengguna], [
-            'pengalaman' => 3,
-            'deskripsi' => 'Teknisi AC rumah tangga dan kantor.',
-            'kendaraan' => 'Honda Beat • BP 1234 AC',
+            'deskripsi' => 'Berpengalaman 5 tahun menangani AC rumah dan kantor.',
+            'jenis_kendaraan' => 'Honda Beat',
+            'plat_nomor' => 'BP 1234 AC',
             'nama_bank' => 'BNI',
             'no_rekening' => '1234567890',
-            'atas_nama' => 'Teknisi Contoh',
+            'atas_nama' => 'Rizky Pratama',
             'status_verifikasi' => 'terverifikasi',
             'status_ketersediaan' => 'tidak_tersedia',
         ]);

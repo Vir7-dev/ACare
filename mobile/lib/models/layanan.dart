@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../theme/app_colors.dart';
+
 class Layanan {
   final String nama;
   final String deskripsi;
@@ -37,8 +39,8 @@ const List<Layanan> daftarLayanan = [
     harga: 75000,
     durasiMenit: 45,
     ikon: Icons.water_drop_outlined,
-    warnaIkon: Color(0xFF3B82F6),
-    warnaLatar: Color(0xFFEAF2FF),
+    warnaIkon: AppColors.biru,
+    warnaLatar: AppColors.biruMuda,
     populer: true,
   ),
   Layanan(
@@ -47,8 +49,8 @@ const List<Layanan> daftarLayanan = [
     harga: 100000,
     durasiMenit: 45,
     ikon: Icons.settings_outlined,
-    warnaIkon: Color(0xFF16A34A),
-    warnaLatar: Color(0xFFE6F7EC),
+    warnaIkon: AppColors.biru,
+    warnaLatar: AppColors.biruMuda,
   ),
   Layanan(
     nama: 'Isi Freon',
@@ -56,8 +58,8 @@ const List<Layanan> daftarLayanan = [
     harga: 150000,
     durasiMenit: 45,
     ikon: Icons.propane_tank_outlined,
-    warnaIkon: Color(0xFFF59E0B),
-    warnaLatar: Color(0xFFFFF4DF),
+    warnaIkon: AppColors.biru,
+    warnaLatar: AppColors.biruMuda,
   ),
   Layanan(
     nama: 'Bongkar Pasang',
@@ -65,8 +67,8 @@ const List<Layanan> daftarLayanan = [
     harga: 100000,
     durasiMenit: 45,
     ikon: Icons.build_outlined,
-    warnaIkon: Color(0xFF6366F1),
-    warnaLatar: Color(0xFFEEEBFF),
+    warnaIkon: AppColors.biru,
+    warnaLatar: AppColors.biruMuda,
   ),
   Layanan(
     nama: 'Cek AC',
@@ -74,7 +76,7 @@ const List<Layanan> daftarLayanan = [
     harga: 50000,
     durasiMenit: 30,
     ikon: Icons.fact_check_outlined,
-    warnaIkon: Color(0xFF0F766E),
-    warnaLatar: Color(0xFFE0F5F2),
+    warnaIkon: AppColors.biru,
+    warnaLatar: AppColors.biruMuda,
   ),
 ];

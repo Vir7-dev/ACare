@@ -35,6 +35,13 @@ class Pesanan extends Model
     public const BIAYA_DITOLAK = 'ditolak';
 
     /**
+     * Batas waktu pelanggan menanggapi rincian biaya perbaikan. Bila lewat,
+     * biaya dianggap ditolak dan pesanan selesai dengan biaya awal saja.
+     * Harus sama dengan batasPersetujuanBiaya di aplikasi mobile.
+     */
+    public const BATAS_PERSETUJUAN_MENIT = 5;
+
+    /**
      * Status yang ditampilkan ke pelanggan. Beberapa status database
      * digabung supaya garis waktu di aplikasi tetap ringkas.
      */
@@ -65,7 +72,8 @@ class Pesanan extends Model
     ];
 
     protected $fillable = [
-        'id_pelanggan', 'id_teknisi', 'id_lokasi', 'jadwal_service', 'jenis_ac', 'pk', 'merek',
+        'id_pelanggan', 'id_teknisi', 'id_lokasi', 'detail_lokasi', 'jadwal_service', 'jenis_ac', 'pk',
+        'merek', 'detail_layanan',
         'catatan_pelanggan', 'catatan_biaya', 'catatan_pengerjaan', 'status_pesanan', 'total_biaya',
         'status_biaya', 'batas_tawaran', 'teknisi_menolak', 'batas_persetujuan_biaya',
         'biaya_ditanggapi_pada', 'alasan_pembatalan',
@@ -77,6 +85,8 @@ class Pesanan extends Model
     {
         return [
             'jadwal_service' => 'datetime',
+            // Isian khusus layanan: keluhan, jenis_freon, jenis_pekerjaan.
+            'detail_layanan' => 'array',
             'pk' => 'decimal:1',
             'total_biaya' => 'decimal:2',
             'batas_tawaran' => 'datetime',
@@ -102,6 +112,25 @@ class Pesanan extends Model
     public function getLabelStatusPelangganAttribute(): string
     {
         return self::LABEL_PELANGGAN[$this->status_pesanan] ?? $this->status_pesanan;
+    }
+
+    /**
+     * Dipanggil saat teknisi mengirim rincian biaya: status menunggu
+     * persetujuan dan batas waktunya mulai dihitung.
+     */
+    public function ajukanBiaya(): void
+    {
+        $this->status_pesanan = self::MENUNGGU_PERSETUJUAN_BIAYA;
+        $this->status_biaya = self::BIAYA_MENUNGGU;
+        $this->batas_persetujuan_biaya = now()->addMinutes(self::BATAS_PERSETUJUAN_MENIT);
+    }
+
+    /** Rincian biaya belum ditanggapi dan batas waktunya sudah lewat. */
+    public function batasPersetujuanLewat(): bool
+    {
+        return $this->status_biaya === self::BIAYA_MENUNGGU
+            && $this->batas_persetujuan_biaya !== null
+            && $this->batas_persetujuan_biaya->isPast();
     }
 
     /** Pelanggan hanya boleh membatalkan selama teknisi belum ditemukan. */

@@ -23,6 +23,8 @@ class _RegistrasiTeknisiPageState extends State<RegistrasiTeknisiPage> {
   final telepon = TextEditingController();
   final email = TextEditingController();
   final password = TextEditingController();
+  final jenisKendaraan = TextEditingController();
+  final platNomor = TextEditingController();
   final nomorRekening = TextEditingController();
   final namaPemilik = TextEditingController();
 
@@ -50,6 +52,8 @@ class _RegistrasiTeknisiPageState extends State<RegistrasiTeknisiPage> {
     telepon.dispose();
     email.dispose();
     password.dispose();
+    jenisKendaraan.dispose();
+    platNomor.dispose();
     nomorRekening.dispose();
     namaPemilik.dispose();
     super.dispose();
@@ -110,6 +114,8 @@ class _RegistrasiTeknisiPageState extends State<RegistrasiTeknisiPage> {
       bank: bank,
       nomorRekening: nomorRekening.text,
       namaPemilik: namaPemilik.text,
+      jenisKendaraan: jenisKendaraan.text.trim(),
+      platNomor: platNomor.text.trim().toUpperCase(),
       dokumen: dokumen,
     );
     // Email & nomor diingat supaya terisi otomatis di halaman Masuk.
@@ -257,7 +263,7 @@ class _RegistrasiTeknisiPageState extends State<RegistrasiTeknisiPage> {
         elevation: utama ? 1 : 0,
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
         minimumSize: const Size(0, 48),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
       child: mengirim && utama
           ? const SizedBox(
@@ -402,6 +408,46 @@ class _RegistrasiTeknisiPageState extends State<RegistrasiTeknisiPage> {
           validator: (value) {
             if (value == null || value.length < 8) {
               return 'Kata sandi minimal 8 karakter';
+            }
+            return null;
+          },
+        ),
+        const SizedBox(height: 10),
+        const Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            'Kendaraan Operasional',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+          ),
+        ),
+        const SizedBox(height: 4),
+        const Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            'Ditampilkan ke pelanggan agar mudah mengenali kamu saat datang.',
+            style: TextStyle(fontSize: 11, color: AppColors.teksSamar),
+          ),
+        ),
+        const SizedBox(height: 12),
+        input(
+          label: 'Jenis Kendaraan',
+          hint: 'Contoh: Honda Beat',
+          icon: Icons.two_wheeler,
+          controller: jenisKendaraan,
+          validator: (value) => (value == null || value.trim().isEmpty)
+              ? 'Jenis kendaraan wajib diisi'
+              : null,
+        ),
+        input(
+          label: 'Plat Nomor',
+          hint: 'Contoh: BP 1234 AC',
+          icon: Icons.pin_outlined,
+          controller: platNomor,
+          validator: (value) {
+            final v = (value ?? '').trim().toUpperCase();
+            if (v.isEmpty) return 'Plat nomor wajib diisi';
+            if (!RegExp(r'^[A-Z]{1,2}\s?\d{1,4}\s?[A-Z]{0,3}$').hasMatch(v)) {
+              return 'Format plat tidak valid, contoh: BP 1234 AC';
             }
             return null;
           },

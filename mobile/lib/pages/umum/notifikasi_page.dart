@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import '../../services/notifikasi_service.dart';
+import '../../widgets/keadaan_kosong.dart';
 import '../../theme/app_colors.dart';
 
 /// Daftar notifikasi pesanan, pembayaran, refund, dan sistem (UC-05).
@@ -42,11 +43,10 @@ class NotifikasiPage extends StatelessWidget {
         valueListenable: layanan.daftar,
         builder: (context, daftar, _) {
           if (daftar.isEmpty) {
-            return Center(
-              child: Text(
-                'Belum ada notifikasi',
-                style: GoogleFonts.plusJakartaSans(color: AppColors.teksSamar),
-              ),
+            return const KeadaanKosong(
+              judul: 'Belum ada notifikasi',
+              keterangan:
+                  'Kabar pesanan, pembayaran, dan refund akan muncul di sini.',
             );
           }
           return ListView.separated(

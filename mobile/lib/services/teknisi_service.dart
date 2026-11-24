@@ -49,7 +49,6 @@ class TawaranPesanan {
   /// Layanan yang bisa bertambah biaya setelah pengecekan.
   final bool bisaBiayaTambahan;
   final String namaPelanggan;
-  final String ratingPelanggan;
   final String teleponPelanggan;
   final String alamat;
   final String wilayah;
@@ -64,7 +63,6 @@ class TawaranPesanan {
     required this.ongkosAwal,
     required this.bisaBiayaTambahan,
     required this.namaPelanggan,
-    required this.ratingPelanggan,
     required this.teleponPelanggan,
     required this.alamat,
     required this.wilayah,
@@ -187,7 +185,7 @@ class TeknisiService {
   static const int minimumPencairan = 50000;
 
   /// Rekening tujuan pencairan dari data registrasi (tiruan).
-  static const String rekeningTujuan = 'BNI • 1234567890 a.n Teknisi Contoh';
+  static const String rekeningTujuan = 'BNI • 1234567890 a.n Rizky Pratama';
 
   /// Lama tawaran menunggu jawaban sebelum diteruskan ke teknisi lain.
   Duration batasTawaran = const Duration(seconds: 30);
@@ -428,7 +426,6 @@ class TeknisiService {
       ongkosAwal: 100000,
       bisaBiayaTambahan: true,
       namaPelanggan: 'Hendra Gunawan',
-      ratingPelanggan: '4.9',
       teleponPelanggan: '081234500001',
       alamat: 'Jl. Engku Putri No. 12, Batam Centre',
       wilayah: 'Batam Centre',
@@ -443,7 +440,6 @@ class TeknisiService {
       ongkosAwal: 150000,
       bisaBiayaTambahan: false,
       namaPelanggan: 'Siti Rahayu',
-      ratingPelanggan: '4.8',
       teleponPelanggan: '081234500002',
       alamat: 'Perumahan Batu Aji Blok C No. 5',
       wilayah: 'Batu Aji',

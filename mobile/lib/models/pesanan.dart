@@ -27,7 +27,7 @@ final List<Pesanan> dummyPesanan = [
   Pesanan(
     kode: '#AC-7710',
     tanggal: DateTime(2026, 10, 8, 10, 30),
-    namaLayanan: 'Servis Berkala & Tambah Freon R32',
+    namaLayanan: 'Service AC',
     detailUnit: '1 Unit AC Daikin 1.5 PK • Ruang Keluarga',
     namaTeknisi: 'Budi Santoso',
     totalBiaya: 310000,

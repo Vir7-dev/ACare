@@ -54,6 +54,14 @@ void main() {
     await isi(tester, 'Masukkan email', 'budi@acare.id');
     await isi(tester, 'Minimal 8 karakter', 'rahasia123');
     await tester.tap(find.text('Selanjutnya'));
+    await tester.pump();
+    // Kendaraan wajib diisi.
+    expect(find.text('Jenis kendaraan wajib diisi'), findsOneWidget);
+    await isi(tester, 'Contoh: Honda Beat', 'Honda Beat');
+    await isi(tester, 'Contoh: BP 1234 AC', 'BP 1234');
+    await tester.ensureVisible(find.text('Selanjutnya'));
+    await tester.pump();
+    await tester.tap(find.text('Selanjutnya'));
     await tester.pumpAndSettle();
 
     // Tahap 2: semua dokumen wajib diunggah.

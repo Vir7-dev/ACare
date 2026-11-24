@@ -372,7 +372,7 @@ class _TombolNominal extends StatelessWidget {
         side: const BorderSide(color: AppColors.garis),
         minimumSize: const Size(0, 48),
         padding: const EdgeInsets.symmetric(horizontal: 4),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
       child: FittedBox(
         fit: BoxFit.scaleDown,

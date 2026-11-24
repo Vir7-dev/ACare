@@ -472,8 +472,6 @@ class _KartuTawaranState extends State<KartuTawaran> {
                   ),
                 ),
               ),
-              const Icon(Icons.star, size: 14, color: AppColors.bintang),
-              Text(' ${t.ratingPelanggan}', style: kecil),
             ],
           ),
           const SizedBox(height: 6),
