@@ -278,4 +278,27 @@ class SkemaDatabaseTest extends TestCase
             ->assertJsonPath('email', 'pelanggan@acare.id')
             ->assertJsonMissingPath('kata_sandi');
     }
+
+    public function test_pesanan_menyimpan_detail_lokasi_dan_isian_khusus_layanan(): void
+    {
+        $pesanan = $this->buatPesanan([
+            'detail_lokasi' => 'Kamar tidur utama, lantai 2',
+            'detail_layanan' => ['keluhan' => ['Tidak dingin', 'Bocor air']],
+            'catatan_pelanggan' => 'Pagar warna hijau.',
+        ])->fresh();
+
+        $this->assertSame('Kamar tidur utama, lantai 2', $pesanan->detail_lokasi);
+        $this->assertSame(['Tidak dingin', 'Bocor air'], $pesanan->detail_layanan['keluhan']);
+        $this->assertSame('Pagar warna hijau.', $pesanan->catatan_pelanggan);
+    }
+
+    public function test_kendaraan_teknisi_terpisah_dan_tanpa_pengalaman(): void
+    {
+        $teknisi = $this->teknisi();
+
+        $this->assertSame('Honda Beat', $teknisi->jenis_kendaraan);
+        $this->assertSame('BP 1234 AC', $teknisi->plat_nomor);
+        $this->assertFalse(Schema::hasColumn('teknisi', 'kendaraan'));
+        $this->assertFalse(Schema::hasColumn('teknisi', 'pengalaman'));
+    }
 }

@@ -108,6 +108,8 @@ class AuthService {
     required String bank,
     required String nomorRekening,
     required String namaPemilik,
+    required String jenisKendaraan,
+    required String platNomor,
     required Map<String, String> dokumen,
   }) async {
     // TODO(backend): kirim payload beserta file dokumen (multipart) ke

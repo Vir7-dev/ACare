@@ -52,6 +52,11 @@ class PesananPelanggan {
   final String detailAlamat;
   final DateTime jadwal;
   final String? catatan;
+
+  /// Isian khusus layanan (dikirim ke kolom pesanan.detail_layanan):
+  /// keluhan (Service AC), jenis_freon (Isi Freon), jenis_pekerjaan
+  /// (Bongkar Pasang). [catatan] hanya berisi catatan bebas pelanggan.
+  final Map<String, Object> detailLayanan;
   final String metodeBayar;
   final int biayaAwal;
   final StatusPesananPelanggan status;
@@ -71,6 +76,7 @@ class PesananPelanggan {
     required this.detailAlamat,
     required this.jadwal,
     this.catatan,
+    this.detailLayanan = const {},
     required this.metodeBayar,
     required this.biayaAwal,
     this.status = StatusPesananPelanggan.mencariTeknisi,
@@ -107,7 +113,7 @@ class PesananPelanggan {
       kendaraan: teknisiDummy.kendaraan,
       plat: plat ?? '-',
       telepon: _teleponTeknisi,
-      testimoni: 'Teknisi yang hebat mantep pokoknya',
+      testimoni: 'Berpengalaman 5 tahun menangani AC rumah dan kantor. Selalu menjelaskan masalah sebelum mulai bekerja.',
     );
   }
 
@@ -135,6 +141,7 @@ class PesananPelanggan {
       detailAlamat: detailAlamat,
       jadwal: jadwal,
       catatan: catatan,
+      detailLayanan: detailLayanan,
       metodeBayar: metodeBayar ?? this.metodeBayar,
       biayaAwal: biayaAwal,
       status: status ?? this.status,
@@ -236,7 +243,7 @@ class OrderService {
       final menit = 10 + Random().nextInt(11);
       pesananAktif.value = p.copyWith(
         status: StatusPesananPelanggan.teknisiDitemukan,
-        namaTeknisi: 'GanAnWo',
+        namaTeknisi: 'Andi Saputra',
         plat: 'BP 4892 QL',
         rating: '4.9',
         jumlahUlasan: 67,

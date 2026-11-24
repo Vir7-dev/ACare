@@ -65,7 +65,8 @@ class Pesanan extends Model
     ];
 
     protected $fillable = [
-        'id_pelanggan', 'id_teknisi', 'id_lokasi', 'jadwal_service', 'jenis_ac', 'pk', 'merek',
+        'id_pelanggan', 'id_teknisi', 'id_lokasi', 'detail_lokasi', 'jadwal_service', 'jenis_ac', 'pk',
+        'merek', 'detail_layanan',
         'catatan_pelanggan', 'catatan_biaya', 'catatan_pengerjaan', 'status_pesanan', 'total_biaya',
         'status_biaya', 'batas_tawaran', 'teknisi_menolak', 'batas_persetujuan_biaya',
         'biaya_ditanggapi_pada', 'alasan_pembatalan',
@@ -77,6 +78,8 @@ class Pesanan extends Model
     {
         return [
             'jadwal_service' => 'datetime',
+            // Isian khusus layanan: keluhan, jenis_freon, jenis_pekerjaan.
+            'detail_layanan' => 'array',
             'pk' => 'decimal:1',
             'total_biaya' => 'decimal:2',
             'batas_tawaran' => 'datetime',

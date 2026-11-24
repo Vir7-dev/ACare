@@ -177,6 +177,7 @@ class _BuatPesananPageState extends State<BuatPesananPage> {
       detailAlamat: _detailAlamat.text.trim(),
       jadwal: _jadwal,
       catatan: _catatanPesanan(),
+      detailLayanan: _detailLayanan(),
       metodeBayar: '',
       biayaAwal: OrderService.hitungBiayaAwal(_layanan, _jumlahUnit),
     );
@@ -189,18 +190,18 @@ class _BuatPesananPageState extends State<BuatPesananPage> {
   }
 
   /// Gabungan isian khusus layanan + catatan tambahan.
+  /// Isian khusus layanan, disimpan terstruktur (bukan digabung ke catatan)
+  /// agar teknisi bisa membacanya sebagai daftar dan Admin bisa merekap.
+  Map<String, Object> _detailLayanan() => {
+    if (_keluhanDipilih.isNotEmpty) 'keluhan': _keluhanDipilih.toList(),
+    if (_freon != null) 'jenis_freon': _freon!,
+    if (_perluBongkarPasang) 'jenis_pekerjaan': _bongkarPasang.name,
+  };
+
+  /// Catatan bebas dari pelanggan.
   String? _catatanPesanan() {
-    final bagian = <String>[];
-    if (_keluhanDipilih.isNotEmpty) {
-      bagian.add('Keluhan: ${_keluhanDipilih.join(', ')}');
-    }
-    if (_freon != null) bagian.add('Freon: $_freon');
-    if (_layanan.nama == 'Bongkar Pasang') {
-      bagian.add('Jenis pekerjaan: ${_bongkarPasang.label}');
-    }
     final tambahan = _catatan.text.trim();
-    if (tambahan.isNotEmpty) bagian.add(tambahan);
-    return bagian.isEmpty ? null : bagian.join('\n');
+    return tambahan.isEmpty ? null : tambahan;
   }
 
   void _pesanValidasi(String pesan) {
@@ -346,7 +347,7 @@ class _BuatPesananPageState extends State<BuatPesananPage> {
               foregroundColor: Colors.white,
               elevation: 2,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
               ),
               textStyle: GoogleFonts.plusJakartaSans(
                 fontSize: 14,
@@ -726,7 +727,7 @@ class _BuatPesananPageState extends State<BuatPesananPage> {
   ButtonStyle _gayaTombolJadwal() => OutlinedButton.styleFrom(
     foregroundColor: AppColors.biru,
     side: const BorderSide(color: AppColors.biruGaris),
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     padding: const EdgeInsets.symmetric(vertical: 10),
   );
 

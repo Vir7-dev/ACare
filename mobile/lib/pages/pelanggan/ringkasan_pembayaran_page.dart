@@ -93,6 +93,15 @@ class _RingkasanPembayaranPageState extends State<RingkasanPembayaranPage> {
               DateFormat('d MMM yyyy, HH:mm', 'id_ID').format(pesanan.jadwal),
             ),
             _baris('Alamat', pesanan.alamatLengkap, rataKanan: false),
+            if (pesanan.detailLayanan['keluhan'] case final List k)
+              _baris('Keluhan', k.join(', '), rataKanan: false),
+            if (pesanan.detailLayanan['jenis_freon'] case final String f)
+              _baris('Jenis freon', f),
+            if (pesanan.detailLayanan['jenis_pekerjaan'] case final String j)
+              _baris(
+                'Jenis pekerjaan',
+                JenisBongkarPasang.values.byName(j).label,
+              ),
             if (pesanan.catatan != null)
               _baris('Catatan', pesanan.catatan!, rataKanan: false),
           ]),
@@ -204,7 +213,7 @@ class _RingkasanPembayaranPageState extends State<RingkasanPembayaranPage> {
               foregroundColor: Colors.white,
               elevation: 2,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
               ),
               textStyle: GoogleFonts.plusJakartaSans(
                 fontSize: 14,

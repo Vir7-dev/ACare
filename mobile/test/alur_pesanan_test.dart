@@ -95,6 +95,7 @@ void main() {
 
     await tester.tap(find.text('Split'));
     await tester.tap(find.text('1 PK'));
+    await tester.tap(find.text('Tidak dingin'));
     await isiAlamat(tester, 'Kamar tidur');
     await tapLanjut(tester);
 
@@ -105,6 +106,9 @@ void main() {
       ),
       findsOneWidget,
     );
+    // Keluhan tersimpan terstruktur, tampil sebagai baris sendiri.
+    expect(find.text('Keluhan'), findsOneWidget);
+    expect(find.text('Catatan'), findsNothing);
   });
 
   testWidgets('Cuci AC tidak menampilkan keluhan maupun info biaya tambahan', (
@@ -275,6 +279,7 @@ void main() {
     await tester.pump();
     expect(find.text('Rincian Biaya Perbaikan'), findsOneWidget);
     await tester.ensureVisible(find.text('Setuju'));
+    await tester.pump();
     await tester.tap(find.text('Setuju'));
     await tester.pump();
     expect(find.text('Melakukan Perbaikan'), findsWidgets);
@@ -283,9 +288,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 2600));
     await tester.pump();
     await tester.ensureVisible(find.text('Bayar Pesanan'));
+    await tester.pump();
     await tester.tap(find.text('Bayar Pesanan'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('BAYAR'));
+    await tester.tap(find.text('Bayar'));
     await tester.pump();
     await tester.pump(const Duration(seconds: 5));
     await tester.pump(const Duration(seconds: 1));
@@ -304,6 +310,6 @@ void main() {
       scrollable: find.byType(Scrollable).first,
     );
     expect(find.text('Sedang Berlangsung'), findsOneWidget);
-    expect(find.text('GanAnWo'), findsOneWidget);
+    expect(find.text('Andi Saputra'), findsOneWidget);
   });
 }
