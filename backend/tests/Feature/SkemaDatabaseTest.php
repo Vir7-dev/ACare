@@ -301,4 +301,22 @@ class SkemaDatabaseTest extends TestCase
         $this->assertFalse(Schema::hasColumn('teknisi', 'kendaraan'));
         $this->assertFalse(Schema::hasColumn('teknisi', 'pengalaman'));
     }
+
+    public function test_batas_persetujuan_biaya_lima_menit(): void
+    {
+        // Database menyimpan waktu sampai detik.
+        $this->freezeSecond();
+        $pesanan = $this->buatPesanan(['id_teknisi' => $this->teknisi()->id_pengguna]);
+
+        $pesanan->ajukanBiaya();
+        $pesanan->save();
+
+        $this->assertSame(Pesanan::MENUNGGU_PERSETUJUAN_BIAYA, $pesanan->status_pesanan);
+        $this->assertTrue($pesanan->batas_persetujuan_biaya->equalTo(now()->addMinutes(5)));
+        $this->assertFalse($pesanan->batasPersetujuanLewat());
+
+        $this->travel(5)->minutes();
+        $this->travel(1)->seconds();
+        $this->assertTrue($pesanan->fresh()->batasPersetujuanLewat());
+    }
 }

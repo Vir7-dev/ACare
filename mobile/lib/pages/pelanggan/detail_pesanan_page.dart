@@ -421,8 +421,9 @@ class _KartuPersetujuanBiaya extends StatelessWidget {
           ],
           const SizedBox(height: 6),
           Text(
-            'Jika ditolak atau tidak ditanggapi dalam 30 menit, pesanan '
-            'selesai dengan biaya awal saja.',
+            'Jika ditolak atau tidak ditanggapi dalam '
+            '${batasPersetujuanBiaya.inMinutes} menit, pesanan selesai '
+            'dengan biaya awal saja.',
             style: GoogleFonts.plusJakartaSans(
               fontSize: 11,
               color: AppColors.teksSamar,

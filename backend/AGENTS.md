@@ -29,7 +29,8 @@ API dan panel Admin untuk aplikasi pemesanan servis AC ACare.
 - Pembayaran 2 tahap lewat Xendit: biaya awal sebelum mencari teknisi,
   pelunasan biaya perbaikan setelah pekerjaan selesai.
 - Biaya perbaikan dari teknisi hanya ditagih bila `status_biaya`
-  disetujui pelanggan.
+  disetujui pelanggan. Pelanggan punya waktu 5 menit
+  (`Pesanan::BATAS_PERSETUJUAN_MENIT`); lewat dari itu dianggap ditolak.
 - Pelanggan hanya bisa membatalkan saat status `mencari_teknisi`.
 - Komisi platform per layanan (`layanan.persentase_platform`, bawaan 10%),
   dicatat di `pendapatan` setelah pelunasan. Pencairan minimal Rp50.000.
