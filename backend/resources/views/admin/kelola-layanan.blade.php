@@ -12,7 +12,7 @@ function initKelolaLayanan() {
         showDeleteModal: false,
         deleteTarget: null,
         editMode: false,
-        form: { nama: '', harga_min: '', harga_max: '', durasi: '', deskripsi: '', status: 'Aktif' },
+        form: { nama: '', harga: '', durasi: '', deskripsi: '', status: 'Aktif' },
         layanan: {!! json_encode($layanan) !!},
         errors: {},
         urutKolom: 'nama',
@@ -40,9 +40,16 @@ function initKelolaLayanan() {
                     window.adminToast(galat, { tipe: 'error' });
                     return false;
                 }
+                if (r.data && Array.isArray(r.data.layanan)) {
+                    self.layanan = r.data.layanan;
+                }
+                var daftarTersimpan = JSON.parse(JSON.stringify(self.layanan));
                 self.tampilkanToast(pesan, tipe, function () {
                     window.kirimAdmin('{{ route('admin.layanan.sinkron') }}', { layanan: sebelum }).then(function (h) {
-                        if (h.ok) { self.layanan = sebelum; window.adminToast('Perubahan dibatalkan.'); }
+                        if (h.ok) {
+                            self.layanan = (h.data && Array.isArray(h.data.layanan)) ? h.data.layanan : sebelum;
+                            window.adminToast('Perubahan dibatalkan.');
+                        }
                     });
                 });
                 return true;
@@ -52,24 +59,19 @@ function initKelolaLayanan() {
         validasiForm() {
             var galat = {};
             var nama = String(this.form.nama || '').trim();
-            var min = Number(this.form.harga_min);
-            var max = Number(this.form.harga_max);
+            var harga = Number(this.form.harga);
+            var durasi = parseInt(this.form.durasi, 10);
             var self = this;
             if (nama === '') {
                 galat.nama = 'Nama layanan wajib diisi.';
             } else if (this.layanan.some(function(l) { return l.id !== self.form.id && l.nama.toLowerCase() === nama.toLowerCase(); })) {
                 galat.nama = 'Nama layanan sudah ada.';
             }
-            if (!(min > 0)) {
-                galat.harga_min = 'Harga minimum harus lebih dari 0.';
+            if (!(harga > 0)) {
+                galat.harga = 'Harga wajib diisi dan lebih dari 0.';
             }
-            if (!(max > 0)) {
-                galat.harga_max = 'Harga maksimum harus lebih dari 0.';
-            } else if (max < min) {
-                galat.harga_max = 'Harga maksimum tidak boleh lebih kecil dari harga minimum.';
-            }
-            if (String(this.form.durasi || '').trim() === '') {
-                galat.durasi = 'Estimasi durasi wajib diisi.';
+            if (!(durasi > 0)) {
+                galat.durasi = 'Estimasi durasi (menit) wajib diisi dan lebih dari 0.';
             }
             this.errors = galat;
             return Object.keys(galat).length === 0;
@@ -79,11 +81,15 @@ function initKelolaLayanan() {
             if (!this.validasiForm()) {
                 return;
             }
+            var hargaAngka = Number(this.form.harga);
+            var durasiAngka = parseInt(this.form.durasi, 10) || 0;
             var data = Object.assign({}, this.form, {
                 nama: String(this.form.nama).trim(),
-                harga_min: Number(this.form.harga_min),
-                harga_max: Number(this.form.harga_max),
-                durasi: String(this.form.durasi).trim()
+                harga: hargaAngka,
+                harga_min: hargaAngka,
+                harga_max: hargaAngka,
+                durasi: durasiAngka,
+                estimasi_durasi: durasiAngka
             });
             var daftar = JSON.parse(JSON.stringify(this.layanan));
             var pesan;
@@ -92,8 +98,8 @@ function initKelolaLayanan() {
                 daftar.splice(indeks, 1, data);
                 pesan = 'Layanan "' + data.nama + '" diperbarui.';
             } else {
-                data.id = daftar.reduce(function(maks, l) { return Math.max(maks, l.id); }, 0) + 1;
-                data.icon = 'lucide:settings';
+                data.id = 'baru-' + Date.now();
+                data.icon = 'lucide:wrench';
                 data.warna = 'bg-brand-50 text-brand-dark';
                 data.total_pesanan = 0;
                 daftar.push(data);
@@ -147,13 +153,13 @@ function initKelolaLayanan() {
             var self = this;
             var hasil = this.layanan.filter(function(l) {
                 var matchSts = self.filterStatus === 'Semua' || l.status === self.filterStatus;
-                var matchQ   = self.search === '' || l.nama.toLowerCase().includes(self.search.toLowerCase()) ;
+                var matchQ   = self.search === '' || l.nama.toLowerCase().includes(self.search.toLowerCase());
                 return matchSts && matchQ;
             });
             var kolom = this.urutKolom, arah = this.urutArah;
             return hasil.sort(function(a, b) {
-                var x = kolom === 'durasi' ? parseInt(a.durasi, 10) || 0 : a[kolom];
-                var y = kolom === 'durasi' ? parseInt(b.durasi, 10) || 0 : b[kolom];
+                var x = kolom === 'durasi' ? (parseInt(a.durasi, 10) || 0) : a[kolom];
+                var y = kolom === 'durasi' ? (parseInt(b.durasi, 10) || 0) : b[kolom];
                 if (typeof x === 'string') { return arah * x.localeCompare(y, 'id'); }
                 return arah * (x - y);
             });
@@ -169,14 +175,17 @@ function initKelolaLayanan() {
         openAdd() {
             this.editMode = false;
             this.errors = {};
-            this.form = { nama: '', harga_min: '', harga_max: '', durasi: '', deskripsi: '', status: 'Aktif' };
+            this.form = { nama: '', harga: '', durasi: '', deskripsi: '', status: 'Aktif' };
             this.showModal = true;
         },
 
         openEdit(item) {
             this.editMode = true;
             this.errors = {};
-            this.form = Object.assign({}, item);
+            this.form = Object.assign({}, item, {
+                harga: item.harga !== undefined ? item.harga : item.harga_min,
+                durasi: parseInt(item.durasi, 10) || 0 
+            });
             this.showModal = true;
         },
 
@@ -215,7 +224,7 @@ function initKelolaLayanan() {
                 <p class="text-sm text-slate-500 mt-0.5">Manajemen layanan AC yang tersedia di platform ACare</p>
             </div>
             <button @click="openAdd()"
-                class="flex items-center gap-2 px-4 py-2.5 bg-brand text-white text-xs font-bold rounded-lg  hover:bg-brand-dark transition-all">
+                class="flex items-center gap-2 px-4 py-2.5 bg-brand text-white text-xs font-bold rounded-lg hover:bg-brand-dark transition-all">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                 </svg>
@@ -266,14 +275,15 @@ function initKelolaLayanan() {
                                               :class="urutKolom === 'nama' ? 'text-brand-dark' : 'text-slate-400'" width="13" height="13" aria-hidden="true"></iconify-icon>
                             </button>
                         </th>
-                        <th class="py-3 px-3 text-right" :aria-sort="ariaUrut('harga_min')">
-                            <button type="button" @click="urutkan('harga_min')" class="inline-flex items-center gap-1 font-bold hover:text-navy transition-colors">
+                        <!-- [DIUBAH] sorting & label harga tunggal -->
+                        <th class="py-3 px-3 text-right" :aria-sort="ariaUrut('harga')">
+                            <button type="button" @click="urutkan('harga')" class="inline-flex items-center gap-1 font-bold hover:text-navy transition-colors">
                                 <span>Harga (Rp)</span>
-                                <iconify-icon :icon="urutKolom === 'harga_min' ? (urutArah === 1 ? 'lucide:arrow-up' : 'lucide:arrow-down') : 'lucide:arrow-up-down'"
-                                              :class="urutKolom === 'harga_min' ? 'text-brand-dark' : 'text-slate-400'" width="13" height="13" aria-hidden="true"></iconify-icon>
+                                <iconify-icon :icon="urutKolom === 'harga' ? (urutArah === 1 ? 'lucide:arrow-up' : 'lucide:arrow-down') : 'lucide:arrow-up-down'"
+                                              :class="urutKolom === 'harga' ? 'text-brand-dark' : 'text-slate-400'" width="13" height="13" aria-hidden="true"></iconify-icon>
                             </button>
                         </th>
-                        <th class="py-3 px-3 " :aria-sort="ariaUrut('durasi')">
+                        <th class="py-3 px-3" :aria-sort="ariaUrut('durasi')">
                             <button type="button" @click="urutkan('durasi')" class="inline-flex items-center gap-1 font-bold hover:text-navy transition-colors">
                                 <span>Durasi (menit)</span>
                                 <iconify-icon :icon="urutKolom === 'durasi' ? (urutArah === 1 ? 'lucide:arrow-up' : 'lucide:arrow-down') : 'lucide:arrow-up-down'"
@@ -297,9 +307,11 @@ function initKelolaLayanan() {
                                     </div>
                                 </div>
                             </td>
+                            <!-- [DIUBAH] tampilkan satu harga saja -->
                             <td class="py-3 px-3 text-right whitespace-nowrap font-semibold text-slate-800"
-                                x-text="Number(item.harga_min).toLocaleString('id-ID') + ' – ' + Number(item.harga_max).toLocaleString('id-ID')"></td>
-                            <td class="py-3 px-3 whitespace-nowrap text-slate-700" x-text="String(item.durasi).replace(/ menit$/, '')"></td>
+                                x-text="Number(item.harga || 0).toLocaleString('id-ID')"></td>
+                            <!-- [DIUBAH] tampilkan durasi dalam menit -->
+                            <td class="py-3 px-3 whitespace-nowrap text-slate-700" x-text="parseInt(item.durasi, 10) || 0"></td>
                             <td class="py-3 px-3">
                                 <div class="flex items-center gap-2.5">
                                     <button type="button" role="switch" :aria-checked="item.status === 'Aktif'"
@@ -331,7 +343,7 @@ function initKelolaLayanan() {
                         </tr>
                     </template>
                     <tr x-show="totalTersaring === 0" style="display: none;">
-                        <td colspan="6" class="py-12 text-center">
+                        <td colspan="5" class="py-12 text-center">
                             <p class="text-sm font-bold text-slate-600">Layanan tidak ditemukan</p>
                             <p class="text-xs text-slate-500 mt-1">Coba ubah filter atau kata kunci pencarian.</p>
                         </td>
@@ -372,35 +384,28 @@ function initKelolaLayanan() {
                         class="w-full px-3 py-2.5 bg-slate-50 border border-line rounded-lg text-sm font-medium text-slate-800 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent">
                     <p x-show="errors.nama" x-text="errors.nama" class="mt-1 text-xs font-semibold text-rose-600" style="display: none;"></p>
                 </div>
-                <div class="grid grid-cols-1 gap-4">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1.5">Status</label>
-                        <select x-model="form.status"
-                            class="w-full px-3 py-2.5 bg-slate-50 border border-line rounded-lg text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand">
-                            <option>Aktif</option>
-                            <option>Tidak Aktif</option>
-                        </select>
-                    </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1.5">Status</label>
+                    <select x-model="form.status"
+                        class="w-full px-3 py-2.5 bg-slate-50 border border-line rounded-lg text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand">
+                        <option>Aktif</option>
+                        <option>Tidak Aktif</option>
+                    </select>
                 </div>
+                <!-- [DIUBAH] 1 kolom Harga (Rp) dan 1 kolom Estimasi Durasi (menit) -->
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1.5">Harga Minimum (Rp)</label>
-                        <input type="number" min="0" x-model="form.harga_min" placeholder="80000"
+                        <label class="block text-xs font-bold text-slate-700 mb-1.5">Harga (Rp)</label>
+                        <input type="number" min="0" x-model="form.harga" placeholder="100000"
                             class="w-full px-3 py-2.5 bg-slate-50 border border-line rounded-lg text-sm font-medium text-slate-800 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand">
-                        <p x-show="errors.harga_min" x-text="errors.harga_min" class="mt-1 text-xs font-semibold text-rose-600" style="display: none;"></p>
+                        <p x-show="errors.harga" x-text="errors.harga" class="mt-1 text-xs font-semibold text-rose-600" style="display: none;"></p>
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1.5">Harga Maksimum (Rp)</label>
-                        <input type="number" min="0" x-model="form.harga_max" placeholder="150000"
+                        <label class="block text-xs font-bold text-slate-700 mb-1.5">Estimasi Durasi (menit)</label>
+                        <input type="number" min="1" x-model="form.durasi" placeholder="90"
                             class="w-full px-3 py-2.5 bg-slate-50 border border-line rounded-lg text-sm font-medium text-slate-800 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand">
-                        <p x-show="errors.harga_max" x-text="errors.harga_max" class="mt-1 text-xs font-semibold text-rose-600" style="display: none;"></p>
+                        <p x-show="errors.durasi" x-text="errors.durasi" class="mt-1 text-xs font-semibold text-rose-600" style="display: none;"></p>
                     </div>
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1.5">Estimasi Durasi</label>
-                    <input type="text" x-model="form.durasi" placeholder="Contoh: 60–90 menit"
-                        class="w-full px-3 py-2.5 bg-slate-50 border border-line rounded-lg text-sm font-medium text-slate-800 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand">
-                    <p x-show="errors.durasi" x-text="errors.durasi" class="mt-1 text-xs font-semibold text-rose-600" style="display: none;"></p>
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1.5">Deskripsi</label>
@@ -415,7 +420,7 @@ function initKelolaLayanan() {
                     Batal
                 </button>
                 <button @click="simpan()"
-                    class="flex-1 py-2.5 bg-brand text-white text-xs font-bold rounded-lg hover:bg-brand-dark transition-all ">
+                    class="flex-1 py-2.5 bg-brand text-white text-xs font-bold rounded-lg hover:bg-brand-dark transition-all">
                     <span x-text="editMode ? 'Simpan Perubahan' : 'Tambah Layanan'"></span>
                 </button>
             </div>
@@ -444,13 +449,12 @@ function initKelolaLayanan() {
                     Batal
                 </button>
                 <button @click="hapus()"
-                    class="flex-1 py-2.5 bg-red-500 text-white text-xs font-bold rounded-lg hover:bg-red-600 transition-all ">
+                    class="flex-1 py-2.5 bg-red-500 text-white text-xs font-bold rounded-lg hover:bg-red-600 transition-all">
                     Hapus
                 </button>
             </div>
         </div>
     </div>
-
 
 </div>
 

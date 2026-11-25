@@ -3,129 +3,141 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Support\StatusAdmin;
+use App\Models\Layanan;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class LayananController extends Controller
 {
+    private const DEFAULT_PERSENTASE_PLATFORM = 10;
+
+    private static function keLabelStatus(?string $statusDb): string
+    {
+        return strtolower((string) $statusDb) === 'aktif' ? 'Aktif' : 'Tidak Aktif';
+    }
+
+    private static function keStatusDb(string $labelStatus): string
+    {
+        return $labelStatus === 'Aktif' ? 'aktif' : 'nonaktif';
+    }
+
     /**
-     * Katalog layanan: data contoh, atau versi terbaru dari session bila sudah diubah.
+     * Katalog layanan dari database.
      *
      * @return array<int, array<string, mixed>>
      */
     public static function daftarLayanan(): array
     {
-        $tersimpan = StatusAdmin::ambil('layanan');
-        if (is_array($tersimpan) && $tersimpan !== []) {
-            return array_values($tersimpan);
-        }
+        $items = Layanan::query()
+            ->withCount('detailPesanan')
+            ->orderBy('id_layanan')
+            ->get();
 
-        // 6 Layanan Utama ACare (Sesuai Katalog Resmi)
-        return [
-            [
-                'id' => 1,
-                'nama' => 'Cuci AC',
-                'deskripsi' => 'Pembersihan menyeluruh unit AC split indoor & outdoor agar performa dingin optimal dan bebas bakteri.',
-                'harga_min' => 80000,
-                'harga_max' => 150000,
-                'durasi' => '60–90 menit',
-                'icon' => 'lucide:droplets',
-                'warna' => 'bg-brand-50 text-brand-dark',
-                'status' => 'Aktif',
-                'total_pesanan' => 231,
-            ],
-            [
-                'id' => 2,
-                'nama' => 'Service AC',
-                'deskripsi' => 'Pemeriksaan & perbaikan komponen AC yang rusak, bocor air, berisik, atau mati total.',
-                'harga_min' => 100000,
-                'harga_max' => 350000,
-                'durasi' => '90–180 menit',
+        return $items->map(function (Layanan $item): array {
+            $harga = (float) $item->harga;
+            $durasiMenit = (int) ($item->estimasi_durasi ?? 0);
+
+            return [
+                'id' => (int) $item->id_layanan,
+                'nama' => (string) $item->nama_layanan,
+                'deskripsi' => (string) ($item->deskripsi_layanan ?? ''),
+                'harga' => $harga,
+                'harga_min' => $harga,
+                'harga_max' => $harga,
+                'durasi' => $durasiMenit,
+                'estimasi_durasi' => $durasiMenit,
+                'persentase_platform' => (float) ($item->persentase_platform ?? self::DEFAULT_PERSENTASE_PLATFORM),
                 'icon' => 'lucide:wrench',
                 'warna' => 'bg-brand-50 text-brand-dark',
-                'status' => 'Aktif',
-                'total_pesanan' => 145,
-            ],
-            [
-                'id' => 3,
-                'nama' => 'Bongkar Pasang AC',
-                'deskripsi' => 'Layanan pemindahan atau pembongkaran dan instalasi kembali unit AC ke lokasi / ruangan baru.',
-                'harga_min' => 200000,
-                'harga_max' => 450000,
-                'durasi' => '120–180 menit',
-                'icon' => 'lucide:hammer',
-                'warna' => 'bg-brand-50 text-brand-dark',
-                'status' => 'Aktif',
-                'total_pesanan' => 78,
-            ],
-            [
-                'id' => 4,
-                'nama' => 'Isi Freon AC',
-                'deskripsi' => 'Pengisian ulang freon AC (R22, R32, R410A) sesuai kapasitas unit agar AC kembali dingin maksimal.',
-                'harga_min' => 150000,
-                'harga_max' => 300000,
-                'durasi' => '30–60 menit',
-                'icon' => 'lucide:snowflake',
-                'warna' => 'bg-brand-50 text-brand-dark',
-                'status' => 'Aktif',
-                'total_pesanan' => 124,
-            ],
-            [
-                'id' => 5,
-                'nama' => 'Pemasangan AC Baru',
-                'deskripsi' => 'Instalasi unit AC baru lengkap meliputi bracket outdoor, vacum pipa tembaga, kabel, dan uji coba.',
-                'harga_min' => 350000,
-                'harga_max' => 600000,
-                'durasi' => '180–240 menit',
-                'icon' => 'lucide:circle-plus',
-                'warna' => 'bg-brand-50 text-brand-dark',
-                'status' => 'Aktif',
-                'total_pesanan' => 53,
-            ],
-            [
-                'id' => 6,
-                'nama' => 'Cek & Diagnosa AC',
-                'deskripsi' => 'Pemeriksaan menyeluruh kondisi unit AC, kelistrikan, dan tekanan freon untuk menemukan sumber masalah.',
-                'harga_min' => 75000,
-                'harga_max' => 100000,
-                'durasi' => '45–60 menit',
-                'icon' => 'lucide:search',
-                'warna' => 'bg-brand-50 text-brand-dark',
-                'status' => 'Aktif',
-                'total_pesanan' => 62,
-            ],
-        ];
+                'status' => self::keLabelStatus($item->status_layanan),
+                'total_pesanan' => (int) ($item->detail_pesanan_count ?? 0),
+            ];
+        })->values()->all();
     }
 
     /**
-     * Simpan seluruh katalog hasil perubahan (tambah, ubah, hapus, status).
+     * Simpan seluruh katalog hasil perubahan (tambah, ubah, hapus, status) ke database.
      */
     public function sinkron(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'layanan' => ['present', 'array', 'max:100'],
+            'layanan' => ['present', 'array', 'max:200'],
             'layanan.*.id' => ['required'],
-            'layanan.*.nama' => ['required', 'string', 'max:80'],
-            'layanan.*.deskripsi' => ['nullable', 'string', 'max:500'],
-            'layanan.*.harga_min' => ['required', 'integer', 'min:0'],
-            'layanan.*.harga_max' => ['required', 'integer', 'min:0'],
-            'layanan.*.durasi' => ['nullable', 'string', 'max:40'],
-            'layanan.*.icon' => ['required', 'string', 'max:60'],
-            'layanan.*.warna' => ['required', 'string', 'max:80'],
+            'layanan.*.nama' => ['required', 'string', 'max:100'],
+            'layanan.*.deskripsi' => ['nullable', 'string', 'max:1000'],
+            'layanan.*.harga' => ['nullable', 'numeric', 'min:0'],
+            'layanan.*.harga_min' => ['nullable', 'numeric', 'min:0'],
+            'layanan.*.harga_max' => ['nullable', 'numeric', 'min:0'],
+            'layanan.*.durasi' => ['nullable'],
+            'layanan.*.estimasi_durasi' => ['nullable', 'integer', 'min:0'],
+            'layanan.*.persentase_platform' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'layanan.*.status' => ['required', 'in:Aktif,Tidak Aktif'],
-            'layanan.*.total_pesanan' => ['required', 'integer', 'min:0'],
+            'layanan.*.total_pesanan' => ['nullable', 'integer', 'min:0'],
         ]);
 
-        foreach ($data['layanan'] as $item) {
-            if ($item['harga_max'] < $item['harga_min']) {
-                return response()->json(['pesan' => 'Harga maksimum tidak boleh lebih kecil dari harga minimum.'], 422);
+        $daftarAda = Layanan::query()->get()->keyBy('id_layanan');
+        $idDipertahankan = [];
+
+        DB::transaction(function () use ($data, $daftarAda, &$idDipertahankan): void {
+            foreach ($data['layanan'] as $item) {
+                $nama = trim((string) $item['nama']);
+                $deskripsi = trim((string) ($item['deskripsi'] ?? ''));
+
+                $hargaMentah = $item['harga']
+                    ?? $item['harga_min']
+                    ?? $item['harga_max']
+                    ?? 0;
+                $harga = max(0, (float) $hargaMentah);
+
+                $durasiMentah = $item['estimasi_durasi'] ?? ($item['durasi'] ?? 0);
+                $durasiMenit = max(0, (int) preg_replace('/\D+/', '', (string) $durasiMentah));
+
+                $statusDb = self::keStatusDb((string) $item['status']);
+
+                $idAngka = is_numeric($item['id']) ? (int) $item['id'] : 0;
+                /** @var Layanan|null $model */
+                $model = $idAngka > 0 ? $daftarAda->get($idAngka) : null;
+
+                if ($model) {
+                    $model->update([
+                        'nama_layanan' => $nama,
+                        'deskripsi_layanan' => $deskripsi !== '' ? $deskripsi : null,
+                        'harga' => $harga,
+                        'estimasi_durasi' => $durasiMenit,
+                        'status_layanan' => $statusDb,
+                    ]);
+                    $idDipertahankan[] = (int) $model->id_layanan;
+                } else {
+                    $baru = Layanan::query()->create([
+                        'nama_layanan' => $nama,
+                        'deskripsi_layanan' => $deskripsi !== '' ? $deskripsi : null,
+                        'harga' => $harga,
+                        'estimasi_durasi' => $durasiMenit,
+                        'persentase_platform' => isset($item['persentase_platform'])
+                            ? (float) $item['persentase_platform']
+                            : self::DEFAULT_PERSENTASE_PLATFORM,
+                        'status_layanan' => $statusDb,
+                    ]);
+                    $idDipertahankan[] = (int) $baru->id_layanan;
+                }
             }
-        }
 
-        StatusAdmin::simpanSemua('layanan', $data['layanan']);
+            $idHapus = $daftarAda->keys()
+                ->map(fn ($id) => (int) $id)
+                ->reject(fn (int $id) => in_array($id, $idDipertahankan, true))
+                ->values()
+                ->all();
 
-        return response()->json(['ok' => true]);
+            if (! empty($idHapus)) {
+                Layanan::query()->whereIn('id_layanan', $idHapus)->delete();
+            }
+        });
+
+        return response()->json([
+            'ok' => true,
+            'layanan' => self::daftarLayanan(),
+        ]);
     }
 
     public function index()
