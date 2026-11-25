@@ -312,8 +312,9 @@ function initPengaduan() {
                     <div>
                         <p class="text-slate-500 font-semibold">Transaksi Terkait</p>
                         <button type="button"
-                                @click="$dispatch('buka-detail-transaksi', { id: selected.order_id })"
-                                class="font-mono font-bold text-brand-dark hover:underline"
+                                :disabled="!selected || selected.order_id === '-'"
+                                @click="selected && selected.order_id !== '-' && $dispatch('buka-detail-transaksi', { id: selected.order_id })"
+                                class="font-mono font-bold text-brand-dark hover:underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed"
                                 x-text="selected ? selected.order_id : ''"></button>
                     </div>
                 </div>

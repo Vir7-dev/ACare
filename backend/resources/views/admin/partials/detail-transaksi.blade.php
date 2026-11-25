@@ -28,7 +28,11 @@ function detailTransaksi(daftar) {
         },
 
         bukaDetail: function (id) {
-            var ditemukan = this.daftar.find(function (t) { return t.id === id; });
+            if (id === null || id === undefined || id === '' || id === '-') {
+                return;
+            }
+            var targetId = String(id);
+            var ditemukan = this.daftar.find(function (t) { return String(t.id) === targetId; });
             if (!ditemukan) {
                 return;
             }

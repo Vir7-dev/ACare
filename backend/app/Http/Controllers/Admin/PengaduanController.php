@@ -3,129 +3,87 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Pengaduan;
+use App\Models\Pengguna;
 use Illuminate\Contracts\View\View;
-use App\Support\StatusAdmin;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 class PengaduanController extends Controller
 {
-    /**
-     * Data pengaduan sementara (belum memakai database).
-     *
-     * @return array<int, array<string, mixed>>
-     */
-    public static function dataDasar(): array
+    private const BULAN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+
+    private static function keStatusDb(string $labelStatus): string
     {
-        return [
-            [
-                'id' => 'ADU-2611001',
-                'tanggal' => '8 Nov 2026',
-                'jam' => '09:12 WIB',
-                'pelapor' => 'Budi Santoso',
-                'peran' => 'Pelanggan',
-                'terlapor' => 'Virgiawan Aziz L',
-                'order_id' => 'TRX-2410001',
-                'kategori' => 'Kualitas Pengerjaan',
-                'ringkasan' => 'AC masih berbau apek setelah dicuci.',
-                'deskripsi' => 'Setelah pencucian selesai, hembusan AC masih berbau apek dan bagian outdoor tidak dibersihkan. Mohon ditindaklanjuti.',
-                'status' => 'Baru',
-            ],
-            [
-                'id' => 'ADU-2611002',
-                'tanggal' => '8 Nov 2026',
-                'jam' => '08:40 WIB',
-                'pelapor' => 'Siti Rahayu',
-                'peran' => 'Pelanggan',
-                'terlapor' => 'Achmal Feb',
-                'order_id' => 'TRX-2410002',
-                'kategori' => 'Keterlambatan',
-                'ringkasan' => 'Teknisi datang 2 jam lebih lambat dari jadwal.',
-                'deskripsi' => 'Teknisi tiba pukul 13:15 padahal jadwal pukul 11:15 dan tidak memberi kabar sebelumnya.',
-                'status' => 'Baru',
-            ],
-            [
-                'id' => 'ADU-2611003',
-                'tanggal' => '7 Nov 2026',
-                'jam' => '19:05 WIB',
-                'pelapor' => 'Ahmad Fauzi',
-                'peran' => 'Teknisi',
-                'terlapor' => 'Hendra Wijaya',
-                'order_id' => 'TRX-2410003',
-                'kategori' => 'Perilaku Pelanggan',
-                'ringkasan' => 'Pelanggan menolak membayar biaya tambahan yang disepakati.',
-                'deskripsi' => 'Biaya pemasangan bracket baru sudah disetujui lewat aplikasi, tetapi pelanggan menolak membayar saat pekerjaan selesai.',
-                'status' => 'Baru',
-            ],
-            [
-                'id' => 'ADU-2611004',
-                'tanggal' => '7 Nov 2026',
-                'jam' => '15:30 WIB',
-                'pelapor' => 'Rina Melati',
-                'peran' => 'Pelanggan',
-                'terlapor' => 'Virgiawan Aziz L',
-                'order_id' => 'TRX-2410004',
-                'kategori' => 'Biaya',
-                'ringkasan' => 'Nominal tagihan berbeda dari estimasi awal.',
-                'deskripsi' => 'Estimasi awal Rp 200.000 tetapi tagihan akhir Rp 250.000 tanpa penjelasan rincian tambahan.',
-                'status' => 'Baru',
-            ],
-            [
-                'id' => 'ADU-2611005',
-                'tanggal' => '6 Nov 2026',
-                'jam' => '10:20 WIB',
-                'pelapor' => 'Dewi Kusuma',
-                'peran' => 'Pelanggan',
-                'terlapor' => 'Ahmad Fauzi',
-                'order_id' => 'TRX-2410006',
-                'kategori' => 'Kualitas Pengerjaan',
-                'ringkasan' => 'Air masih menetes dari unit indoor.',
-                'deskripsi' => 'Dua hari setelah dicuci, unit indoor kembali meneteskan air ke lantai.',
-                'status' => 'Baru',
-            ],
-            [
-                'id' => 'ADU-2610012',
-                'tanggal' => '3 Nov 2026',
-                'jam' => '13:45 WIB',
-                'pelapor' => 'Wahyu Nugroho',
-                'peran' => 'Pelanggan',
-                'terlapor' => 'Virgiawan Aziz L',
-                'order_id' => 'TRX-2410007',
-                'kategori' => 'Kualitas Pengerjaan',
-                'ringkasan' => 'Kabel pemasangan tidak dirapikan.',
-                'deskripsi' => 'Kabel dan pipa hasil pemasangan terlihat berantakan dan tidak dibungkus.',
-                'status' => 'Diproses',
-            ],
-            [
-                'id' => 'ADU-2610009',
-                'tanggal' => '30 Okt 2026',
-                'jam' => '17:10 WIB',
-                'pelapor' => 'Indah Permata',
-                'peran' => 'Pelanggan',
-                'terlapor' => 'Achmal Feb',
-                'order_id' => 'TRX-2410008',
-                'kategori' => 'Keterlambatan',
-                'ringkasan' => 'Pesanan batal sepihak oleh teknisi.',
-                'deskripsi' => 'Teknisi membatalkan pesanan 30 menit sebelum jadwal tanpa alasan yang jelas.',
-                'status' => 'Selesai',
-            ],
-        ];
+        return match ($labelStatus) {
+            'Baru' => 'diajukan',
+            'Diproses' => 'diproses',
+            'Selesai' => 'selesai',
+            default => 'diajukan',
+        };
+    }
+
+    private static function keLabelStatus(?string $statusDb): string
+    {
+        return match (strtolower((string) $statusDb)) {
+            'diajukan', 'baru' => 'Baru',
+            'diproses' => 'Diproses',
+            'selesai' => 'Selesai',
+            default => 'Baru',
+        };
+    }
+
+    private static function labelPeran(?string $role): string
+    {
+        return match (strtolower((string) $role)) {
+            Pengguna::ROLE_TEKNISI => 'Teknisi',
+            Pengguna::ROLE_PELANGGAN => 'Pelanggan',
+            default => ucfirst((string) ($role ?: 'Pengguna')),
+        };
     }
 
     /**
-     * Daftar pengaduan dengan perubahan status dari session sudah diterapkan.
-     *
      * @return array<int, array<string, mixed>>
      */
     public static function daftarPengaduan(): array
     {
-        $tersimpan = StatusAdmin::ambil('pengaduan') ?? [];
+        $list = Pengaduan::query()
+            ->with(['pelapor', 'pesanan.pelanggan', 'pesanan.teknisi.pengguna'])
+            ->orderByDesc('dibuat_pada')
+            ->get();
 
-        return array_map(function (array $pengaduan) use ($tersimpan): array {
-            $pengaduan['status'] = $tersimpan[$pengaduan['id']] ?? $pengaduan['status'];
+        return $list->map(function (Pengaduan $p): array {
+            $waktu = $p->dibuat_pada;
+            $tanggal = $waktu
+                ? $waktu->day.' '.self::BULAN[$waktu->month - 1].' '.$waktu->year
+                : '-';
+            $jam = $waktu ? $waktu->format('H:i').' WIB' : '-';
 
-            return $pengaduan;
-        }, self::dataDasar());
+            $terlapor = $p->terlapor();
+            $namaTerlapor = $p->isAduanSistem()
+                ? 'Sistem & Aplikasi'
+                : ($terlapor?->nama ?? '-');
+
+            $deskripsi = (string) ($p->deskripsi ?? '');
+            $ringkasan = $deskripsi !== '' ? Str::limit($deskripsi, 90) : '-';
+
+            $orderId = $p->id_pesanan ? (string) $p->id_pesanan : '-';
+            
+            return [
+                'id' => (string) $p->id_pengaduan,
+                'tanggal' => $tanggal,
+                'jam' => $jam,
+                'pelapor' => $p->pelapor?->nama ?? 'Pengguna',
+                'peran' => self::labelPeran($p->pelapor?->role),
+                'terlapor' => $namaTerlapor,
+                'order_id' => $orderId,
+                'kategori' => $p->jenis_pengaduan ?: 'Umum',
+                'ringkasan' => $ringkasan,
+                'deskripsi' => $deskripsi !== '' ? $deskripsi : '-',
+                'status' => self::keLabelStatus($p->status_pengaduan),
+            ];
+        })->values()->all();
     }
 
     /**
@@ -135,33 +93,57 @@ class PengaduanController extends Controller
     {
         $data = $request->validate([
             'perubahan' => ['required', 'array', 'min:1', 'max:50'],
-            'perubahan.*.id' => ['required', 'string'],
+            'perubahan.*.id' => ['required'],
             'perubahan.*.status' => ['required', 'in:Baru,Diproses,Selesai'],
         ]);
 
-        $id = array_column(self::dataDasar(), 'id');
+        $ids = collect($data['perubahan'])->pluck('id')->map(fn ($v) => (int) $v)->unique()->values();
+        $pengaduanMap = Pengaduan::query()
+            ->whereIn('id_pengaduan', $ids)
+            ->get()
+            ->keyBy('id_pengaduan');
+
         foreach ($data['perubahan'] as $ubah) {
-            if (! in_array($ubah['id'], $id, true)) {
+            if (! $pengaduanMap->has((int) $ubah['id'])) {
                 return response()->json(['pesan' => 'Pengaduan tidak ditemukan.'], 404);
             }
         }
 
+        $adminId = session('admin_id')
+            ?? Pengguna::query()->where('role', Pengguna::ROLE_ADMIN)->value('id_pengguna');
+        $sekarang = now();
+
         foreach ($data['perubahan'] as $ubah) {
-            StatusAdmin::simpan('pengaduan', $ubah['id'], $ubah['status']);
+            /** @var Pengaduan|null $pengaduan */
+            $pengaduan = $pengaduanMap->get((int) $ubah['id']);
+            if (! $pengaduan) {
+                continue;
+            }
+
+            $statusDb = self::keStatusDb($ubah['status']);
+            $pengaduan->status_pengaduan = $statusDb;
+            $pengaduan->id_admin = $adminId;
+
+            if ($statusDb === 'selesai') {
+                $pengaduan->selesai_pada = $sekarang;
+            } else {
+                $pengaduan->selesai_pada = null;
+            }
+
+            $pengaduan->save();
         }
 
         return response()->json(['ok' => true, 'baru' => self::jumlahBaru()]);
     }
 
     /**
-     * Jumlah pengaduan yang belum ditangani.
+     * Jumlah pengaduan yang belum ditangani (status_pengaduan = 'diajukan').
      */
     public static function jumlahBaru(): int
     {
-        return count(array_filter(
-            self::daftarPengaduan(),
-            fn (array $pengaduan): bool => $pengaduan['status'] === 'Baru'
-        ));
+        return Pengaduan::query()
+            ->where('status_pengaduan', 'diajukan')
+            ->count();
     }
 
     public function index(Request $request): View

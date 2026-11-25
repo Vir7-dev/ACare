@@ -127,7 +127,7 @@ class AppServiceProvider extends ServiceProvider
                     ?: ($p->lokasi->alamat_lengkap ?? $p->lokasi->alamat ?? '-');
 
                 return [
-                    'id' => $p->kode,
+                    'id' => (string) $p->id_pesanan,
                     'status' => $status,
                     'layanan' => $layanan,
                     'tanggal' => $tanggalTeks,

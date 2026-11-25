@@ -382,7 +382,7 @@ function initDashboard() {
                         <template x-for="t in transaksiTersaring" :key="t.id">
                             <tr class="hover:bg-slate-50 transition-colors">
                                 <td class="py-3.5 px-6">
-                                    <p class="font-bold text-navy" x-text="'#' + t.id"></p>
+                                    <p class="font-bold text-navy" x-text="'#' + (t.kode || t.id)"></p>
                                     <p class="text-xs text-slate-500" x-text="t.tanggal + ', ' + t.jam"></p>
                                 </td>
                                 <td class="py-3.5 px-4 font-bold text-slate-800" x-text="t.pelanggan"></td>

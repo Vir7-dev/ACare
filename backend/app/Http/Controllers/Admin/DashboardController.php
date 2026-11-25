@@ -389,7 +389,8 @@ public function index(Request $request): View
             $waktu = $p->dibuat_pada ? Carbon::parse($p->dibuat_pada) : null;
 
             return [
-                'id' => $p->kode,
+                'id' => (string) $p->id_pesanan,
+                'kode' => $p->kode ?: (string) $p->id_pesanan,
                 'tanggal' => $waktu ? $this->tanggalIndonesia($waktu) : '-',
                 'jam' => $waktu ? $waktu->format('H.i') : '-',
                 'pelanggan' => $p->pelanggan?->nama ?? 'Pelanggan',
