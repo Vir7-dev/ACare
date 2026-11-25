@@ -54,6 +54,7 @@ function initKelolaTransaksi() {
                     return true;
                 }
                 return t.id.toLowerCase().includes(q)
+                    || t.kode.toLowerCase().includes(q)
                     || t.pelanggan.toLowerCase().includes(q)
                     || t.teknisi.toLowerCase().includes(q)
                     || t.layanan.toLowerCase().includes(q)
@@ -147,7 +148,7 @@ function initKelolaTransaksi() {
                     <template x-for="trx in halamanIni" :key="trx.id">
                         <tr class="hover:bg-slate-50 transition-colors">
                             <td class="py-3.5 px-4 whitespace-nowrap">
-                                <p class="font-mono font-bold text-brand-dark" x-text="trx.id"></p>
+                                <p class="font-mono font-bold text-brand-dark" x-text="trx.kode || trx.id"></p>
                                 <p class="text-xs text-slate-500" x-text="trx.tanggal + ', ' + trx.jam"></p>
                             </td>
                             <td class="py-3.5 px-3">
