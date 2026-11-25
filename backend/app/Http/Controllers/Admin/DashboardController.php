@@ -11,6 +11,7 @@ use App\Models\Teknisi;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 
 class DashboardController extends Controller
@@ -87,6 +88,7 @@ class DashboardController extends Controller
             ['12.00-15.00', 12, 14],
             ['15.00-18.00', 15, 17],
             ['18.00-21.00', 18, 20],
+            ['21.00-24.00', 21, 23],
         ];
 
         $labelsHari = [];
@@ -155,7 +157,7 @@ class DashboardController extends Controller
                 $akhirKelompok = $akhir30Hari->copy();
             }
 
-            $labels30[] = 'Periode '.($i + 1);
+            $labels30[] = $awalKelompok->day.' '.self::BULAN[$awalKelompok->month - 1] .'-'.$akhirKelompok->day.' '.self::BULAN[$akhirKelompok->month - 1];
 
             $itemKelompok = $pesanan30Hari->filter(function (Pesanan $p) use ($awalKelompok, $akhirKelompok): bool {
                 if (!$p->dibuat_pada) {
@@ -199,6 +201,92 @@ class DashboardController extends Controller
                 $dibatalkan30
             ),
         ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function dataKustom(string $dari, string $sampai, int $teknisiAktif): ?array
+    {
+        try {
+            $mulai = Carbon::createFromFormat('Y-m-d', $dari)->startOfDay();
+            $akhir = Carbon::createFromFormat('Y-m-d', $sampai)->endOfDay();
+        } catch (\Throwable) {
+            return null;
+        }
+
+        if ($akhir->lt($mulai)) {
+            [$mulai, $akhir] = [$mulai->copy()->startOfDay(), $mulai->copy()->endOfDay()];
+        }
+
+        $pesanan = Pesanan::query()
+            ->whereBetween('dibuat_pada', [$mulai, $akhir])
+            ->get();
+
+        $totalHari = $mulai->copy()->startOfDay()->diffInDays($akhir->copy()->startOfDay()) + 1;
+        $jumlahKelompok = min(5, max(1, $totalHari));
+
+        $labels = [];
+        $selesai = [];
+        $berlangsung = [];
+        $dibatalkan = [];
+
+        if ($totalHari <= 5) {
+            for ($i = 0; $i < $totalHari; $i++) {
+                $tgl = $mulai->copy()->addDays($i);
+                $kunciTgl = $tgl->format('Y-m-d');
+                $labels[] = $tgl->day.' '.self::BULAN[$tgl->month - 1];
+
+                $item = $pesanan->filter(
+                    fn (Pesanan $p): bool => optional($p->dibuat_pada)->format('Y-m-d') === $kunciTgl
+                );
+
+                $selesai[] = $item->where('status_pesanan', Pesanan::SELESAI)->count();
+                $berlangsung[] = $item->whereIn('status_pesanan', self::STATUS_BERLANGSUNG)->count();
+                $dibatalkan[] = $item->where('status_pesanan', Pesanan::DIBATALKAN)->count();
+            }
+        } else {
+            $lebarHari = $totalHari / $jumlahKelompok;
+            for ($i = 0; $i < $jumlahKelompok; $i++) {
+                $awalKelompok = $mulai->copy()->addDays((int) floor($i * $lebarHari))->startOfDay();
+                $akhirKelompok = ($i === $jumlahKelompok - 1)
+                    ? $akhir->copy()
+                    : $mulai->copy()->addDays((int) floor(($i + 1) * $lebarHari) - 1)->endOfDay();
+
+                if ($akhirKelompok->lt($awalKelompok)) {
+                    $akhirKelompok = $awalKelompok->copy()->endOfDay();
+                }
+
+                $labels[] = $awalKelompok->day.' '.self::BULAN[$awalKelompok->month - 1]
+                    .'–'.$akhirKelompok->day.' '.self::BULAN[$akhirKelompok->month - 1];
+
+                $item = $pesanan->filter(function (Pesanan $p) use ($awalKelompok, $akhirKelompok): bool {
+                    if (!$p->dibuat_pada) {
+                        return false;
+                    }
+
+                    return $p->dibuat_pada->betweenIncluded($awalKelompok, $akhirKelompok);
+                });
+
+                $selesai[] = $item->where('status_pesanan', Pesanan::SELESAI)->count();
+                $berlangsung[] = $item->whereIn('status_pesanan', self::STATUS_BERLANGSUNG)->count();
+                $dibatalkan[] = $item->where('status_pesanan', Pesanan::DIBATALKAN)->count();
+            }
+        }
+
+        $rentang = $mulai->toDateString() === $akhir->toDateString()
+            ? $this->tanggalIndonesia($mulai)
+            : $this->tanggalIndonesia($mulai).' – '.$this->tanggalIndonesia($akhir);
+
+        return $this->susunPaketPeriode(
+            $rentang,
+            $pesanan,
+            $teknisiAktif,
+            $labels,
+            $selesai,
+            $berlangsung,
+            $dibatalkan
+        );
     }
 
     /**
@@ -272,8 +360,21 @@ class DashboardController extends Controller
         return !empty($parts) ? implode(' ', $parts) : 'Layanan AC';
     }
 
-    public function index(): View
+public function index(Request $request): View
     {
+        $periode = $this->dataPeriode();
+        $teknisiAktif = $periode['30hari']['ringkasan']['teknisi'] ?? 0;
+
+        $dari = (string) $request->query('dari', '');
+        $sampai = (string) $request->query('sampai', '');
+        $kustom = ($dari !== '' && $sampai !== '')
+            ? $this->dataKustom($dari, $sampai, (int) $teknisiAktif)
+            : null;
+
+        if ($kustom !== null) {
+            $periode['kustom'] = $kustom;
+        }
+
         $pesananTerbaru = Pesanan::query()
             ->with([
                 'pelanggan',
@@ -300,11 +401,14 @@ class DashboardController extends Controller
         })->values()->all();
 
         return view('admin.dashboard', [
-            'periode' => $this->dataPeriode(),
+            'periode' => $periode,
             'transaksi' => $transaksi,
             'teknisiMenungguVerifikasi' => self::teknisiMenunggu(),
             'jumlahPengaduanBaru' => self::jumlahPengaduanBaru(),
             'jumlahPengajuanMenunggu' => self::jumlahPengajuanMenunggu(),
+            'kustomAktif' => $kustom !== null,
+            'kustomDariAwal' => $kustom !== null ? $dari : '',
+            'kustomSampaiAwal' => $kustom !== null ? $sampai : '',
         ]);
     }
 }

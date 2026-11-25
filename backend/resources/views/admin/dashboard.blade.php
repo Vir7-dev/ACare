@@ -8,22 +8,25 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 function initDashboard() {
-    // Instance Chart disimpan di luar state Alpine agar tidak dibungkus proxy reaktif.
     var grafik = null;
+    var periodeAwal = @json($periode);
+    var kustomAktifAwal = @json($kustomAktif ?? false);
+    var dariAwal = @json($kustomDariAwal ?? '');
+    var sampaiAwal = @json($kustomSampaiAwal ?? '');
 
     return {
-        periodeAktif: '30hari',
-        periode: {!! json_encode($periode) !!},
-        transaksi: {!! json_encode($transaksi) !!},
+        periodeAktif: kustomAktifAwal ? 'kustom' : '30hari',
+        periode: periodeAwal,
+        transaksi: @json($transaksi),
         daftarPeriode: [
             { kunci: 'hari', label: 'Hari Ini' },
             { kunci: '7hari', label: '7 Hari' },
             { kunci: '30hari', label: '30 Hari' }
         ],
         kustomTerbuka: false,
-        kustomDari: '',
-        kustomSampai: '',
-        rentangKustom: '',
+        kustomDari: dariAwal,
+        kustomSampai: sampaiAwal,
+        rentangKustom: periodeAwal.kustom ? periodeAwal.kustom.rentang : '',
         cariTransaksi: '',
         filterStatus: 'Semua',
 
@@ -33,7 +36,10 @@ function initDashboard() {
         },
 
         get data() {
-            return this.periode[this.periodeAktif === 'kustom' ? '30hari' : this.periodeAktif];
+            if (this.periodeAktif === 'kustom' && this.periode.kustom) {
+                return this.periode.kustom;
+            }
+            return this.periode[this.periodeAktif] || this.periode['30hari'];
         },
 
         get rentangTampil() {
@@ -44,6 +50,10 @@ function initDashboard() {
         },
 
         pilihPeriode: function (kunci) {
+            if (this.periodeAktif === 'kustom') {
+                window.location.href = window.location.pathname;
+                return;
+            }
             this.periodeAktif = kunci;
             this.kustomTerbuka = false;
             this.gambarGrafik();
@@ -53,10 +63,11 @@ function initDashboard() {
             if (this.kustomDari === '' || this.kustomSampai === '') {
                 return;
             }
-            this.rentangKustom = this.formatTanggal(this.kustomDari) + ' – ' + this.formatTanggal(this.kustomSampai);
-            this.periodeAktif = 'kustom';
-            this.kustomTerbuka = false;
-            this.gambarGrafik();
+            var params = new URLSearchParams({
+                dari: this.kustomDari,
+                sampai: this.kustomSampai
+            });
+            window.location.href = window.location.pathname + '?' + params.toString();
         },
 
         formatTanggal: function (iso) {
@@ -111,10 +122,17 @@ function initDashboard() {
             if (!kanvas || typeof Chart === 'undefined') {
                 return;
             }
-            var d = this.data.grafik;
+
+            var chartLama = Chart.getChart(kanvas);
+            if (chartLama) {
+                chartLama.destroy();
+            }
             if (grafik) {
                 grafik.destroy();
+                grafik = null;
             }
+
+            var d = this.data.grafik;
             grafik = new Chart(kanvas.getContext('2d'), {
                 type: 'bar',
                 data: {
@@ -140,12 +158,26 @@ function initDashboard() {
                         }
                     },
                     scales: {
-                        x: { stacked: true, grid: { display: false }, ticks: { font: { size: 11 }, color: '#475569' } },
+                        x: {
+                            stacked: true,
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11 },
+                                color: '#475569',
+                                autoSkip: false,
+                                maxRotation: 0,
+                                minRotation: 0
+                            }
+                        },
                         y: {
                             stacked: true,
                             beginAtZero: true,
-                            grid: { color: '#F1F5F9' },
-                            ticks: { font: { size: 11 }, color: '#475569' }
+                            ticks: {
+                                precision: 0,
+                                font: { size: 11 },
+                                color: '#475569'
+                            },
+                            grid: { color: '#F1F5F9' }
                         }
                     }
                 }
