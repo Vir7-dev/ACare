@@ -9,14 +9,21 @@ use App\Http\Controllers\Admin\PenggunaController;
 use App\Http\Controllers\Admin\TransaksiController;
 use App\Http\Controllers\Admin\UlasanController;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Http\Request;
 
 // 1. Autentikasi Admin Portal ACare
 Route::get('/admin/login', [AuthController::class, 'showLogin'])->name('admin.login');
 Route::post('/admin/login', [AuthController::class, 'login'])->name('admin.login.submit');
 Route::post('/admin/logout', [AuthController::class, 'logout'])->name('admin.logout');
 
-// 2. Beranda / Dashboard (Tugas Thoriq: Ringkasan Statistik, Omzet & Performa Platform)
-Route::get('/', [DashboardController::class, 'index'])->name('admin.dashboard');
+// Halaman awal: jika belum login admin, arahkan ke halaman login
+Route::get('/', function (Request $request) {
+    if (!$request->session()->get('admin_logged_in')) {
+        return redirect()->route('admin.login');
+    }
+
+    return app(DashboardController::class)->index($request);
+})->name('admin.dashboard');
 
 // Alamat lama menuju Beranda (hanya redirect, bukan halaman terpisah)
 Route::redirect('/admin', '/');
