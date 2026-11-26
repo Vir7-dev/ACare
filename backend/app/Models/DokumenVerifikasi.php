@@ -7,6 +7,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class DokumenVerifikasi extends Model
 {
+    /** Dokumen yang wajib diunggah saat registrasi teknisi. */
+    public const JENIS_WAJIB = ['cv', 'lamaran_kerja', 'ktp', 'ijazah', 'pas_foto'];
+
+    /** Disk privat: dokumen tidak bisa dibuka lewat URL publik. */
+    public const DISK = 'local';
+
     protected $table = 'dokumen_verifikasi';
 
     protected $primaryKey = 'id_dokumen';

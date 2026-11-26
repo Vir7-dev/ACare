@@ -2,7 +2,9 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 
+import '../../services/api_client.dart';
 import '../../services/auth_service.dart';
 import '../../services/perangkat.dart';
 import '../../services/sesi_pengguna.dart';
@@ -27,24 +29,42 @@ class KelolaProfilTeknisiPage extends StatefulWidget {
 class _KelolaProfilTeknisiPageState extends State<KelolaProfilTeknisiPage> {
   final _formKey = GlobalKey<FormState>();
 
-  // TODO(backend): isi dari data profil teknisi di API. Sementara data contoh.
-  static const _awal = (
-    nama: 'Rizky Pratama',
-    telepon: '081200000003',
-    email: 'teknisi@acare.id',
-    kendaraan: 'Honda Beat',
-    plat: 'BP 1234 AC',
-    tentang: 'Berpengalaman 5 tahun menangani AC rumah dan kantor.',
-  );
-  final _nama = TextEditingController(text: _awal.nama);
-  final _telepon = TextEditingController(text: _awal.telepon);
-  final _email = TextEditingController(text: _awal.email);
-  final _kendaraan = TextEditingController(text: _awal.kendaraan);
-  final _plat = TextEditingController(text: _awal.plat);
-  final _tentang = TextEditingController(text: _awal.tentang);
+  final _nama = TextEditingController();
+  final _telepon = TextEditingController();
+  final _email = TextEditingController();
+  final _kendaraan = TextEditingController();
+  final _plat = TextEditingController();
+  final _tentang = TextEditingController();
 
   Uint8List? _foto;
   bool _modeEdit = false;
+  bool _menyimpan = false;
+
+  /// Galat per kolom dari server (misal email sudah dipakai akun lain).
+  Map<String, String> _galatServer = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _isiDariAkun();
+  }
+
+  /// Isi form dari akun yang sedang masuk.
+  void _isiDariAkun() {
+    final a = AuthService.akun.value;
+    _nama.text = a?.nama ?? '';
+    _telepon.text = a?.noTelepon ?? '';
+    _email.text = a?.email ?? '';
+    _kendaraan.text = a?.teknisi?.jenisKendaraan ?? '';
+    _plat.text = a?.teknisi?.platNomor ?? '';
+    _tentang.text = a?.teknisi?.deskripsi ?? '';
+  }
+
+  String? _server(String kolom) => _galatServer[kolom];
+
+  void _pesan(String teks) => ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(content: Text(teks)));
 
   @override
   void dispose() {
@@ -61,38 +81,68 @@ class _KelolaProfilTeknisiPageState extends State<KelolaProfilTeknisiPage> {
       Navigator.of(context).push(MaterialPageRoute(builder: (_) => halaman));
 
   Future<void> _gantiFoto() async {
+    final XFile? f;
     try {
-      final f = await Perangkat.ambilFoto();
-      if (f == null) return;
-      final data = await f.readAsBytes();
-      // TODO(backend): unggah foto ke API supaya tersimpan permanen.
-      if (mounted) setState(() => _foto = data);
+      f = await Perangkat.ambilFoto();
     } catch (_) {
+      if (mounted) _pesan('Gagal memilih foto');
+      return;
+    }
+    if (f == null) return;
+    final sebelumnya = _foto;
+    final data = await f.readAsBytes();
+    if (mounted) setState(() => _foto = data);
+    try {
+      await AuthService.ubahFoto(f);
+      if (mounted) _pesan('Foto profil diperbarui');
+    } on ApiException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Gagal memilih foto')));
+      setState(() => _foto = sebelumnya);
+      _pesan(e.pesan);
     }
   }
 
   void _batal() {
-    // TODO(backend): muat ulang dari API; sementara kembali ke data contoh.
-    _nama.text = _awal.nama;
-    _telepon.text = _awal.telepon;
-    _email.text = _awal.email;
-    _kendaraan.text = _awal.kendaraan;
-    _plat.text = _awal.plat;
-    _tentang.text = _awal.tentang;
+    _galatServer = {};
+    _isiDariAkun();
     setState(() => _modeEdit = false);
   }
 
-  void _simpan() {
+  Future<void> _simpan() async {
+    if (_menyimpan) return;
+    _galatServer = {};
     if (!_formKey.currentState!.validate()) return;
-    // TODO(backend): kirim perubahan profil ke API.
+    setState(() => _menyimpan = true);
+    try {
+      await AuthService.ubahProfil(
+        nama: _nama.text,
+        telepon: _telepon.text,
+        email: _email.text,
+        jenisKendaraan: _kendaraan.text,
+        platNomor: _plat.text.toUpperCase(),
+        deskripsi: _tentang.text,
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _menyimpan = false;
+        _galatServer = e.galatKolom;
+      });
+      if (e.galatKolom.isEmpty) {
+        _pesan(e.pesan);
+      } else {
+        _formKey.currentState!.validate();
+      }
+      return;
+    }
+    if (!mounted) return;
     FocusScope.of(context).unfocus();
-    setState(() => _modeEdit = false);
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(const SnackBar(content: Text('Perubahan disimpan')));
+    setState(() {
+      _isiDariAkun();
+      _menyimpan = false;
+      _modeEdit = false;
+    });
+    _pesan('Perubahan disimpan');
   }
 
   Future<void> _keluar() async {
@@ -157,6 +207,7 @@ class _KelolaProfilTeknisiPageState extends State<KelolaProfilTeknisiPage> {
               nama: _nama.text,
               keterangan: 'Teknisi ACare',
               foto: _foto,
+              fotoUrl: AuthService.akun.value?.fotoProfil,
               onGantiFoto: _gantiFoto,
             ),
             const SizedBox(height: 24),
@@ -167,7 +218,7 @@ class _KelolaProfilTeknisiPageState extends State<KelolaProfilTeknisiPage> {
               controller: _nama,
               bisaDiubah: _modeEdit,
               onChanged: (_) => setState(() {}),
-              validator: (v) => wajib(v, 'Nama'),
+              validator: (v) => wajib(v, 'Nama') ?? _server('nama'),
             ),
             IsianProfil(
               label: 'Nomor Telepon',
@@ -175,7 +226,8 @@ class _KelolaProfilTeknisiPageState extends State<KelolaProfilTeknisiPage> {
               controller: _telepon,
               bisaDiubah: _modeEdit,
               keyboardType: TextInputType.phone,
-              validator: (v) => wajib(v, 'Nomor telepon'),
+              validator: (v) =>
+                  wajib(v, 'Nomor telepon') ?? _server('no_telepon'),
             ),
             IsianProfil(
               label: 'Email',
@@ -187,7 +239,7 @@ class _KelolaProfilTeknisiPageState extends State<KelolaProfilTeknisiPage> {
                   (v == null ||
                       !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v.trim()))
                   ? 'Email tidak valid'
-                  : null,
+                  : _server('email'),
             ),
             const SizedBox(height: 8),
             const JudulBagianProfil('Informasi Teknisi'),
@@ -196,14 +248,15 @@ class _KelolaProfilTeknisiPageState extends State<KelolaProfilTeknisiPage> {
               ikon: Icons.two_wheeler,
               controller: _kendaraan,
               bisaDiubah: _modeEdit,
-              validator: (v) => wajib(v, 'Jenis kendaraan'),
+              validator: (v) =>
+                  wajib(v, 'Jenis kendaraan') ?? _server('jenis_kendaraan'),
             ),
             IsianProfil(
               label: 'Plat Nomor',
               ikon: Icons.pin_outlined,
               controller: _plat,
               bisaDiubah: _modeEdit,
-              validator: (v) => wajib(v, 'Plat nomor'),
+              validator: (v) => wajib(v, 'Plat nomor') ?? _server('plat_nomor'),
             ),
             IsianProfil(
               label: 'Tentang Saya',
@@ -213,7 +266,7 @@ class _KelolaProfilTeknisiPageState extends State<KelolaProfilTeknisiPage> {
               baris: 3,
               validator: (v) => (v ?? '').trim().length > 300
                   ? 'Maksimal 300 karakter'
-                  : null,
+                  : _server('deskripsi'),
             ),
             const SizedBox(height: 4),
             TombolEditProfil(

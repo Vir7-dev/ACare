@@ -9,6 +9,8 @@ import 'package:acare_mobile/pages/teknisi/registrasi_teknisi_page.dart';
 import 'package:acare_mobile/services/auth_service.dart';
 import 'package:acare_mobile/services/perangkat.dart';
 
+import 'support/server_palsu.dart';
+
 void main() {
   void ukuranHp(WidgetTester tester) {
     tester.view.physicalSize = const Size(390, 1400);
@@ -105,6 +107,11 @@ void main() {
     final hasil = await tester.runAsync(
       () => AuthService.login('budi@acare.id', 'rahasia123', UserRole.teknisi),
     );
-    expect(hasil, HasilLogin.belumTerverifikasi);
+    expect(hasil?.status, HasilLogin.belumTerverifikasi);
+    // Data dan kelima dokumen terkirim ke server dalam satu permintaan.
+    expect(ServerPalsu.aktif.log, contains('POST /daftar/teknisi'));
+    final baru = ServerPalsu.aktif.akun.last;
+    expect(baru['email'], 'budi@acare.id');
+    expect((baru['teknisi'] as Map)['plat_nomor'], 'BP 1234');
   });
 }

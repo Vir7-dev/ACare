@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import 'package:image_picker/image_picker.dart';
+
+import '../../services/api_client.dart';
 import '../../services/auth_service.dart';
 import '../../services/perangkat.dart';
-import '../../services/sesi_pengguna.dart';
 import '../../theme/app_colors.dart';
 
 class RegistrasiTeknisiPage extends StatefulWidget {
@@ -43,8 +45,20 @@ class _RegistrasiTeknisiPageState extends State<RegistrasiTeknisiPage> {
   /// Batas ukuran tiap dokumen.
   static const int maksUkuranByte = 5 * 1024 * 1024;
 
-  /// Nama berkas yang sudah dipilih per jenis dokumen.
-  final Map<String, String> dokumen = {};
+  /// Berkas yang sudah dipilih per jenis dokumen.
+  final Map<String, XFile> dokumen = {};
+
+  /// Galat dari server per kolom (misal email sudah terdaftar).
+  Map<String, String> galatServer = {};
+
+  /// Kolom tahap 1 & 3, untuk kembali ke tahap yang galat.
+  static const kolomTahap1 = {
+    'nama', 'no_telepon', 'email', 'kata_sandi', 'jenis_kendaraan',
+    'plat_nomor', //
+  };
+  static const kolomTahap3 = {'nama_bank', 'no_rekening', 'atas_nama'};
+
+  String namaBerkas(XFile f) => f.name.isEmpty ? 'Berkas terpilih' : f.name;
 
   @override
   void dispose() {
@@ -67,6 +81,8 @@ class _RegistrasiTeknisiPageState extends State<RegistrasiTeknisiPage> {
   }
 
   void lanjut() {
+    // Galat server lama dibuang; pengguna mungkin sudah memperbaikinya.
+    galatServer = {};
     if (tahap == 1) {
       if (!formKey.currentState!.validate()) return;
       setState(() => tahap = 2);
@@ -106,24 +122,28 @@ class _RegistrasiTeknisiPageState extends State<RegistrasiTeknisiPage> {
   }
 
   Future<void> _kirim() async {
-    setState(() => mengirim = true);
-    await AuthService.registerTeknisi(
-      nama: nama.text,
-      telepon: telepon.text,
-      email: email.text,
-      bank: bank,
-      nomorRekening: nomorRekening.text,
-      namaPemilik: namaPemilik.text,
-      jenisKendaraan: jenisKendaraan.text.trim(),
-      platNomor: platNomor.text.trim().toUpperCase(),
-      dokumen: dokumen,
-    );
-    // Email & nomor diingat supaya terisi otomatis di halaman Masuk.
-    await SesiPengguna.simpanAkun(
-      nama: nama.text,
-      telepon: telepon.text,
-      email: email.text,
-    );
+    setState(() {
+      mengirim = true;
+      galatServer = {};
+    });
+    try {
+      await AuthService.registerTeknisi(
+        nama: nama.text,
+        telepon: telepon.text,
+        email: email.text,
+        kataSandi: password.text,
+        bank: bank,
+        nomorRekening: nomorRekening.text,
+        namaPemilik: namaPemilik.text,
+        jenisKendaraan: jenisKendaraan.text.trim(),
+        platNomor: platNomor.text.trim().toUpperCase(),
+        dokumen: dokumen,
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      _tampilkanGalat(e);
+      return;
+    }
     if (!mounted) return;
     setState(() => mengirim = false);
 
@@ -148,6 +168,46 @@ class _RegistrasiTeknisiPageState extends State<RegistrasiTeknisiPage> {
     if (mounted) Navigator.of(context).maybePop();
   }
 
+  /// Galat kolom ditampilkan di tahapnya; galat dokumen atau koneksi lewat
+  /// snackbar.
+  void _tampilkanGalat(ApiException e) {
+    final kolom = e.galatKolom.keys;
+    final tahapGalat = kolom.any(kolomTahap1.contains)
+        ? 1
+        : kolom.any(kolomTahap3.contains)
+        ? 3
+        : null;
+    setState(() {
+      mengirim = false;
+      galatServer = e.galatKolom;
+      if (tahapGalat != null) tahap = tahapGalat;
+    });
+    if (tahapGalat != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) formKey.currentState?.validate();
+      });
+    }
+    final lain = e.galatKolom.entries
+        .where((g) => !kolomTahap1.contains(g.key) &&
+            !kolomTahap3.contains(g.key))
+        .map((g) => g.value)
+        .toList();
+    if (e.galatKolom.isEmpty || lain.isNotEmpty) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text(lain.isEmpty ? e.pesan : lain.join('\n'))),
+        );
+    }
+  }
+
+  /// Validator kolom: aturan lokal dulu, lalu galat dari server.
+  String? Function(String?) dgnServer(
+    String kolom, [
+    String? Function(String?)? lokal,
+  ]) =>
+      (v) => (lokal ?? wajib)(v) ?? galatServer[kolom];
+
   Future<void> pilihDokumen(String jenis) async {
     final berkas = await Perangkat.ambilFoto();
     if (berkas == null || !mounted) return;
@@ -159,11 +219,7 @@ class _RegistrasiTeknisiPageState extends State<RegistrasiTeknisiPage> {
       return;
     }
     if (!mounted) return;
-    setState(
-      () => dokumen[jenis] = berkas.name.isEmpty
-          ? 'Berkas terpilih'
-          : berkas.name,
-    );
+    setState(() => dokumen[jenis] = berkas);
   }
 
   void kembali() {
@@ -368,6 +424,7 @@ class _RegistrasiTeknisiPageState extends State<RegistrasiTeknisiPage> {
           hint: 'Masukkan nama lengkap',
           icon: Icons.person_outline,
           controller: nama,
+          validator: dgnServer('nama'),
         ),
         input(
           label: 'Nomor telepon',
@@ -375,7 +432,7 @@ class _RegistrasiTeknisiPageState extends State<RegistrasiTeknisiPage> {
           icon: Icons.phone_outlined,
           controller: telepon,
           keyboard: TextInputType.phone,
-          validator: (value) {
+          validator: dgnServer('no_telepon', (value) {
             if (value == null || value.trim().isEmpty) {
               return 'Nomor telepon wajib diisi';
             }
@@ -383,7 +440,7 @@ class _RegistrasiTeknisiPageState extends State<RegistrasiTeknisiPage> {
               return 'Nomor telepon tidak valid';
             }
             return null;
-          },
+          }),
         ),
         input(
           label: 'Email',
@@ -391,13 +448,13 @@ class _RegistrasiTeknisiPageState extends State<RegistrasiTeknisiPage> {
           icon: Icons.mail_outline,
           controller: email,
           keyboard: TextInputType.emailAddress,
-          validator: (value) {
+          validator: dgnServer('email', (value) {
             if (value == null ||
                 !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value.trim())) {
               return 'Email tidak valid';
             }
             return null;
-          },
+          }),
         ),
         input(
           label: 'Kata sandi',
@@ -405,12 +462,12 @@ class _RegistrasiTeknisiPageState extends State<RegistrasiTeknisiPage> {
           icon: Icons.lock_outline,
           controller: password,
           passwordField: true,
-          validator: (value) {
+          validator: dgnServer('kata_sandi', (value) {
             if (value == null || value.length < 8) {
               return 'Kata sandi minimal 8 karakter';
             }
             return null;
-          },
+          }),
         ),
         const SizedBox(height: 10),
         const Align(
@@ -434,23 +491,26 @@ class _RegistrasiTeknisiPageState extends State<RegistrasiTeknisiPage> {
           hint: 'Contoh: Honda Beat',
           icon: Icons.two_wheeler,
           controller: jenisKendaraan,
-          validator: (value) => (value == null || value.trim().isEmpty)
-              ? 'Jenis kendaraan wajib diisi'
-              : null,
+          validator: dgnServer(
+            'jenis_kendaraan',
+            (value) => (value == null || value.trim().isEmpty)
+                ? 'Jenis kendaraan wajib diisi'
+                : null,
+          ),
         ),
         input(
           label: 'Plat Nomor',
           hint: 'Contoh: BP 1234 AC',
           icon: Icons.pin_outlined,
           controller: platNomor,
-          validator: (value) {
+          validator: dgnServer('plat_nomor', (value) {
             final v = (value ?? '').trim().toUpperCase();
             if (v.isEmpty) return 'Plat nomor wajib diisi';
             if (!RegExp(r'^[A-Z]{1,2}\s?\d{1,4}\s?[A-Z]{0,3}$').hasMatch(v)) {
               return 'Format plat tidak valid, contoh: BP 1234 AC';
             }
             return null;
-          },
+          }),
         ),
         const SizedBox(height: 10),
         Align(
@@ -485,7 +545,7 @@ class _RegistrasiTeknisiPageState extends State<RegistrasiTeknisiPage> {
         for (final d in daftarDokumen.entries)
           uploadFoto(
             judul: d.value,
-            file: dokumen[d.key],
+            file: dokumen[d.key] == null ? null : namaBerkas(dokumen[d.key]!),
             onTap: () => pilihDokumen(d.key),
           ),
         Container(
@@ -610,12 +670,14 @@ class _RegistrasiTeknisiPageState extends State<RegistrasiTeknisiPage> {
           icon: Icons.credit_card_outlined,
           controller: nomorRekening,
           keyboard: TextInputType.number,
+          validator: dgnServer('no_rekening'),
         ),
         input(
           label: 'Nama Pemilik Rekening',
           hint: 'Masukkan nama pemilik rekening',
           icon: Icons.person_outline,
           controller: namaPemilik,
+          validator: dgnServer('atas_nama'),
         ),
         const SizedBox(height: 8),
         // Material transparan supaya efek sentuh ListTile tidak tertutup

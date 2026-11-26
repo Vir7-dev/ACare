@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../services/alamat_service.dart';
+import '../../services/api_client.dart';
 import '../../services/perangkat.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/peta_lokasi.dart';
@@ -84,34 +85,36 @@ class _FormAlamatPageState extends State<FormAlamatPage> {
     }
   }
 
-  void _simpan() {
-    if (!_formKey.currentState!.validate()) return;
+  bool _menyimpan = false;
+
+  Future<void> _simpan() async {
+    if (_menyimpan || !_formKey.currentState!.validate()) return;
     final layanan = AlamatService.instance;
     final lama = widget.alamat;
+    setState(() => _menyimpan = true);
     final AlamatTersimpan hasil;
-    if (lama == null) {
-      hasil = layanan.tambah(
-        label: _label.text.trim(),
-        alamatLengkap: _alamat.text.trim(),
-        latitude: _titik.latitude,
-        longitude: _titik.longitude,
-      );
-    } else {
-      if (layanan.dipakaiPesananAktif(lama)) {
-        _pesan(
-          'Alamat sedang dipakai pesanan aktif. Tambahkan alamat baru '
-          'bila ingin memakai lokasi lain.',
-        );
-        return;
-      }
-      hasil = lama.copyWith(
-        label: _label.text.trim(),
-        alamatLengkap: _alamat.text.trim(),
-        latitude: _titik.latitude,
-        longitude: _titik.longitude,
-      );
-      layanan.simpan(hasil);
+    try {
+      hasil = lama == null
+          ? await layanan.tambah(
+              label: _label.text,
+              alamatLengkap: _alamat.text,
+              latitude: _titik.latitude,
+              longitude: _titik.longitude,
+            )
+          : await layanan.ubah(
+              lama,
+              label: _label.text,
+              alamatLengkap: _alamat.text,
+              latitude: _titik.latitude,
+              longitude: _titik.longitude,
+            );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _menyimpan = false);
+      _pesan(e.pesan);
+      return;
     }
+    if (!mounted) return;
     _pesan('Alamat berhasil disimpan');
     Navigator.of(context).pop(hasil);
   }
@@ -254,9 +257,9 @@ class _FormAlamatPageState extends State<FormAlamatPage> {
         child: SizedBox(
           height: 48,
           child: FilledButton(
-            onPressed: _simpan,
+            onPressed: _menyimpan ? null : _simpan,
             style: FilledButton.styleFrom(backgroundColor: AppColors.biru),
-            child: const Text('Simpan'),
+            child: Text(_menyimpan ? 'Menyimpan...' : 'Simpan'),
           ),
         ),
       ),
@@ -290,7 +293,7 @@ class _FormAlamatPageState extends State<FormAlamatPage> {
       children: [
         TileLayer(
           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-          userAgentPackageName: 'com.example.acare_mobile',
+          userAgentPackageName: 'id.acare.mobile',
         ),
         MarkerLayer(
           markers: [

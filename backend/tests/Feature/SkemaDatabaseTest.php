@@ -273,10 +273,10 @@ class SkemaDatabaseTest extends TestCase
 
         $token = $this->pelanggan()->createToken('mobile')->plainTextToken;
 
-        $this->withToken($token)->getJson('/api/user')
+        $this->withToken($token)->getJson('/api/saya')
             ->assertOk()
-            ->assertJsonPath('email', 'pelanggan@acare.id')
-            ->assertJsonMissingPath('kata_sandi');
+            ->assertJsonPath('data.email', 'pelanggan@acare.id')
+            ->assertJsonMissingPath('data.kata_sandi');
     }
 
     public function test_pesanan_menyimpan_detail_lokasi_dan_isian_khusus_layanan(): void

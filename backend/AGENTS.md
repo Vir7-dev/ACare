@@ -20,6 +20,39 @@ API dan panel Admin untuk aplikasi pemesanan servis AC ACare.
 - Trigger dan CHECK constraint hanya untuk MySQL, dibungkus
   `if (DB::getDriverName() === 'mysql')` agar test SQLite tetap jalan.
 
+## API mobile (`routes/api.php`)
+
+| Endpoint | Keterangan |
+|---|---|
+| `POST /api/daftar` | Daftar pelanggan |
+| `POST /api/daftar/teknisi` | Daftar teknisi (multipart, 5 dokumen `dokumen[cv\|lamaran_kerja\|ktp\|ijazah\|pas_foto]`), status `menunggu` |
+| `POST /api/masuk` | `identitas` (email/no HP), `kata_sandi`, `peran` → `token` + `pengguna` |
+| `POST /api/keluar` | Cabut token perangkat ini |
+| `GET/PUT /api/saya` | Data akun; ubah sebagian (teknisi juga kendaraan & deskripsi) |
+| `POST /api/saya/foto` | Foto profil (disk `public`) |
+| `PUT /api/saya/kata-sandi` | Mengeluarkan perangkat lain |
+| `GET /api/layanan` | Katalog layanan aktif + harga awal |
+| `GET/POST /api/alamat`, `PUT/DELETE /api/alamat/{id}` | Alamat tersimpan pelanggan; ubah alamat yang sudah dipakai pesanan = baris baru (id baru), yang lama di-soft-delete |
+| `GET/POST /api/pesanan`, `GET /api/pesanan/{id}` | Pesanan pelanggan; `?status=aktif\|selesai\|dibatalkan` |
+| `POST /api/pesanan/{id}/batal` | Hanya saat `mencari_teknisi`; tagihan belum dibayar → `kedaluwarsa`, sudah dibayar → `tertahan` |
+
+- Galat: `{message, kode?}`; validasi 422 `{message, errors}` berbahasa
+  Indonesia (pesan di `App\Http\Requests\Api\ApiRequest`).
+- `kode` masuk: `kredensial_salah`, `peran_tidak_sesuai`, `akun_diblokir`,
+  `belum_terverifikasi`, `verifikasi_ditolak` (+ `alasan`),
+  `terlalu_banyak_percobaan` (5x salah → kunci 60 detik).
+- Nomor HP diseragamkan ke `08…` (`App\Support\NomorTelepon`).
+- Dokumen teknisi di disk privat `local` (`dokumen-teknisi/{id}`), tidak
+  bisa dibuka lewat URL publik.
+- Token berlaku 30 hari (`SANCTUM_EXPIRATION`, menit). Akun yang diblokir
+  ditolak middleware `akun.aktif`; rute khusus peran memakai `peran:pelanggan`.
+- Pesanan baru: status `mencari_teknisi` + pembayaran `awal` berstatus
+  `menunggu`. Tawaran ke teknisi baru dikirim setelah pembayaran awal lunas.
+  Satu pelanggan hanya boleh punya satu pesanan aktif (409
+  `masih_ada_pesanan_aktif`).
+- Harga layanan satu nilai (`layanan.harga`) = biaya awal per unit; biaya
+  tambahan hanya lewat rincian biaya teknisi yang disetujui pelanggan.
+
 ## Aturan bisnis penting
 
 - Status pesanan (9): `mencari_teknisi`, `menuju_lokasi`, `tiba`,

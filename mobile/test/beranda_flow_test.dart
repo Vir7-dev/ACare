@@ -4,7 +4,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import 'package:acare_mobile/pages/umum/main_shell.dart';
+import 'package:acare_mobile/services/layanan_service.dart';
 import 'package:acare_mobile/services/notifikasi_service.dart';
+
+import 'support/server_palsu.dart';
 
 void main() {
   setUpAll(() async {
@@ -53,7 +56,10 @@ void main() {
   testWidgets('Pilih Lokasi membuka daftar dan menyimpan pilihan', (
     tester,
   ) async {
+    // Alamat tersimpan dimuat dari server setelah masuk.
+    await ServerPalsu.masukPelanggan();
     await bukaShell(tester);
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('Pilih Lokasi'));
     await tester.pumpAndSettle();
@@ -70,6 +76,20 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Pilih Lokasi'), findsNothing);
+  });
+
+  testWidgets('Beranda memuat katalog dan harga dari server', (tester) async {
+    ServerPalsu.aktif.layanan[0]['harga'] = 80000;
+    await ServerPalsu.masukPelanggan();
+    await bukaShell(tester);
+    await tester.pumpAndSettle();
+
+    expect(ServerPalsu.aktif.log, contains('GET /layanan'));
+    final cuci = LayananService.instance.katalog.value.first;
+    expect(cuci.id, 1);
+    expect(cuci.harga, 80000);
+    // Ikon tetap dari aplikasi walau data dari server.
+    expect(cuci.ikon, Icons.water_drop_outlined);
   });
 
   testWidgets('Lonceng membuka daftar notifikasi', (tester) async {

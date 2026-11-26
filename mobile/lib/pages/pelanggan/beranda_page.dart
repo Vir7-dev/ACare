@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/layanan.dart';
 import '../../services/alamat_service.dart';
+import '../../services/layanan_service.dart';
 import '../../services/notifikasi_service.dart';
 import '../../services/order_service.dart';
 import '../../services/perangkat.dart';
@@ -37,6 +38,20 @@ class _BerandaPageState extends State<BerandaPage> {
   void initState() {
     super.initState();
     _muatSesi();
+    // Katalog & harga terbaru dan alamat tersimpan dari server.
+    LayananService.instance.katalog.addListener(_segarkan);
+    LayananService.instance.muat();
+    AlamatService.instance.muat();
+  }
+
+  @override
+  void dispose() {
+    LayananService.instance.katalog.removeListener(_segarkan);
+    super.dispose();
+  }
+
+  void _segarkan() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _muatSesi() async {

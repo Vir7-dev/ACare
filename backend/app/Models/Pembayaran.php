@@ -8,6 +8,19 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /** Pembayaran pelanggan lewat Xendit (awal dan pelunasan). */
 class Pembayaran extends Model
 {
+    public const AWAL = 'awal';
+
+    public const PELUNASAN = 'pelunasan';
+
+    public const MENUNGGU = 'menunggu';
+
+    public const BERHASIL = 'berhasil';
+
+    public const KEDALUWARSA = 'kedaluwarsa';
+
+    /** Sudah dibayar tetapi pesanan batal: menunggu pengajuan refund. */
+    public const TERTAHAN = 'tertahan';
+
     public const CREATED_AT = 'dibuat_pada';
 
     public const UPDATED_AT = null;

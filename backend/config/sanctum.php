@@ -50,7 +50,8 @@ return [
     |
     */
 
-    'expiration' => null,
+    // Token aplikasi mobile berlaku 30 hari; setelah itu pengguna masuk lagi.
+    'expiration' => env('SANCTUM_EXPIRATION', 60 * 24 * 30),
 
     /*
     |--------------------------------------------------------------------------

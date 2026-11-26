@@ -9,10 +9,24 @@ import 'form_alamat_page.dart';
 ///
 /// Bila [modePilih] aktif, mengetuk alamat menutup halaman dan
 /// mengembalikan [AlamatTersimpan] yang dipilih.
-class KelolaAlamatPage extends StatelessWidget {
+class KelolaAlamatPage extends StatefulWidget {
   final bool modePilih;
 
   const KelolaAlamatPage({super.key, this.modePilih = false});
+
+  @override
+  State<KelolaAlamatPage> createState() => _KelolaAlamatPageState();
+}
+
+class _KelolaAlamatPageState extends State<KelolaAlamatPage> {
+  bool get modePilih => widget.modePilih;
+
+  @override
+  void initState() {
+    super.initState();
+    // Daftar terbaru dari server; daftar terakhir tetap tampil sementara.
+    AlamatService.instance.muat();
+  }
 
   Future<void> _tambah(BuildContext context) async {
     final baru = await Navigator.of(context).push<AlamatTersimpan>(
@@ -42,7 +56,8 @@ class KelolaAlamatPage extends StatelessWidget {
       ),
     );
     if (ya != true || !context.mounted) return;
-    final galat = AlamatService.instance.hapus(a);
+    final galat = await AlamatService.instance.hapus(a);
+    if (!context.mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(galat ?? 'Alamat dihapus')));
