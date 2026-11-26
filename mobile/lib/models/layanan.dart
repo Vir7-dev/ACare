@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../services/layanan_service.dart';
 import '../theme/app_colors.dart';
 
 class Layanan {
+  /// Id di server (`layanan.id_layanan`); `null` untuk katalog bawaan.
+  final int? id;
   final String nama;
   final String deskripsi;
   final int harga;
@@ -14,6 +17,7 @@ class Layanan {
   final bool populer;
 
   const Layanan({
+    this.id,
     required this.nama,
     required this.deskripsi,
     required this.harga,
@@ -23,6 +27,23 @@ class Layanan {
     required this.warnaLatar,
     this.populer = false,
   });
+
+  /// Dari `GET /api/layanan`. Ikon dipilih aplikasi berdasarkan nama.
+  factory Layanan.dariJson(Map<String, dynamic> j) {
+    final nama = j['nama'] as String? ?? '';
+    final bawaan = katalogBawaan.where((l) => l.nama == nama).firstOrNull;
+    return Layanan(
+      id: j['id'] as int?,
+      nama: nama,
+      deskripsi: j['deskripsi'] as String? ?? '',
+      harga: (j['harga'] as num?)?.toInt() ?? 0,
+      durasiMenit: (j['estimasi_durasi'] as num?)?.toInt() ?? 0,
+      ikon: bawaan?.ikon ?? Icons.ac_unit,
+      warnaIkon: AppColors.biru,
+      warnaLatar: AppColors.biruMuda,
+      populer: bawaan?.populer ?? false,
+    );
+  }
 }
 
 String rupiah(int nilai) => NumberFormat.currency(
@@ -31,8 +52,13 @@ String rupiah(int nilai) => NumberFormat.currency(
   decimalDigits: 0,
 ).format(nilai);
 
-// Data dummy, nanti diganti data dari API Laravel
-const List<Layanan> daftarLayanan = [
+/// Katalog layanan yang dipakai halaman: dari server bila sudah dimuat,
+/// selain itu katalog bawaan (lihat [LayananService]).
+List<Layanan> get daftarLayanan => LayananService.instance.katalog.value;
+
+/// Katalog bawaan, sama dengan LayananSeeder di backend. Dipakai sampai
+/// katalog dari server termuat (atau saat tidak ada internet).
+const List<Layanan> katalogBawaan = [
   Layanan(
     nama: 'Cuci AC',
     deskripsi: 'Membersihkan filter, evaporator, dan bagian dalam AC agar lebih dingin dan hemat listrik.',

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../models/akun.dart';
+import 'alamat_service.dart';
 import 'api_client.dart';
 import 'sesi_pengguna.dart';
 
@@ -255,6 +256,8 @@ class AuthService {
 
   static Future<void> _bersihkan() async {
     akun.value = null;
+    // Data milik akun sebelumnya tidak boleh terlihat akun berikutnya.
+    AlamatService.instance.reset();
     await ApiClient.hapusToken();
     await ApiClient.penyimpanan.hapus(_kAkun);
     await SesiPengguna.keluar();

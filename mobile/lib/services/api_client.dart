@@ -115,6 +115,9 @@ class ApiClient {
     Map<String, dynamic> isi,
   ) => _kirim('PUT', path, isi);
 
+  static Future<Map<String, dynamic>> delete(String path) =>
+      _kirim('DELETE', path);
+
   /// Kirim form dengan berkas (multipart). [berkas]: nama kolom -> file,
   /// misal `dokumen[ktp]`.
   static Future<Map<String, dynamic>> multipart(
@@ -166,6 +169,7 @@ class ApiClient {
       final f = switch (metode) {
         'GET' => klien.get(uri, headers: h),
         'PUT' => klien.put(uri, headers: h, body: body),
+        'DELETE' => klien.delete(uri, headers: h),
         _ => klien.post(uri, headers: h, body: body),
       };
       return f.timeout(batasWaktu);

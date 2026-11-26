@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:acare_mobile/services/alamat_service.dart';
+import 'package:acare_mobile/services/layanan_service.dart';
 import 'package:acare_mobile/services/perangkat.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -23,6 +25,8 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
     SharedPreferences.setMockInitialValues({});
     Perangkat.reset();
     ServerPalsu.pasang();
+    AlamatService.instance.reset();
+    LayananService.instance.reset();
   });
 
   final root = Platform.environment['FLUTTER_ROOT'];

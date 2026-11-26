@@ -48,6 +48,33 @@ class ServerPalsu {
     },
   ];
 
+  /// Katalog layanan (sama dengan LayananSeeder).
+  final List<Map<String, dynamic>> layanan = [
+    {'id': 1, 'nama': 'Cuci AC', 'deskripsi': 'Cuci', 'harga': 75000, 'estimasi_durasi': 45, 'bisa_biaya_tambahan': false},
+    {'id': 2, 'nama': 'Service AC', 'deskripsi': 'Service', 'harga': 100000, 'estimasi_durasi': 45, 'bisa_biaya_tambahan': true},
+    {'id': 3, 'nama': 'Isi Freon', 'deskripsi': 'Freon', 'harga': 150000, 'estimasi_durasi': 45, 'bisa_biaya_tambahan': false},
+    {'id': 4, 'nama': 'Bongkar Pasang', 'deskripsi': 'Bongkar', 'harga': 100000, 'estimasi_durasi': 45, 'bisa_biaya_tambahan': false},
+    {'id': 5, 'nama': 'Cek AC', 'deskripsi': 'Cek', 'harga': 50000, 'estimasi_durasi': 30, 'bisa_biaya_tambahan': true},
+  ];
+
+  /// Alamat tersimpan: id akun -> daftar alamat.
+  final Map<int, List<Map<String, dynamic>>> alamat = {
+    1: [
+      {
+        'id': 1,
+        'label': 'Rumah',
+        'alamat_lengkap': 'Perumahan Batu Aji Blok C No. 12, Batam',
+        'latitude': 1.0436,
+        'longitude': 103.9806,
+      },
+    ],
+  };
+
+  /// Id alamat yang sedang dipakai pesanan aktif (tidak bisa dihapus).
+  final Set<int> alamatDipakai = {};
+
+  int _idAlamat = 10;
+
   /// token -> id akun.
   final Map<String, int> token = {};
 
@@ -55,6 +82,16 @@ class ServerPalsu {
   final List<String> log = [];
 
   int _urut = 0;
+
+  /// Masuk sebagai pelanggan contoh (Dina) lewat API palsu.
+  static Future<void> masukPelanggan() async {
+    final h = await AuthService.login(
+      'dina@gmail.com',
+      sandiContoh,
+      UserRole.pelanggan,
+    );
+    if (!h.berhasil) throw StateError('Gagal masuk: ${h.pesan}');
+  }
 
   /// Pasang server baru (data contoh segar) dan kosongkan sesi aplikasi.
   static ServerPalsu pasang() {
@@ -260,6 +297,59 @@ class ServerPalsu {
         saya['foto_profil'] = 'http://acare.test/storage/foto-profil/x.jpg';
         return _json(200, {'data': _publik(saya)});
 
+      case 'GET /layanan':
+        return _json(200, {'data': layanan});
+
+      case 'GET /alamat':
+        return _json(200, {'data': alamat[saya['id']] ?? []});
+
+      case 'POST /alamat':
+        if ('${isi['label'] ?? ''}'.trim().isEmpty) {
+          return _galat({'label': 'Label alamat wajib diisi.'});
+        }
+        final baru = {
+          'id': _idAlamat++,
+          'label': '${isi['label']}'.trim(),
+          'alamat_lengkap': '${isi['alamat_lengkap']}'.trim(),
+          'latitude': isi['latitude'],
+          'longitude': isi['longitude'],
+        };
+        (alamat[saya['id'] as int] ??= []).add(baru);
+        return _json(201, {'data': baru});
+    }
+
+    final cocokAlamat = RegExp(r'^(PUT|DELETE) /alamat/(\d+)$').firstMatch(
+      '${r.method} $path',
+    );
+    if (cocokAlamat != null) {
+      final daftar = alamat[saya['id'] as int] ?? [];
+      final id = int.parse(cocokAlamat.group(2)!);
+      final i = daftar.indexWhere((a) => a['id'] == id);
+      if (i < 0) return _json(404, {'message': 'Data tidak ditemukan.'});
+      if (cocokAlamat.group(1) == 'DELETE') {
+        if (alamatDipakai.contains(id)) {
+          return _json(422, {
+            'message':
+                'Alamat tidak dapat dihapus karena sedang digunakan pada pesanan aktif.',
+            'kode': 'alamat_dipakai',
+          });
+        }
+        daftar.removeAt(i);
+        return _json(200, {'message': 'Alamat dihapus.'});
+      }
+      // Alamat yang dipakai pesanan disimpan sebagai alamat baru.
+      final baru = {
+        'id': alamatDipakai.contains(id) ? _idAlamat++ : id,
+        'label': '${isi['label']}'.trim(),
+        'alamat_lengkap': '${isi['alamat_lengkap']}'.trim(),
+        'latitude': isi['latitude'],
+        'longitude': isi['longitude'],
+      };
+      daftar[i] = baru;
+      return _json(200, {'data': baru});
+    }
+
+    switch ('${r.method} $path') {
       case 'PUT /saya/kata-sandi':
         if (isi['kata_sandi_lama'] != saya['kata_sandi']) {
           return _galat({'kata_sandi_lama': 'Kata sandi lama tidak sesuai.'});
