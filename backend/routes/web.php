@@ -30,25 +30,14 @@ Route::redirect('/admin', '/');
 Route::redirect('/admin/dashboard', '/');
 Route::redirect('/admin/beranda', '/');
 
-// 3. Kelola Transaksi & Monitoring Bukti Pengerjaan Servis AC
 Route::get('/admin/transaksi', [TransaksiController::class, 'index'])->name('admin.transaksi');
-
-// 4. Kelola Pengguna & Verifikasi Teknisi (Tugas Dina: Pengguna & Verifikasi Berkas Teknisi)
 Route::get('/admin/pengguna', [PenggunaController::class, 'index'])->name('admin.pengguna');
-
-// 5. Kelola Layanan (Tugas Achmal: 6 Katalog Layanan Resmi ACare)
 Route::get('/admin/layanan', [LayananController::class, 'index'])->name('admin.layanan');
-
-// 6. Pengaduan dari pelanggan/teknisi
 Route::get('/admin/pengaduan', [PengaduanController::class, 'index'])->name('admin.pengaduan');
-
-// 7. Moderasi rating & ulasan pelanggan
 Route::get('/admin/ulasan', [UlasanController::class, 'index'])->name('admin.ulasan');
-
-// 8. Pencairan pendapatan teknisi & refund pelanggan
 Route::get('/admin/pencairan', [PencairanController::class, 'index'])->name('admin.pencairan');
 
-// 9. Aksi perubahan status (disimpan di session sementara)
+// Aksi perubahan status (disimpan di session sementara)
 Route::post('/admin/pengguna/status', [PenggunaController::class, 'ubahStatus'])->name('admin.pengguna.status');
 Route::post('/admin/pengguna/dokumen', [PenggunaController::class, 'ubahDokumen'])->name('admin.pengguna.dokumen');
 Route::post('/admin/pengaduan/status', [PengaduanController::class, 'ubahStatus'])->name('admin.pengaduan.status');

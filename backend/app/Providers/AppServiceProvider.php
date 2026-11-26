@@ -128,6 +128,7 @@ class AppServiceProvider extends ServiceProvider
 
                 return [
                     'id' => (string) $p->id_pesanan,
+                    'kode' => $p->kode,
                     'status' => $status,
                     'layanan' => $layanan,
                     'tanggal' => $tanggalTeks,

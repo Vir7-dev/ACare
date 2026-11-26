@@ -259,7 +259,7 @@ function initDashboard() {
             </div>
             <a href="{{ route('admin.pengguna', ['status' => 'menunggu']) }}"
                class="px-4 py-2 bg-brand hover:bg-brand-dark text-white text-xs font-bold rounded-md whitespace-nowrap transition-all">
-                Tinjau Sekarang
+                Tinjau
             </a>
         </div>
 

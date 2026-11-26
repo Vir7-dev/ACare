@@ -101,7 +101,7 @@ function detailTransaksi(daftar) {
                 <div class="px-6 py-4 border-b border-line flex items-start justify-between gap-4">
                     <div class="min-w-0">
                         <div class="flex items-center gap-2 flex-wrap">
-                            <h2 id="judul-detail-transaksi" class="text-base font-bold font-mono text-navy" x-text="trx.id"></h2>
+                            <h2 id="judul-detail-transaksi" class="text-base font-bold font-mono text-navy" x-text="trx.kode || trx.id"></h2>
                             <span class="inline-flex items-center gap-1.5 text-xs font-semibold" :class="kelasStatus(trx.status)"><span x-text="trx.status"></span></span>
                         </div>
                         <p class="text-sm text-slate-600 mt-0.5" x-text="trx.layanan + ' · ' + trx.tanggal + ', ' + trx.jam"></p>
