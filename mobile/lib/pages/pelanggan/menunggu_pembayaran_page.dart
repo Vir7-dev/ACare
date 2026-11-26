@@ -3,20 +3,27 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../models/layanan.dart';
 import '../../models/metode_bayar.dart';
+import '../../models/tagihan_online.dart';
+import '../../services/api_client.dart';
+import '../../services/order_service.dart';
+import '../../services/perangkat.dart';
 import '../../theme/app_colors.dart';
 
-/// Halaman menunggu pembayaran non-tunai (QRIS, e-wallet, virtual account),
+/// Halaman bayar non-tunai lewat Xendit (QRIS, e-wallet, virtual account),
 /// dipakai untuk pembayaran awal maupun pelunasan.
 ///
-/// Pembayaran masih tiruan: setelah [lamaProses] pembayaran dianggap
-/// berhasil lalu halaman ditutup dengan hasil `true`. Halaman pemanggil yang
-/// menentukan langkah berikutnya.
-// TODO(backend): buat invoice Xendit lewat API, tampilkan QR/nomor VA/tautan
-// e-wallet dari respons, dan pantau statusnya lewat webhook, bukan timer.
+/// Tagihan dibuat di server, lalu kode QR / nomor VA / tautan e-wallet
+/// ditampilkan. Status diperiksa ke server setiap
+/// [OrderService.selangPeriksa]; lunas hanya bila server (Xendit) bilang
+/// lunas. Halaman ditutup dengan pesanan terbaru bila berhasil, atau `null`
+/// bila ditinggalkan.
 class MenungguPembayaranPage extends StatefulWidget {
+  final int idPesanan;
+  final int idPembayaran;
   final MetodeBayar metode;
   final int nominal;
 
@@ -26,16 +33,14 @@ class MenungguPembayaranPage extends StatefulWidget {
   /// Kalimat setelah pembayaran berhasil.
   final String pesanBerhasil;
 
-  /// Lama tiruan sebelum pembayaran dianggap berhasil.
-  final Duration lamaProses;
-
   const MenungguPembayaranPage({
     super.key,
+    required this.idPesanan,
+    required this.idPembayaran,
     required this.metode,
     required this.nominal,
     required this.keterangan,
     this.pesanBerhasil = 'Terima kasih, pembayaran kamu sudah kami terima.',
-    this.lamaProses = const Duration(seconds: 5),
   });
 
   @override
@@ -43,46 +48,142 @@ class MenungguPembayaranPage extends StatefulWidget {
 }
 
 class _MenungguPembayaranPageState extends State<MenungguPembayaranPage> {
-  Timer? _timerProses;
-  Timer? _timerHitungMundur;
-  Timer? _timerTutup;
-  late int _sisaDetik = widget.lamaProses.inSeconds;
+  final _layanan = OrderService.instance;
+
+  KanalBayar? _kanal;
+  StatusTagihan? _tagihan;
+  PesananPelanggan? _pesanan;
+  bool _memuat = false;
+  String? _galat;
   bool _berhasil = false;
+
+  Timer? _timerPeriksa;
+  Timer? _timerDetik;
+  Timer? _timerTutup;
+  bool _sedangPeriksa = false;
+
+  InstruksiBayar? get _instruksi => _tagihan?.instruksi;
 
   @override
   void initState() {
     super.initState();
-    _timerProses = Timer(widget.lamaProses, _tandaiBerhasil);
-    _timerHitungMundur = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-      setState(() => _sisaDetik = (_sisaDetik - 1).clamp(0, 999));
+    if (widget.metode.kanal.length == 1) {
+      // Satu pilihan saja (QRIS): langsung buat tagihan.
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _buat(widget.metode.kanal.first),
+      );
+    }
+    _timerDetik = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted && _instruksi != null) setState(() {});
     });
   }
 
   @override
   void dispose() {
-    _timerProses?.cancel();
-    _timerHitungMundur?.cancel();
+    _timerPeriksa?.cancel();
+    _timerDetik?.cancel();
     _timerTutup?.cancel();
     super.dispose();
   }
 
-  void _tandaiBerhasil() {
-    _timerHitungMundur?.cancel();
-    if (!mounted) return;
-    setState(() => _berhasil = true);
-    // Beri jeda singkat supaya pengguna sempat melihat status berhasil.
-    _timerTutup = Timer(const Duration(milliseconds: 800), () {
-      if (mounted) Navigator.of(context).pop(true);
+  Future<void> _buat(KanalBayar kanal) async {
+    setState(() {
+      _kanal = kanal;
+      _memuat = true;
+      _galat = null;
     });
+    try {
+      final (p, t) = await _layanan.bayarTagihan(
+        widget.idPesanan,
+        widget.idPembayaran,
+        kanal.kode,
+      );
+      if (!mounted) return;
+      _terapkan(p, t);
+      _mulaiPeriksa();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _galat = e.pesan);
+    } finally {
+      if (mounted) setState(() => _memuat = false);
+    }
+  }
+
+  void _mulaiPeriksa() {
+    _timerPeriksa?.cancel();
+    _timerPeriksa = Timer.periodic(
+      OrderService.selangPeriksa,
+      (_) => _periksa(),
+    );
+  }
+
+  Future<void> _periksa() async {
+    if (_sedangPeriksa || _berhasil) return;
+    _sedangPeriksa = true;
+    try {
+      final (p, t) = await _layanan.periksaTagihan(
+        widget.idPesanan,
+        widget.idPembayaran,
+      );
+      if (mounted) _terapkan(p, t);
+    } on ApiException {
+      // Koneksi putus sesaat: coba lagi di putaran berikutnya.
+    } finally {
+      _sedangPeriksa = false;
+    }
+  }
+
+  Future<void> _simulasi() async {
+    setState(() => _memuat = true);
+    try {
+      final (p, t) = await _layanan.simulasiBayar(
+        widget.idPesanan,
+        widget.idPembayaran,
+      );
+      if (mounted) _terapkan(p, t);
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text(e.pesan)));
+      }
+    } finally {
+      if (mounted) setState(() => _memuat = false);
+    }
+  }
+
+  void _terapkan(PesananPelanggan p, StatusTagihan t) {
+    setState(() {
+      _pesanan = p;
+      _tagihan = t;
+    });
+    if (t.lunas && !_berhasil) {
+      _timerPeriksa?.cancel();
+      setState(() => _berhasil = true);
+      // Beri jeda singkat supaya pengguna sempat melihat status berhasil.
+      _timerTutup = Timer(const Duration(milliseconds: 800), () {
+        if (mounted) Navigator.of(context).pop(_pesanan);
+      });
+    } else if (!t.menunggu && !t.lunas) {
+      _timerPeriksa?.cancel();
+      setState(() => _galat = 'Tagihan ini sudah tidak berlaku.');
+    }
+  }
+
+  Future<void> _bukaEWallet(String url) async {
+    final terbuka = await Perangkat.bukaUrl(Uri.parse(url));
+    if (!terbuka && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Aplikasi e-wallet tidak bisa dibuka')),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final metode = widget.metode;
+    final instruksi = _instruksi;
+    final kedaluwarsa =
+        _tagihan != null && _tagihan!.menunggu && instruksi == null;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -91,7 +192,7 @@ class _MenungguPembayaranPageState extends State<MenungguPembayaranPage> {
         surfaceTintColor: Colors.white,
         elevation: 0,
         title: Text(
-          'Pembayaran ${metode.label}',
+          'Pembayaran ${widget.metode.label}',
           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
         ),
         bottom: const PreferredSize(
@@ -102,22 +203,70 @@ class _MenungguPembayaranPageState extends State<MenungguPembayaranPage> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
         children: [
-          _KartuStatus(
-            berhasil: _berhasil,
-            sisaDetik: _sisaDetik,
-            petunjuk: _petunjukSingkat(metode),
-            pesanBerhasil: widget.pesanBerhasil,
-          ),
-          const SizedBox(height: 18),
-          AnimatedOpacity(
-            opacity: _berhasil ? 0.35 : 1,
-            duration: const Duration(milliseconds: 300),
-            child: switch (metode) {
-              MetodeBayar.qris => const _KodeQris(),
-              MetodeBayar.eWallet => const _InfoEWallet(),
-              MetodeBayar.virtualAccount => const _NomorVa(),
-            },
-          ),
+          if (widget.metode.kanal.length > 1) ...[
+            _PilihKanal(
+              kanal: widget.metode.kanal,
+              terpilih: _kanal,
+              aktif: !_memuat && !_berhasil,
+              onPilih: _buat,
+            ),
+            const SizedBox(height: 16),
+          ],
+          if (_berhasil || instruksi != null)
+            _KartuStatus(
+              berhasil: _berhasil,
+              petunjuk: _petunjukSingkat(instruksi?.jenis),
+              sisa: instruksi?.kedaluwarsaPada.difference(DateTime.now()),
+              pesanBerhasil: widget.pesanBerhasil,
+            ),
+          if (_memuat)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 32),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_galat != null)
+            _KotakPesan(
+              pesan: _galat!,
+              tombol: _kanal != null && !_berhasil ? 'Coba Lagi' : null,
+              onTekan: () => _buat(_kanal!),
+            )
+          else if (kedaluwarsa)
+            _KotakPesan(
+              pesan:
+                  'Waktu pembayaran habis. Buat kode baru untuk melanjutkan.',
+              tombol: 'Buat Kode Baru',
+              onTekan: () => _buat(_kanal!),
+            )
+          else if (instruksi != null) ...[
+            const SizedBox(height: 18),
+            AnimatedOpacity(
+              opacity: _berhasil ? 0.35 : 1,
+              duration: const Duration(milliseconds: 300),
+              child: switch (instruksi.jenis) {
+                'va' => _NomorVa(
+                  nomor: instruksi.kode ?? '-',
+                  bank: instruksi.namaMetode,
+                ),
+                'ewallet' => _InfoEWallet(
+                  nama: instruksi.namaMetode,
+                  onBuka: instruksi.url == null || _berhasil
+                      ? null
+                      : () => _bukaEWallet(instruksi.url!),
+                ),
+                _ => _KodeQris(data: instruksi.kode ?? ''),
+              },
+            ),
+          ] else if (_kanal == null)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                'Pilih ${widget.metode.label.toLowerCase()} yang ingin kamu pakai.',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 12,
+                  color: AppColors.teksSamar,
+                ),
+              ),
+            ),
           const SizedBox(height: 14),
           Center(
             child: Text(
@@ -139,50 +288,136 @@ class _MenungguPembayaranPageState extends State<MenungguPembayaranPage> {
               ),
             ),
           ),
-          const SizedBox(height: 18),
-          _Panduan(langkah: _langkah(metode)),
+          if (instruksi != null && !_berhasil) ...[
+            const SizedBox(height: 18),
+            _Panduan(langkah: _langkah(instruksi.jenis)),
+          ],
+          if (_tagihan?.bisaSimulasi == true && instruksi != null && !_berhasil)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: OutlinedButton.icon(
+                onPressed: _memuat ? null : _simulasi,
+                icon: const Icon(Icons.science_outlined, size: 18),
+                label: const Text('Simulasikan Pembayaran (mode uji)'),
+              ),
+            ),
         ],
       ),
     );
   }
 
-  static String _petunjukSingkat(MetodeBayar m) => switch (m) {
-    MetodeBayar.qris => 'Silakan pindai kode QRIS di bawah.',
-    MetodeBayar.eWallet => 'Selesaikan pembayaran di aplikasi e-wallet kamu.',
-    MetodeBayar.virtualAccount => 'Transfer ke nomor virtual account di bawah.',
+  static String _petunjukSingkat(String? jenis) => switch (jenis) {
+    'ewallet' => 'Selesaikan pembayaran di aplikasi e-wallet kamu.',
+    'va' => 'Transfer ke nomor virtual account di bawah.',
+    _ => 'Silakan pindai kode QRIS di bawah.',
   };
 
-  static List<String> _langkah(MetodeBayar m) => switch (m) {
-    MetodeBayar.qris => const [
-      'Buka aplikasi e-wallet atau m-banking yang mendukung QRIS.',
-      'Pindai kode QR di atas, lalu pastikan nominalnya sudah sesuai.',
-      'Selesaikan pembayaran; halaman ini lanjut otomatis.',
-    ],
-    MetodeBayar.eWallet => const [
-      'Kamu akan diarahkan ke aplikasi e-wallet yang dipilih.',
+  static List<String> _langkah(String jenis) => switch (jenis) {
+    'ewallet' => const [
+      'Tekan tombol di atas untuk membuka aplikasi e-wallet.',
       'Periksa nominal, lalu konfirmasi pembayaran.',
       'Kembali ke ACare; halaman ini lanjut otomatis.',
     ],
-    MetodeBayar.virtualAccount => const [
+    'va' => const [
       'Buka m-banking, ATM, atau internet banking.',
       'Pilih transfer ke Virtual Account dan masukkan nomor di atas.',
       'Pastikan nominal sesuai; halaman ini lanjut otomatis.',
     ],
+    _ => const [
+      'Buka aplikasi e-wallet atau m-banking yang mendukung QRIS.',
+      'Pindai kode QR di atas, lalu pastikan nominalnya sudah sesuai.',
+      'Selesaikan pembayaran; halaman ini lanjut otomatis.',
+    ],
   };
+}
+
+class _PilihKanal extends StatelessWidget {
+  final List<KanalBayar> kanal;
+  final KanalBayar? terpilih;
+  final bool aktif;
+  final ValueChanged<KanalBayar> onPilih;
+
+  const _PilihKanal({
+    required this.kanal,
+    required this.terpilih,
+    required this.aktif,
+    required this.onPilih,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final k in kanal)
+          ChoiceChip(
+            label: Text(k.nama),
+            selected: terpilih?.kode == k.kode,
+            onSelected: aktif && terpilih?.kode != k.kode
+                ? (_) => onPilih(k)
+                : null,
+          ),
+      ],
+    );
+  }
+}
+
+class _KotakPesan extends StatelessWidget {
+  final String pesan;
+  final String? tombol;
+  final VoidCallback onTekan;
+
+  const _KotakPesan({required this.pesan, this.tombol, required this.onTekan});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.biruMuda,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            pesan,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 12,
+              color: Colors.black87,
+            ),
+          ),
+          if (tombol != null) ...[
+            const SizedBox(height: 10),
+            FilledButton(onPressed: onTekan, child: Text(tombol!)),
+          ],
+        ],
+      ),
+    );
+  }
 }
 
 class _KartuStatus extends StatelessWidget {
   final bool berhasil;
-  final int sisaDetik;
   final String petunjuk;
+  final Duration? sisa;
   final String pesanBerhasil;
 
   const _KartuStatus({
     required this.berhasil,
-    required this.sisaDetik,
     required this.petunjuk,
+    required this.sisa,
     required this.pesanBerhasil,
   });
+
+  static String _format(Duration d) {
+    final s = d.isNegative ? Duration.zero : d;
+    final menit = s.inMinutes.toString().padLeft(2, '0');
+    final detik = (s.inSeconds % 60).toString().padLeft(2, '0');
+    return '$menit:$detik';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -223,8 +458,7 @@ class _KartuStatus extends StatelessWidget {
                 Text(
                   berhasil
                       ? pesanBerhasil
-                      : '$petunjuk Pembayaran diverifikasi otomatis dalam '
-                            '$sisaDetik detik.',
+                      : '$petunjuk Bayar sebelum ${_format(sisa ?? Duration.zero)}.',
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 11,
                     color: Colors.black54,
@@ -239,26 +473,11 @@ class _KartuStatus extends StatelessWidget {
   }
 }
 
-/// Kotak QRIS tiruan. Pola kotak hitam hanya ilustrasi, tidak bisa dipindai.
+/// Kode QRIS dari Xendit, digambar sebagai QR yang bisa dipindai.
 class _KodeQris extends StatelessWidget {
-  const _KodeQris();
+  final String data;
 
-  static const int _ukuran = 13;
-  static const List<String> _pola = [
-    '1111111010111',
-    '1000001010001',
-    '1011101001101',
-    '1011101110011',
-    '1011101010101',
-    '1000001101001',
-    '1111111010101',
-    '0000000011010',
-    '1101011001011',
-    '0010110110001',
-    '1001101010111',
-    '0110010011000',
-    '1111111000111',
-  ];
+  const _KodeQris({required this.data});
 
   @override
   Widget build(BuildContext context) {
@@ -290,29 +509,11 @@ class _KodeQris extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            SizedBox(
-              width: 208,
-              height: 208,
-              child: Column(
-                children: [
-                  for (var i = 0; i < _ukuran; i++)
-                    Expanded(
-                      child: Row(
-                        children: [
-                          for (var j = 0; j < _ukuran; j++)
-                            Expanded(
-                              child: Container(
-                                margin: const EdgeInsets.all(0.5),
-                                color: _pola[i][j] == '1'
-                                    ? Colors.black87
-                                    : Colors.white,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
+            QrImageView(
+              key: const Key('kode-qris'),
+              data: data,
+              size: 220,
+              backgroundColor: Colors.white,
             ),
             const SizedBox(height: 12),
             Text(
@@ -331,12 +532,15 @@ class _KodeQris extends StatelessWidget {
 }
 
 class _InfoEWallet extends StatelessWidget {
-  const _InfoEWallet();
+  final String nama;
+  final VoidCallback? onBuka;
+
+  const _InfoEWallet({required this.nama, required this.onBuka});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
+      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.garis),
@@ -350,20 +554,18 @@ class _InfoEWallet extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            'Menunggu konfirmasi dari aplikasi e-wallet',
+            'Lanjutkan pembayaran di aplikasi $nama',
             textAlign: TextAlign.center,
             style: GoogleFonts.plusJakartaSans(
               fontSize: 13,
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            'DANA, OVO, atau ShopeePay',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 11,
-              color: AppColors.teksSamar,
-            ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: onBuka,
+            icon: const Icon(Icons.open_in_new, size: 18),
+            label: Text('Buka $nama'),
           ),
         ],
       ),
@@ -372,10 +574,10 @@ class _InfoEWallet extends StatelessWidget {
 }
 
 class _NomorVa extends StatelessWidget {
-  const _NomorVa();
+  final String nomor;
+  final String bank;
 
-  // Nomor tiruan; nanti diisi dari invoice Xendit.
-  static const String _nomor = '8808 1234 5678 9012';
+  const _NomorVa({required this.nomor, required this.bank});
 
   @override
   Widget build(BuildContext context) {
@@ -389,7 +591,7 @@ class _NomorVa extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Nomor Virtual Account',
+            'Nomor $bank',
             style: GoogleFonts.plusJakartaSans(
               fontSize: 11,
               color: AppColors.teksSamar,
@@ -399,8 +601,8 @@ class _NomorVa extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text(
-                  _nomor,
+                child: SelectableText(
+                  nomor,
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 20,
                     fontWeight: FontWeight.w800,
@@ -410,9 +612,7 @@ class _NomorVa extends StatelessWidget {
               ),
               TextButton.icon(
                 onPressed: () {
-                  Clipboard.setData(
-                    ClipboardData(text: _nomor.replaceAll(' ', '')),
-                  );
+                  Clipboard.setData(ClipboardData(text: nomor));
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Nomor VA disalin')),
                   );
@@ -421,14 +621,6 @@ class _NomorVa extends StatelessWidget {
                 label: const Text('Salin'),
               ),
             ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Berlaku untuk BCA, BNI, BRI, dan Mandiri',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 11,
-              color: AppColors.teksSamar,
-            ),
           ),
         ],
       ),

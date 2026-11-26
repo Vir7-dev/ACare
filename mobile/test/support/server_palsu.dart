@@ -548,6 +548,21 @@ class ServerPalsu {
 
   int _idAlamat = 10;
 
+  /// Tagihan Xendit tiruan dianggap lunas setelah sekian kali diperiksa.
+  int bayarLunasSetelahPeriksa = 1;
+
+  /// Tiruan Xendit menolak pembuatan tagihan.
+  bool gagalBuatTagihan = false;
+
+  final Map<int, int> _sisaPeriksaBayar = {};
+
+  void _lunaskan(int idPesanan, Map<String, dynamic> bayar, String metode) {
+    bayar['status'] = 'berhasil';
+    bayar['metode'] = metode;
+    bayar['instruksi'] = null;
+    if (bayar['jenis'] == 'pelunasan') majukan(idPesanan, 'selesai');
+  }
+
   /// token -> id akun.
   final Map<String, int> token = {};
 
@@ -826,13 +841,28 @@ class ServerPalsu {
     }
 
     final cocokPesanan = RegExp(
-      r'^(GET|POST) /pesanan/(\d+)(?:/(batal|biaya|pembayaran/(\d+)/simulasi-lunas))?$',
+      r'^(GET|POST) /pesanan/(\d+)(?:/(batal|biaya|pembayaran/(\d+)/(simulasi-lunas|bayar)))?$',
     ).firstMatch(rute);
     if (cocokPesanan != null) {
       final id = int.parse(cocokPesanan.group(2)!);
       final p = milikSaya.where((p) => p['id'] == id).firstOrNull;
       if (p == null) return _json(404, {'message': 'Data tidak ditemukan.'});
       final aksi = cocokPesanan.group(3);
+      p['bisa_simulasi_bayar'] = true;
+      if (aksi == null) {
+        // Pelanggan memeriksa status: tiruan webhook Xendit tiba.
+        for (final b
+            in (p['pembayaran'] as List).cast<Map<String, dynamic>>()) {
+          final sisa = _sisaPeriksaBayar[b['id'] as int];
+          if (sisa == null || b['status'] != 'menunggu') continue;
+          if (sisa <= 1) {
+            _sisaPeriksaBayar.remove(b['id']);
+            _lunaskan(id, b, b['metode'] as String? ?? 'QRIS');
+            return _json(200, {'data': p});
+          }
+          _sisaPeriksaBayar[b['id'] as int] = sisa - 1;
+        }
+      }
       final semuaBayar = (p['pembayaran'] as List).cast<Map<String, dynamic>>();
       final idBayar = int.tryParse(cocokPesanan.group(4) ?? '');
       final bayar = idBayar == null
@@ -871,10 +901,46 @@ class ServerPalsu {
         bayar['status'] = bayar['status'] == 'berhasil'
             ? 'tertahan'
             : 'kedaluwarsa';
+      } else if (cocokPesanan.group(5) == 'bayar') {
+        // Tiruan Xendit: tagihan dibuat; dianggap lunas setelah
+        // [bayarLunasSetelahPeriksa] kali pelanggan memeriksa status.
+        if (bayar['status'] != 'menunggu') {
+          return _json(409, {
+            'message': 'Tagihan ini tidak menunggu pembayaran.',
+            'kode': 'bukan_tagihan_aktif',
+          });
+        }
+        if (gagalBuatTagihan) {
+          return _json(502, {
+            'message': 'Tagihan belum bisa dibuat. Coba lagi sebentar lagi atau pilih metode lain.',
+            'kode': 'xendit_gagal',
+          });
+        }
+        final kanal = isi['metode'] as String;
+        final jenis = kanal == 'QRIS'
+            ? 'qr'
+            : kanal.endsWith('_VIRTUAL_ACCOUNT')
+            ? 'va'
+            : 'ewallet';
+        bayar['metode'] = kanal;
+        bayar['instruksi'] = {
+          'metode': kanal,
+          'nama_metode': kanal,
+          'jenis': jenis,
+          'kode': switch (jenis) {
+            'qr' => '00020101021226670016ID.CO.QRIS',
+            'va' => '8808123456789012',
+            _ => null,
+          },
+          'url': jenis == 'ewallet' ? 'https://ewallet.contoh/bayar' : null,
+          'kedaluwarsa_pada': DateTime.now()
+              .add(const Duration(minutes: 30))
+              .toUtc()
+              .toIso8601String(),
+        };
+        _sisaPeriksaBayar[bayar['id'] as int] = bayarLunasSetelahPeriksa;
       } else if (aksi != null) {
-        bayar['status'] = 'berhasil';
-        bayar['metode'] = 'SIMULASI';
-        if (bayar['jenis'] == 'pelunasan') majukan(id, 'selesai');
+        _lunaskan(id, bayar, 'SIMULASI');
       } else if (p['status'] == 'mencari_teknisi' &&
           bayar['status'] == 'berhasil') {
         // Pelanggan memeriksa status: teknisi palsu menerima setelah beberapa kali.

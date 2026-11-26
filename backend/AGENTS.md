@@ -36,7 +36,9 @@ API dan panel Admin untuk aplikasi pemesanan servis AC ACare.
 | `GET/POST /api/pesanan`, `GET /api/pesanan/{id}` | Pesanan pelanggan; `?status=aktif\|selesai\|dibatalkan` |
 | `POST /api/pesanan/{id}/batal` | Hanya saat `mencari_teknisi`; tagihan belum dibayar → `kedaluwarsa`, sudah dibayar → `tertahan` |
 | `POST /api/pesanan/{id}/biaya` | Pelanggan `setuju` true/false atas rincian biaya teknisi |
-| `POST /api/pesanan/{id}/pembayaran/{idPembayaran}/simulasi-lunas` | Hanya env `local`/`testing`: anggap tagihan lunas tanpa Xendit |
+| `POST /api/pesanan/{id}/pembayaran/{idPembayaran}/bayar` | `metode` = channel Xendit (`QRIS`, `BNI\|BRI\|MANDIRI_VIRTUAL_ACCOUNT`, `DANA`, `SHOPEEPAY`) → `pembayaran[].instruksi` berisi kode QR / nomor VA / tautan e-wallet (berlaku 30 menit); 503 `pembayaran_belum_siap` bila kunci kosong, 502 `xendit_gagal` |
+| `POST /api/pesanan/{id}/pembayaran/{idPembayaran}/simulasi-lunas` | Hanya env `local`/`testing`: tagihan sudah dibuat di Xendit → minta Xendit simulasi bayar; belum → langsung lunas |
+| `POST /api/xendit/webhook` | Dari Xendit, wajib header `x-callback-token` = `XENDIT_WEBHOOK_TOKEN`; hanya `payment.capture` SUCCEEDED yang diproses |
 | `GET /api/pesanan/{id}/foto/{idFoto}` | Foto bukti (disk privat), untuk pelanggan pemilik & teknisinya |
 | `PUT /api/teknisi/status`, `PUT /api/teknisi/lokasi` | Online/offline (online wajib kirim lokasi), lokasi berkala |
 | `GET /api/teknisi/tawaran`, `POST /api/teknisi/tawaran/{id}/terima\|tolak` | Tawaran 30 detik ke teknisi terdekat |
@@ -64,6 +66,13 @@ API dan panel Admin untuk aplikasi pemesanan servis AC ACare.
   `id_teknisi`. 15 menit tanpa teknisi → batal otomatis, dana `tertahan`.
   Biaya ditolak/lewat 5 menit → lanjut dengan biaya awal. Selesai: sisa
   tagihan → pembayaran `pelunasan`; lunas → `selesai` + baris `pendapatan`.
+- Pembayaran lewat Xendit Payment Request API v3 (`App\Services\Xendit`,
+  `api-version: 2024-11-11`). `reference_id` = `pembayaran-{id}`, jadi
+  webhook dari payment request lama (pelanggan ganti metode) tetap dikenali.
+  Lunas hanya dari Xendit: webhook, atau cadangan saat `GET /api/pesanan/{id}`
+  menanyakan status ke Xendit (maks. tiap 5 detik per tagihan). Webhook ganda
+  aman (hanya tagihan `menunggu`/`kedaluwarsa` yang diproses). Test memakai
+  `Http::fake`, tanpa internet.
 - Batas waktu diperiksa setiap permintaan API dan oleh `pesanan:proses`
   (scheduler tiap menit). Lokal: `php artisan schedule:work`.
 

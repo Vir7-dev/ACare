@@ -5,7 +5,6 @@ import 'package:intl/intl.dart';
 import '../../models/layanan.dart';
 import '../../models/metode_bayar.dart';
 import '../../models/teknisi.dart';
-import '../../services/api_client.dart';
 import '../../services/order_service.dart';
 import '../../theme/app_colors.dart';
 import 'menunggu_pembayaran_page.dart';
@@ -33,28 +32,29 @@ class _PembayaranPageState extends State<PembayaranPage> {
 
   Future<void> _bayar() async {
     if (_memproses) return;
-    final berhasil = await Navigator.of(context).push<bool>(
+    final p = widget.pesanan;
+    final idPembayaran = p.idPembayaranPelunasan;
+    if (p.id == null || idPembayaran == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tagihan pelunasan tidak ditemukan')),
+      );
+      return;
+    }
+    setState(() => _memproses = true);
+    final dibayar = await Navigator.of(context).push<PesananPelanggan>(
       MaterialPageRoute(
         builder: (_) => MenungguPembayaranPage(
+          idPesanan: p.id!,
+          idPembayaran: idPembayaran,
           metode: _metode,
-          nominal: widget.pesanan.jumlahPelunasan,
+          nominal: p.jumlahPelunasan,
           keterangan: 'Pelunasan biaya perbaikan',
         ),
       ),
     );
-    if (berhasil != true || !mounted) return;
-    setState(() => _memproses = true);
-    try {
-      // TODO(xendit): status lunas datang dari server, bukan simulasi.
-      await OrderService.instance.simulasiPelunasan(widget.pesanan);
-    } on ApiException catch (e) {
-      if (!mounted) return;
-      setState(() => _memproses = false);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(e.pesan)));
-      return;
-    }
-    if (mounted) Navigator.of(context).pop(true);
+    if (!mounted) return;
+    setState(() => _memproses = false);
+    if (dibayar != null) Navigator.of(context).pop(true);
   }
 
   @override

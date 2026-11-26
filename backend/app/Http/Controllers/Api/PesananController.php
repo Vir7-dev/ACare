@@ -9,6 +9,7 @@ use App\Models\DetailPesanan;
 use App\Models\Pembayaran;
 use App\Models\Pesanan;
 use App\Services\AlurPesanan;
+use App\Services\Xendit;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,7 +27,7 @@ class PesananController extends Controller
 {
     private const RELASI = ['detail.layanan', 'lokasi', 'pembayaran', 'teknisi.pengguna'];
 
-    public function __construct(private AlurPesanan $alur) {}
+    public function __construct(private AlurPesanan $alur, private Xendit $xendit) {}
 
     public function index(Request $request): AnonymousResourceCollection
     {
@@ -53,7 +54,11 @@ class PesananController extends Controller
 
     public function show(Request $request, int $id): PesananResource
     {
-        $pesanan = $this->alur->perbarui($this->milik($request, $id));
+        $pesanan = $this->milik($request, $id);
+        // Cadangan webhook: tanyakan status tagihan yang sedang ditunggu ke Xendit.
+        $pesanan->pembayaran()->where('status_pembayaran', Pembayaran::MENUNGGU)
+            ->get()->each(fn (Pembayaran $p) => $this->xendit->periksa($p));
+        $pesanan = $this->alur->perbarui($pesanan->refresh());
 
         return new PesananResource($pesanan->refresh()->load(self::RELASI));
     }
@@ -75,25 +80,6 @@ class PesananController extends Controller
         }
 
         $this->alur->tanggapiBiaya($pesanan, $request->boolean('setuju'));
-
-        return new PesananResource($pesanan->refresh()->load(self::RELASI));
-    }
-
-    /**
-     * Anggap tagihan lunas tanpa Xendit. Hanya untuk pengembangan dan test;
-     * di server sungguhan rute ini tidak ada (404).
-     */
-    public function simulasiBayar(Request $request, int $id, int $idPembayaran): JsonResponse|PesananResource
-    {
-        abort_unless(app()->environment(['local', 'testing']), 404);
-        $pesanan = $this->milik($request, $id);
-        $pembayaran = $pesanan->pembayaran()->whereKey($idPembayaran)->firstOrFail();
-
-        if ($pembayaran->status_pembayaran !== Pembayaran::MENUNGGU) {
-            return response()->json(['message' => 'Tagihan ini tidak menunggu pembayaran.', 'kode' => 'bukan_tagihan_aktif'], 409);
-        }
-
-        $this->alur->pembayaranBerhasil($pembayaran, 'SIMULASI');
 
         return new PesananResource($pesanan->refresh()->load(self::RELASI));
     }

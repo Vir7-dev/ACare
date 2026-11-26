@@ -8,8 +8,11 @@ use App\Http\Controllers\Admin\PengaduanController;
 use App\Http\Controllers\Admin\PenggunaController;
 use App\Http\Controllers\Admin\TransaksiController;
 use App\Http\Controllers\Admin\UlasanController;
-use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
+
+// Halaman tujuan setelah pelanggan membayar di aplikasi e-wallet.
+Route::view('/pembayaran/kembali', 'pembayaran-kembali')->name('pembayaran.kembali');
 
 // 1. Autentikasi Admin Portal ACare
 Route::get('/admin/login', [AuthController::class, 'showLogin'])->name('admin.login');
@@ -18,7 +21,7 @@ Route::post('/admin/logout', [AuthController::class, 'logout'])->name('admin.log
 
 // Halaman awal: jika belum login admin, arahkan ke halaman login
 Route::get('/', function (Request $request) {
-    if (!$request->session()->get('admin_logged_in')) {
+    if (! $request->session()->get('admin_logged_in')) {
         return redirect()->route('admin.login');
     }
 

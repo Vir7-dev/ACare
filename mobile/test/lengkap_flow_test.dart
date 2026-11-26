@@ -138,7 +138,10 @@ void main() {
         biayaAwal: 75000,
       ),
     );
-    final dibayar = await OrderService.instance.simulasiLunas(dibuat);
+    final (dibayar, _) = await OrderService.instance.simulasiBayar(
+      dibuat.id!,
+      dibuat.idPembayaranAwal!,
+    );
 
     await tester.pumpWidget(
       MaterialApp(home: MencariTeknisiPage(pesanan: dibayar)),

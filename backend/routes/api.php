@@ -3,9 +3,11 @@
 use App\Http\Controllers\Api\AlamatController;
 use App\Http\Controllers\Api\AutentikasiController;
 use App\Http\Controllers\Api\LayananController;
+use App\Http\Controllers\Api\PembayaranController;
 use App\Http\Controllers\Api\PesananController;
 use App\Http\Controllers\Api\ProfilController;
 use App\Http\Controllers\Api\TeknisiController;
+use App\Http\Controllers\Api\XenditWebhookController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -18,6 +20,9 @@ Route::middleware('throttle:10,1')->group(function () {
     Route::post('/daftar/teknisi', [AutentikasiController::class, 'daftarTeknisi'])->name('api.daftar.teknisi');
 });
 Route::post('/masuk', [AutentikasiController::class, 'masuk'])->name('api.masuk');
+
+// Dipanggil server Xendit; diamankan dengan header x-callback-token.
+Route::post('/xendit/webhook', XenditWebhookController::class)->name('api.xendit.webhook');
 
 Route::middleware(['auth:sanctum', 'akun.aktif'])->group(function () {
     Route::post('/keluar', [AutentikasiController::class, 'keluar'])->name('api.keluar');
@@ -40,7 +45,9 @@ Route::middleware(['auth:sanctum', 'akun.aktif'])->group(function () {
         Route::get('/pesanan/{id}', [PesananController::class, 'show'])->whereNumber('id')->name('api.pesanan.detail');
         Route::post('/pesanan/{id}/batal', [PesananController::class, 'batal'])->whereNumber('id')->name('api.pesanan.batal');
         Route::post('/pesanan/{id}/biaya', [PesananController::class, 'biaya'])->whereNumber('id')->name('api.pesanan.biaya');
-        Route::post('/pesanan/{id}/pembayaran/{idPembayaran}/simulasi-lunas', [PesananController::class, 'simulasiBayar'])
+        Route::post('/pesanan/{id}/pembayaran/{idPembayaran}/bayar', [PembayaranController::class, 'bayar'])
+            ->whereNumber(['id', 'idPembayaran'])->middleware('throttle:20,1')->name('api.pesanan.bayar');
+        Route::post('/pesanan/{id}/pembayaran/{idPembayaran}/simulasi-lunas', [PembayaranController::class, 'simulasi'])
             ->whereNumber(['id', 'idPembayaran'])->name('api.pesanan.simulasi-lunas');
     });
 

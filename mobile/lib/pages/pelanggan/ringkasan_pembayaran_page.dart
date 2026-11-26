@@ -54,9 +54,11 @@ class _RingkasanPembayaranPageState extends State<RingkasanPembayaranPage> {
     }
     if (!mounted) return;
 
-    final berhasil = await Navigator.of(context).push<bool>(
+    final dibayar = await Navigator.of(context).push<PesananPelanggan>(
       MaterialPageRoute(
         builder: (_) => MenungguPembayaranPage(
+          idPesanan: dibuat.id!,
+          idPembayaran: dibuat.idPembayaranAwal!,
           metode: _metode,
           nominal: dibuat.biayaAwal,
           keterangan: 'Biaya awal ${pesanan.layanan.nama}',
@@ -67,26 +69,15 @@ class _RingkasanPembayaranPageState extends State<RingkasanPembayaranPage> {
       ),
     );
     if (!mounted) return;
-    if (berhasil != true) {
+    if (dibayar == null) {
       // Pembayaran ditinggalkan: batalkan pesanan yang belum dibayar supaya
-      // tidak menghalangi pesanan berikutnya.
+      // tidak menghalangi pesanan berikutnya. Bila ternyata sudah dibayar,
+      // server menahan dananya untuk refund.
       layanan.pesananAktif.value = dibuat;
       await layanan.batalkan(alasan: 'Pembayaran tidak diselesaikan');
       if (mounted) setState(() => _memproses = false);
       return;
     }
-
-    final PesananPelanggan dibayar;
-    try {
-      // TODO(xendit): status lunas datang dari server, bukan simulasi.
-      dibayar = await layanan.simulasiLunas(dibuat);
-    } on ApiException catch (e) {
-      if (!mounted) return;
-      setState(() => _memproses = false);
-      _pesan(e.pesan);
-      return;
-    }
-    if (!mounted) return;
 
     // Halaman form dan pembayaran dibuang dari stack supaya tombol kembali
     // dari alur pencarian tidak membuka lagi pembayaran yang sudah lunas.

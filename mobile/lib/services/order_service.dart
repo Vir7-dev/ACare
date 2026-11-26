@@ -6,6 +6,7 @@ import '../models/layanan.dart';
 import '../models/pesanan.dart';
 import '../models/status_layanan.dart';
 import '../models/tagihan.dart';
+import '../models/tagihan_online.dart';
 import '../models/teknisi.dart';
 import 'api_client.dart';
 import 'layanan_service.dart';
@@ -440,17 +441,46 @@ class OrderService {
     return PesananPelanggan.dariJson(res['data'] as Map<String, dynamic>);
   }
 
-  /// Anggap biaya awal lunas (sebelum Xendit tersambung).
-  // TODO(xendit): ganti dengan menunggu status pembayaran dari server.
-  Future<PesananPelanggan> simulasiLunas(PesananPelanggan p) async {
-    final res = await ApiClient.post(
-      '/pesanan/${p.id}/pembayaran/${p.idPembayaranAwal}/simulasi-lunas',
-    );
-    final hasil = PesananPelanggan.dariJson(
-      res['data'] as Map<String, dynamic>,
-    );
-    _simpanAktif(hasil);
-    return hasil;
+  /// Buat tagihan Xendit untuk pembayaran [idPembayaran] dengan metode
+  /// [channel] (misal `QRIS`). Kode QR / nomor VA / tautan e-wallet ada di
+  /// `instruksi`. Melempar [ApiException] bila gagal.
+  Future<(PesananPelanggan, StatusTagihan)> bayarTagihan(
+    int idPesanan,
+    int idPembayaran,
+    String channel,
+  ) => _tagihan(
+    ApiClient.post('/pesanan/$idPesanan/pembayaran/$idPembayaran/bayar', {
+      'metode': channel,
+    }),
+    idPembayaran,
+  );
+
+  /// Status terbaru tagihan. Server ikut menanyakan ke Xendit bila webhook
+  /// belum datang.
+  Future<(PesananPelanggan, StatusTagihan)> periksaTagihan(
+    int idPesanan,
+    int idPembayaran,
+  ) => _tagihan(ApiClient.get('/pesanan/$idPesanan'), idPembayaran);
+
+  /// Mode pengembangan: minta server/Xendit menganggap tagihan dibayar.
+  Future<(PesananPelanggan, StatusTagihan)> simulasiBayar(
+    int idPesanan,
+    int idPembayaran,
+  ) => _tagihan(
+    ApiClient.post(
+      '/pesanan/$idPesanan/pembayaran/$idPembayaran/simulasi-lunas',
+    ),
+    idPembayaran,
+  );
+
+  Future<(PesananPelanggan, StatusTagihan)> _tagihan(
+    Future<Map<String, dynamic>> permintaan,
+    int idPembayaran,
+  ) async {
+    final data = (await permintaan)['data'] as Map<String, dynamic>;
+    final p = PesananPelanggan.dariJson(data);
+    _simpanAktif(p);
+    return (p, StatusTagihan.dariPesanan(data, idPembayaran));
   }
 
   /// Tunggu sampai teknisi menerima pesanan [p]: status diperiksa ke server
@@ -525,19 +555,6 @@ class OrderService {
     final res = await ApiClient.post('/pesanan/${p.id}/biaya', {
       'setuju': setuju,
     });
-    final hasil = PesananPelanggan.dariJson(
-      res['data'] as Map<String, dynamic>,
-    );
-    _simpanAktif(hasil);
-    return hasil;
-  }
-
-  /// Anggap pelunasan lunas (sebelum Xendit tersambung).
-  // TODO(xendit): ganti dengan menunggu status pembayaran dari server.
-  Future<PesananPelanggan> simulasiPelunasan(PesananPelanggan p) async {
-    final res = await ApiClient.post(
-      '/pesanan/${p.id}/pembayaran/${p.idPembayaranPelunasan}/simulasi-lunas',
-    );
     final hasil = PesananPelanggan.dariJson(
       res['data'] as Map<String, dynamic>,
     );

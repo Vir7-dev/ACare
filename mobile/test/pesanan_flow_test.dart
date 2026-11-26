@@ -166,11 +166,22 @@ void main() {
     await tester.tap(find.text('Virtual Account'));
     await tester.pump();
     await tester.tap(find.text('Bayar'));
+    await tester.pumpAndSettle();
+    expect(find.text('BNI'), findsOneWidget);
+    expect(find.text('Mandiri'), findsOneWidget);
+    await tester.tap(find.text('BRI'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
-    expect(find.text('Nomor Virtual Account'), findsOneWidget);
+    expect(find.text('Nomor BRI_VIRTUAL_ACCOUNT'), findsOneWidget);
+    expect(find.text('8808123456789012'), findsOneWidget);
+    expect(
+      server().log,
+      contains(
+        'POST /pesanan/${p.id}/pembayaran/${p.idPembayaranPelunasan}/bayar',
+      ),
+    );
 
-    await tester.pump(const Duration(seconds: 5));
+    await tester.pump(const Duration(seconds: 3));
     await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();
 
@@ -206,8 +217,11 @@ void main() {
     await tester.tap(find.text('Buka'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Bayar'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('DANA'));
     await tester.pump();
-    await tester.pump(const Duration(seconds: 5));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(seconds: 3));
     await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();
 

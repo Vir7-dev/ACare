@@ -31,7 +31,7 @@ class Pembayaran extends Model
 
     protected $fillable = [
         'id_pesanan', 'jenis_pembayaran', 'metode_pembayaran', 'jumlah_bayar', 'status_pembayaran',
-        'referensi_transaksi', 'url_pembayaran', 'kedaluwarsa_pada', 'waktu_pembayaran',
+        'referensi_transaksi', 'kode_bayar', 'url_pembayaran', 'kedaluwarsa_pada', 'waktu_pembayaran',
     ];
 
     protected function casts(): array

@@ -43,7 +43,11 @@ void main() {
         biayaAwal: 75000,
       ),
     );
-    return OrderService.instance.simulasiLunas(dibuat);
+    final (dibayar, _) = await OrderService.instance.simulasiBayar(
+      dibuat.id!,
+      dibuat.idPembayaranAwal!,
+    );
+    return dibayar;
   }
 
   /// Isi "Detail alamat / patokan", field terakhir sebelum jadwal.
@@ -316,14 +320,15 @@ void main() {
 
     // Bayar biaya awal (QRIS default) sebelum mencari teknisi.
     await tester.tap(find.textContaining('Bayar Rp'));
-    // Jangan pumpAndSettle: timer 5 detik akan ikut berjalan sampai habis.
+    // Jangan pumpAndSettle: pemeriksaan status berkala ikut berjalan.
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.text('Pembayaran QRIS'), findsOneWidget);
     expect(find.text('Menunggu Pembayaran'), findsOneWidget);
+    expect(find.byKey(const Key('kode-qris')), findsOneWidget);
 
-    // 5 detik dummy: pembayaran berhasil (simulasi di server) -> mencari.
-    await tester.pump(const Duration(seconds: 5));
+    // Pemeriksaan status berikutnya: Xendit (tiruan) melaporkan lunas.
+    await tester.pump(const Duration(seconds: 3));
     await tester.pump(const Duration(seconds: 1));
     await tester.pump();
     expect(find.text('Mencari Teknisi Terdekat...'), findsOneWidget);
@@ -368,8 +373,12 @@ void main() {
     await tester.tap(find.text('Bayar Pesanan'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Bayar'));
+    await tester.pumpAndSettle();
+    // E-wallet: pilih DANA, lalu tunggu status lunas.
+    await tester.tap(find.text('DANA'));
     await tester.pump();
-    await tester.pump(const Duration(seconds: 5));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(seconds: 3));
     await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();
     expect(find.text('Detail Pesanan'), findsOneWidget);

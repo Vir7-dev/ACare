@@ -5,6 +5,7 @@ namespace App\Http\Resources;
 use App\Models\DetailPesanan;
 use App\Models\Pembayaran;
 use App\Models\Pesanan;
+use App\Services\Xendit;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -64,7 +65,10 @@ class PesananResource extends JsonResource
                 'metode' => $p->metode_pembayaran,
                 'kedaluwarsa_pada' => $p->kedaluwarsa_pada?->toIso8601String(),
                 'dibayar_pada' => $p->waktu_pembayaran?->toIso8601String(),
+                'instruksi' => $this->instruksi($p),
             ])->values(),
+            // Tombol "simulasikan lunas" hanya untuk pengembangan.
+            'bisa_simulasi_bayar' => app()->environment(['local', 'testing']),
             'teknisi' => $teknisi ? [
                 'id' => $teknisi->id_pengguna,
                 'nama' => $teknisi->pengguna?->nama,
@@ -100,6 +104,28 @@ class PesananResource extends JsonResource
                 'selesai' => $this->selesai_pada?->toIso8601String(),
                 'dibatalkan' => $this->dibatalkan_pada?->toIso8601String(),
             ],
+        ];
+    }
+
+    /**
+     * Cara membayar tagihan yang sedang berjalan di Xendit: kode QR, nomor
+     * VA, atau tautan e-wallet. Null bila belum dibuat atau sudah lewat.
+     */
+    private function instruksi(Pembayaran $p): ?array
+    {
+        if ($p->status_pembayaran !== Pembayaran::MENUNGGU || ! $p->referensi_transaksi
+            || ! $p->kedaluwarsa_pada?->isFuture()) {
+            return null;
+        }
+        $metode = Xendit::METODE[$p->metode_pembayaran] ?? null;
+
+        return [
+            'metode' => $p->metode_pembayaran,
+            'nama_metode' => $metode['nama'] ?? $p->metode_pembayaran,
+            'jenis' => $metode['jenis'] ?? null,
+            'kode' => $p->kode_bayar,
+            'url' => $p->url_pembayaran,
+            'kedaluwarsa_pada' => $p->kedaluwarsa_pada->toIso8601String(),
         ];
     }
 }

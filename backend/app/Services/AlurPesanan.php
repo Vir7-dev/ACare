@@ -31,8 +31,11 @@ class AlurPesanan
     /** Dipanggil saat pembayaran lunas (webhook Xendit atau simulasi). */
     public function pembayaranBerhasil(Pembayaran $pembayaran, ?string $metode = null): void
     {
-        if ($pembayaran->status_pembayaran === Pembayaran::BERHASIL) {
-            return; // webhook yang sama bisa datang lebih dari sekali
+        // Webhook yang sama bisa datang lebih dari sekali. Tagihan yang sudah
+        // lunas, tertahan, atau dikembalikan tidak boleh diproses ulang.
+        // Kedaluwarsa tetap diproses: pesanan batal tetapi VA telanjur dibayar.
+        if (! in_array($pembayaran->status_pembayaran, [Pembayaran::MENUNGGU, Pembayaran::KEDALUWARSA], true)) {
+            return;
         }
 
         DB::transaction(function () use ($pembayaran, $metode) {
