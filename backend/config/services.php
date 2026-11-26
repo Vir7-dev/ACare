@@ -36,6 +36,13 @@ return [
         'url' => env('XENDIT_URL', 'https://api.xendit.co'),
     ],
 
+    // Notifikasi push (FCM HTTP v1). File service account di luar git,
+    // path relatif terhadap folder backend.
+    'firebase' => [
+        'credentials' => env('FIREBASE_CREDENTIALS'),
+        'project_id' => env('FIREBASE_PROJECT_ID'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),

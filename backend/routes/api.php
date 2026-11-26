@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AlamatController;
 use App\Http\Controllers\Api\AutentikasiController;
 use App\Http\Controllers\Api\LayananController;
 use App\Http\Controllers\Api\PembayaranController;
+use App\Http\Controllers\Api\PerangkatController;
 use App\Http\Controllers\Api\PesananController;
 use App\Http\Controllers\Api\ProfilController;
 use App\Http\Controllers\Api\TeknisiController;
@@ -31,6 +32,8 @@ Route::middleware(['auth:sanctum', 'akun.aktif'])->group(function () {
     Route::put('/saya', [ProfilController::class, 'ubah'])->name('api.saya.ubah');
     Route::post('/saya/foto', [ProfilController::class, 'ubahFoto'])->name('api.saya.foto');
     Route::put('/saya/kata-sandi', [ProfilController::class, 'ubahKataSandi'])->name('api.saya.kata-sandi');
+    Route::put('/saya/perangkat', [PerangkatController::class, 'simpan'])->name('api.saya.perangkat');
+    Route::delete('/saya/perangkat', [PerangkatController::class, 'hapus'])->name('api.saya.perangkat.hapus');
 
     Route::get('/layanan', [LayananController::class, 'index'])->name('api.layanan');
 

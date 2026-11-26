@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -7,6 +8,7 @@ import '../models/akun.dart';
 import 'alamat_service.dart';
 import 'api_client.dart';
 import 'order_service.dart';
+import 'push_service.dart';
 import 'sesi_pengguna.dart';
 import 'teknisi_service.dart';
 
@@ -71,6 +73,7 @@ class AuthService {
     if (await ApiClient.token() == null) return false;
     try {
       await muatUlangAkun();
+      unawaited(PushService.mulai());
       return true;
     } on ApiException catch (e) {
       if (e.tanpaKoneksi || e.status >= 500) {
@@ -104,6 +107,8 @@ class AuthService {
       });
       await ApiClient.simpanToken(res['token'] as String);
       await _simpanAkun(Akun.dariJson(res['pengguna'] as Map<String, dynamic>));
+      // Daftarkan perangkat untuk notifikasi tanpa menahan halaman.
+      unawaited(PushService.mulai());
       return const HasilMasuk(HasilLogin.berhasil);
     } on ApiException catch (e) {
       return switch (e.kode) {
@@ -218,6 +223,8 @@ class AuthService {
   /// Keluar dari perangkat ini. Data lokal tetap dihapus walau server
   /// tidak bisa dihubungi.
   static Future<void> logout() async {
+    // Lepas perangkat dari akun ini selagi token masih berlaku.
+    await PushService.berhenti();
     try {
       await ApiClient.post('/keluar');
     } on ApiException {
@@ -258,6 +265,7 @@ class AuthService {
     AlamatService.instance.reset();
     OrderService.instance.reset();
     TeknisiService.instance.reset();
+    await PushService.lupakan();
     await ApiClient.hapusToken();
     await ApiClient.penyimpanan.hapus(_kAkun);
     await SesiPengguna.keluar();

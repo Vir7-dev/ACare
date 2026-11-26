@@ -50,6 +50,21 @@ class NotifikasiService {
     daftar.value = [for (final n in daftar.value) n.tandaiDibaca()];
   }
 
+  /// Notifikasi baru (dari push saat aplikasi dibuka) di urutan teratas.
+  void tambah(String judul, String isi, TipeNotifikasi tipe) {
+    final idBaru = daftar.value.fold<int>(0, (m, n) => n.id > m ? n.id : m) + 1;
+    daftar.value = [
+      Notifikasi(
+        id: idBaru,
+        judul: judul,
+        isi: isi,
+        tipe: tipe,
+        waktu: DateTime.now(),
+      ),
+      ...daftar.value,
+    ];
+  }
+
   void reset() => daftar.value = _awal;
 
   static final _awal = [

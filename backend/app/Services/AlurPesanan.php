@@ -194,7 +194,7 @@ class AlurPesanan
         $pesanan->update([
             'status_pesanan' => Pesanan::DIBATALKAN,
             'dibatalkan_pada' => now(),
-            'alasan_pembatalan' => 'Tidak ada teknisi yang menerima dalam batas waktu',
+            'alasan_pembatalan' => Pesanan::ALASAN_TANPA_TEKNISI,
             'id_teknisi_ditawari' => null,
             'batas_tawaran' => null,
         ]);

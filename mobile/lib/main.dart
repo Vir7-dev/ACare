@@ -6,6 +6,8 @@ import 'pages/role_select_page.dart';
 import 'pages/umum/splash_page.dart';
 import 'services/api_client.dart';
 import 'services/auth_service.dart';
+import 'services/notifikasi_service.dart';
+import 'services/push_service.dart';
 import 'theme/app_colors.dart';
 
 Future<void> main() async {
@@ -30,11 +32,34 @@ class _ACareAppState extends State<ACareApp> {
   void initState() {
     super.initState();
     ApiClient.sesiBerakhir.addListener(_sesiBerakhir);
+    PushService.saatDiterima = _pushDiterima;
+  }
+
+  /// Notifikasi datang saat aplikasi dibuka: Android tidak menampilkannya,
+  /// jadi tampilkan di dalam aplikasi dan simpan di daftar notifikasi.
+  void _pushDiterima(PesanPush p) {
+    final tipe = switch (p.tipe) {
+      'pembayaran_berhasil' ||
+      'pelunasan' ||
+      'pelunasan_diterima' => TipeNotifikasi.pembayaran,
+      'tanpa_teknisi' => TipeNotifikasi.refund,
+      _ => TipeNotifikasi.pesanan,
+    };
+    NotifikasiService.instance.tambah(p.judul, p.isi, tipe);
+    pesanKey.currentState
+      ?..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(p.isi.isEmpty ? p.judul : '${p.judul}\n${p.isi}'),
+          duration: const Duration(seconds: 5),
+        ),
+      );
   }
 
   @override
   void dispose() {
     ApiClient.sesiBerakhir.removeListener(_sesiBerakhir);
+    PushService.saatDiterima = null;
     super.dispose();
   }
 

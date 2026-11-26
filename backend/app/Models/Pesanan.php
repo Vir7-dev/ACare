@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Observers\PesananObserver;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
+#[ObservedBy(PesananObserver::class)]
 class Pesanan extends Model
 {
     public const MENCARI_TEKNISI = 'mencari_teknisi';
@@ -47,6 +50,8 @@ class Pesanan extends Model
 
     /** Bila tidak ada teknisi menerima selama ini, pesanan dibatalkan otomatis. */
     public const BATAS_PENCARIAN_MENIT = 15;
+
+    public const ALASAN_TANPA_TEKNISI = 'Tidak ada teknisi yang menerima dalam batas waktu';
 
     /**
      * Status ketika pesanan sedang dikerjakan teknisi (teknisi sibuk).

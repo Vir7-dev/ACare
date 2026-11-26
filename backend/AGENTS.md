@@ -31,6 +31,7 @@ API dan panel Admin untuk aplikasi pemesanan servis AC ACare.
 | `GET/PUT /api/saya` | Data akun; ubah sebagian (teknisi juga kendaraan & deskripsi) |
 | `POST /api/saya/foto` | Foto profil (disk `public`) |
 | `PUT /api/saya/kata-sandi` | Mengeluarkan perangkat lain |
+| `PUT/DELETE /api/saya/perangkat` | Daftar / lepas token FCM perangkat (`token`); satu token milik satu akun (pindah bila akun lain masuk di HP yang sama) |
 | `GET /api/layanan` | Katalog layanan aktif + harga awal |
 | `GET/POST /api/alamat`, `PUT/DELETE /api/alamat/{id}` | Alamat tersimpan pelanggan; ubah alamat yang sudah dipakai pesanan = baris baru (id baru), yang lama di-soft-delete |
 | `GET/POST /api/pesanan`, `GET /api/pesanan/{id}` | Pesanan pelanggan; `?status=aktif\|selesai\|dibatalkan` |
@@ -73,6 +74,14 @@ API dan panel Admin untuk aplikasi pemesanan servis AC ACare.
   menanyakan status ke Xendit (maks. tiap 5 detik per tagihan). Webhook ganda
   aman (hanya tagihan `menunggu`/`kedaluwarsa` yang diproses). Test memakai
   `Http::fake`, tanpa internet.
+- Notifikasi: `PesananObserver` / `PembayaranObserver` memanggil
+  `App\Services\Pemberitahu` untuk tiap perpindahan status (tawaran ke
+  teknisi, teknisi ditemukan/tiba, persetujuan biaya, pelunasan, selesai,
+  batal otomatis). Dicatat di tabel `notifikasi`, lalu dikirim lewat FCM
+  HTTP v1 (`App\Services\Fcm`, service account di `FIREBASE_CREDENTIALS`)
+  setelah transaksi selesai dan setelah respons dikirim (tanpa queue
+  worker). Token perangkat yang ditolak FCM dihapus otomatis. Test tidak
+  pernah memakai kunci asli (dikosongkan di `phpunit.xml`).
 - Batas waktu diperiksa setiap permintaan API dan oleh `pesanan:proses`
   (scheduler tiap menit). Lokal: `php artisan schedule:work`.
 

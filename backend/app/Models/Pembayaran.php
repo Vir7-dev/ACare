@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Observers\PembayaranObserver;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /** Pembayaran pelanggan lewat Xendit (awal dan pelunasan). */
+#[ObservedBy(PembayaranObserver::class)]
 class Pembayaran extends Model
 {
     public const AWAL = 'awal';

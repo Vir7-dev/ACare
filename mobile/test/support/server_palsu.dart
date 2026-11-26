@@ -566,6 +566,9 @@ class ServerPalsu {
   /// token -> id akun.
   final Map<String, int> token = {};
 
+  /// Token FCM perangkat -> id akun pemiliknya.
+  final Map<String, int> perangkat = {};
+
   /// Semua permintaan yang diterima, misal `POST /masuk`.
   final List<String> log = [];
 
@@ -752,6 +755,18 @@ class ServerPalsu {
     }
 
     switch ('${r.method} $path') {
+      case 'PUT /saya/perangkat':
+        perangkat[isi['token'] as String] = saya['id'] as int;
+        return _json(200, {'message': 'Perangkat terdaftar untuk notifikasi.'});
+
+      case 'DELETE /saya/perangkat':
+        if (perangkat[isi['token']] == saya['id']) {
+          perangkat.remove(isi['token']);
+        }
+        return _json(200, {
+          'message': 'Notifikasi untuk perangkat ini dimatikan.',
+        });
+
       case 'POST /keluar':
         token.removeWhere((k, v) => r.headers['Authorization'] == 'Bearer $k');
         return _json(200, {'message': 'Kamu sudah keluar.'});

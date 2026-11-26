@@ -4,11 +4,13 @@ import 'dart:io';
 import 'package:acare_mobile/services/alamat_service.dart';
 import 'package:acare_mobile/services/layanan_service.dart';
 import 'package:acare_mobile/services/perangkat.dart';
+import 'package:acare_mobile/services/push_service.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'support/push_palsu.dart';
 import 'support/server_palsu.dart';
 
 /// Environment test memakai font "Ahem" yang lebar hurufnya tidak realistis,
@@ -24,6 +26,9 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     Perangkat.reset();
+    // Tanpa Firebase: notifikasi push memakai tiruan.
+    PushService.lupakan();
+    PushService.platform = PushPalsu.pasang();
     ServerPalsu.pasang();
     AlamatService.instance.reset();
     LayananService.instance.reset();
