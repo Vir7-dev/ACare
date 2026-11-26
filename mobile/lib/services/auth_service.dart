@@ -184,6 +184,9 @@ class AuthService {
     String? jenisKendaraan,
     String? platNomor,
     String? deskripsi,
+    String? namaBank,
+    String? noRekening,
+    String? atasNama,
   }) async {
     final res = await ApiClient.put('/saya', {
       'nama': ?nama?.trim(),
@@ -192,6 +195,9 @@ class AuthService {
       'jenis_kendaraan': ?jenisKendaraan?.trim(),
       'plat_nomor': ?platNomor?.trim(),
       'deskripsi': ?deskripsi?.trim(),
+      'nama_bank': ?namaBank?.trim(),
+      'no_rekening': ?noRekening?.trim(),
+      'atas_nama': ?atasNama?.trim(),
     });
     return _simpanAkun(Akun.dariJson(res['data'] as Map<String, dynamic>));
   }

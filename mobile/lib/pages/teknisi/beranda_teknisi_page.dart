@@ -49,8 +49,8 @@ class BerandaTeknisiPage extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  ValueListenableBuilder<List<RiwayatLayanan>>(
-                    valueListenable: _layanan.riwayat,
+                  ValueListenableBuilder<DompetTeknisi?>(
+                    valueListenable: _layanan.dompet,
                     builder: (context, _, _) =>
                         _KartuRingkasan(pendapatan: _layanan.pendapatanHariIni),
                   ),

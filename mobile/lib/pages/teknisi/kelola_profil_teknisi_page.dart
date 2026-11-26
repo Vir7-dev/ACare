@@ -35,6 +35,9 @@ class _KelolaProfilTeknisiPageState extends State<KelolaProfilTeknisiPage> {
   final _kendaraan = TextEditingController();
   final _plat = TextEditingController();
   final _tentang = TextEditingController();
+  final _bank = TextEditingController();
+  final _rekening = TextEditingController();
+  final _atasNama = TextEditingController();
 
   Uint8List? _foto;
   bool _modeEdit = false;
@@ -58,6 +61,9 @@ class _KelolaProfilTeknisiPageState extends State<KelolaProfilTeknisiPage> {
     _kendaraan.text = a?.teknisi?.jenisKendaraan ?? '';
     _plat.text = a?.teknisi?.platNomor ?? '';
     _tentang.text = a?.teknisi?.deskripsi ?? '';
+    _bank.text = a?.teknisi?.namaBank ?? '';
+    _rekening.text = a?.teknisi?.noRekening ?? '';
+    _atasNama.text = a?.teknisi?.atasNama ?? '';
   }
 
   String? _server(String kolom) => _galatServer[kolom];
@@ -74,6 +80,9 @@ class _KelolaProfilTeknisiPageState extends State<KelolaProfilTeknisiPage> {
     _kendaraan.dispose();
     _plat.dispose();
     _tentang.dispose();
+    _bank.dispose();
+    _rekening.dispose();
+    _atasNama.dispose();
     super.dispose();
   }
 
@@ -121,6 +130,9 @@ class _KelolaProfilTeknisiPageState extends State<KelolaProfilTeknisiPage> {
         jenisKendaraan: _kendaraan.text,
         platNomor: _plat.text.toUpperCase(),
         deskripsi: _tentang.text,
+        namaBank: _bank.text,
+        noRekening: _rekening.text,
+        atasNama: _atasNama.text,
       );
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -267,6 +279,36 @@ class _KelolaProfilTeknisiPageState extends State<KelolaProfilTeknisiPage> {
               validator: (v) => (v ?? '').trim().length > 300
                   ? 'Maksimal 300 karakter'
                   : _server('deskripsi'),
+            ),
+            const SizedBox(height: 8),
+            const JudulBagianProfil('Rekening Pencairan'),
+            IsianProfil(
+              label: 'Bank',
+              ikon: Icons.account_balance_outlined,
+              controller: _bank,
+              bisaDiubah: _modeEdit,
+              validator: (v) => wajib(v, 'Bank') ?? _server('nama_bank'),
+            ),
+            IsianProfil(
+              label: 'Nomor Rekening',
+              ikon: Icons.numbers,
+              controller: _rekening,
+              bisaDiubah: _modeEdit,
+              keyboardType: TextInputType.number,
+              validator: (v) {
+                final angka = (v ?? '').replaceAll(RegExp(r'\D'), '');
+                if (angka.isEmpty) return 'Nomor rekening wajib diisi';
+                if (angka.length < 5) return 'Nomor rekening tidak valid';
+                return _server('no_rekening');
+              },
+            ),
+            IsianProfil(
+              label: 'Atas Nama',
+              ikon: Icons.badge_outlined,
+              controller: _atasNama,
+              bisaDiubah: _modeEdit,
+              validator: (v) =>
+                  wajib(v, 'Nama pemilik rekening') ?? _server('atas_nama'),
             ),
             const SizedBox(height: 4),
             TombolEditProfil(

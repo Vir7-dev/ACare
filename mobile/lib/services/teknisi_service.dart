@@ -268,6 +268,16 @@ class RiwayatLayanan {
     required this.diterima,
     this.rating,
   });
+
+  factory RiwayatLayanan.dariJson(Map<String, dynamic> j) => RiwayatLayanan(
+    kode: j['kode'] as String,
+    layanan: j['layanan'] as String? ?? '-',
+    namaPelanggan: j['nama_pelanggan'] as String? ?? '-',
+    wilayah: j['wilayah'] as String? ?? '-',
+    selesaiPada: DateTime.parse(j['selesai_pada'] as String).toLocal(),
+    diterima: (j['diterima'] as num).toInt(),
+    rating: (j['rating'] as num?)?.toInt(),
+  );
 }
 
 /// Pengajuan pencairan saldo teknisi (ditransfer manual oleh Admin).
@@ -278,13 +288,57 @@ class PengajuanPencairan {
   final DateTime diajukanPada;
   final String status;
 
+  /// Alasan Admin bila pengajuan ditolak.
+  final String? alasanPenolakan;
+
   const PengajuanPencairan({
     required this.kode,
     required this.nominal,
     required this.rekening,
     required this.diajukanPada,
     this.status = 'Menunggu',
+    this.alasanPenolakan,
   });
+
+  factory PengajuanPencairan.dariJson(Map<String, dynamic> j) =>
+      PengajuanPencairan(
+        kode: j['kode'] as String,
+        nominal: (j['nominal'] as num).toInt(),
+        rekening: j['rekening'] as String? ?? '-',
+        diajukanPada: DateTime.parse(j['diajukan_pada'] as String).toLocal(),
+        status: j['label_status'] as String? ?? 'Menunggu',
+        alasanPenolakan: j['alasan_penolakan'] as String?,
+      );
+}
+
+/// Ringkasan dompet dari server.
+class DompetTeknisi {
+  final int saldo;
+  final int pendapatanHariIni;
+  final int minimumPencairan;
+
+  /// Rekening tujuan pencairan, misal `BNI • 123 a.n Andi`; `null` bila
+  /// belum diisi.
+  final String? rekening;
+
+  const DompetTeknisi({
+    required this.saldo,
+    required this.pendapatanHariIni,
+    required this.minimumPencairan,
+    this.rekening,
+  });
+
+  factory DompetTeknisi.dariJson(Map<String, dynamic> j) {
+    final r = j['rekening'] as Map<String, dynamic>?;
+    return DompetTeknisi(
+      saldo: (j['saldo'] as num).toInt(),
+      pendapatanHariIni: (j['pendapatan_hari_ini'] as num).toInt(),
+      minimumPencairan: (j['minimum_pencairan'] as num?)?.toInt() ?? 50000,
+      rekening: r == null
+          ? null
+          : '${r['nama_bank']} • ${r['no_rekening']} a.n ${r['atas_nama']}',
+    );
+  }
 }
 
 /// Sisi teknisi lewat API `/api/teknisi`: status online, tawaran pesanan,
@@ -292,7 +346,6 @@ class PengajuanPencairan {
 /// setiap [selangPeriksa] selama online.
 // TODO(fcm): tawaran dan persetujuan biaya lewat notifikasi; pemeriksaan
 // berkala jadi cadangan.
-// TODO(dompet): riwayat pendapatan & pencairan dari API (masih tiruan).
 class TeknisiService {
   TeknisiService._();
 
@@ -304,9 +357,6 @@ class TeknisiService {
   /// Minimum pencairan saldo (Rp).
   static const int minimumPencairan = 50000;
 
-  /// Rekening tujuan pencairan dari data registrasi (tiruan).
-  static const String rekeningTujuan = 'BNI • 1234567890 a.n Rizky Pratama';
-
   /// Selang pemeriksaan tawaran & status pekerjaan ke server.
   static Duration selangPeriksa = const Duration(seconds: 3);
 
@@ -317,9 +367,12 @@ class TeknisiService {
   final ValueNotifier<bool> online = ValueNotifier(false);
   final ValueNotifier<TawaranPesanan?> tawaran = ValueNotifier(null);
   final ValueNotifier<PekerjaanTeknisi?> pekerjaan = ValueNotifier(null);
-  final ValueNotifier<List<RiwayatLayanan>> riwayat = ValueNotifier(
-    _riwayatAwal,
-  );
+
+  /// Pekerjaan selesai (dari server, terbaru dulu).
+  final ValueNotifier<List<RiwayatLayanan>> riwayat = ValueNotifier(const []);
+
+  /// Ringkasan dompet; `null` sebelum dimuat.
+  final ValueNotifier<DompetTeknisi?> dompet = ValueNotifier(null);
   final ValueNotifier<List<PengajuanPencairan>> pencairan = ValueNotifier(
     const [],
   );
@@ -334,28 +387,20 @@ class TeknisiService {
   static int hitungKomisi(int totalDibayar) =>
       totalDibayar - (totalDibayar * persentasePlatform / 100).round();
 
-  /// Pendapatan bersih hari ini.
-  int get pendapatanHariIni => _hariIni.fold(0, (a, r) => a + r.diterima);
-
-  Iterable<RiwayatLayanan> get _hariIni {
-    final now = DateTime.now();
-    return riwayat.value.where(
-      (r) =>
-          r.selesaiPada.year == now.year &&
-          r.selesaiPada.month == now.month &&
-          r.selesaiPada.day == now.day,
-    );
-  }
+  /// Pendapatan bersih hari ini (WIB), dihitung server.
+  int get pendapatanHariIni => dompet.value?.pendapatanHariIni ?? 0;
 
   /// Saldo yang bisa dicairkan: total pendapatan dikurangi pencairan yang
-  /// sudah diajukan.
-  int get saldo =>
-      riwayat.value.fold(0, (a, r) => a + r.diterima) -
-      pencairan.value.fold(0, (a, p) => a + p.nominal);
+  /// sedang diajukan atau sudah ditransfer (dihitung server).
+  int get saldo => dompet.value?.saldo ?? 0;
+
+  /// Rekening tujuan pencairan; `null` bila belum diisi.
+  String? get rekeningTujuan => dompet.value?.rekening;
 
   /// Dipanggil saat aplikasi teknisi dibuka: pulihkan pekerjaan berjalan.
   Future<void> muat() async {
     if (await ApiClient.token() == null) return;
+    unawaited(muatDompet());
     await _periksa();
     if (pekerjaan.value != null) {
       online.value = true;
@@ -579,37 +624,55 @@ class TeknisiService {
       },
     );
     final komisi = hitungKomisi(p.totalTagihan);
-    riwayat.value = [
-      RiwayatLayanan(
-        kode: p.pesanan.kode,
-        layanan: p.pesanan.layanan,
-        namaPelanggan: p.pesanan.namaPelanggan,
-        wilayah: p.pesanan.wilayah,
-        selesaiPada: DateTime.now(),
-        diterima: komisi,
-      ),
-      ...riwayat.value,
-    ];
+    // Pendapatan dicatat server setelah pelanggan lunas; muat ulang dompet.
+    unawaited(muatDompet());
     pekerjaan.value = null;
     return komisi;
   }
 
+  /// Muat saldo, pendapatan hari ini, riwayat pencairan, dan riwayat
+  /// pekerjaan dari server. Gagal (tanpa koneksi) = data lama tetap tampil.
+  Future<void> muatDompet() async {
+    try {
+      final hasil = await Future.wait([
+        ApiClient.get('/teknisi/dompet'),
+        ApiClient.get('/teknisi/riwayat'),
+      ]);
+      final d = hasil[0]['data'] as Map<String, dynamic>;
+      dompet.value = DompetTeknisi.dariJson(d);
+      pencairan.value = [
+        for (final p in (d['pencairan'] as List).cast<Map<String, dynamic>>())
+          PengajuanPencairan.dariJson(p),
+      ];
+      riwayat.value = [
+        for (final r in (hasil[1]['data'] as List).cast<Map<String, dynamic>>())
+          RiwayatLayanan.dariJson(r),
+      ];
+    } on ApiException catch (e) {
+      debugPrint('Dompet gagal dimuat: ${e.pesan}');
+    }
+  }
+
   /// Ajukan pencairan; mengembalikan pesan galat atau `null` bila berhasil.
-  String? ajukanPencairan(int nominal) {
+  Future<String?> ajukanPencairan(int nominal) async {
     if (nominal < minimumPencairan) {
       return 'Minimal pencairan Rp50.000';
     }
     if (nominal > saldo) return 'Nominal melebihi saldo';
-    pencairan.value = [
-      PengajuanPencairan(
-        kode: 'WD-${DateTime.now().millisecondsSinceEpoch % 100000}',
-        nominal: nominal,
-        rekening: rekeningTujuan,
-        diajukanPada: DateTime.now(),
-      ),
-      ...pencairan.value,
-    ];
-    return null;
+    try {
+      final res = await ApiClient.post('/teknisi/pencairan', {
+        'nominal': nominal,
+      });
+      final d = res['data'] as Map<String, dynamic>;
+      dompet.value = DompetTeknisi.dariJson(d);
+      pencairan.value = [
+        for (final p in (d['pencairan'] as List).cast<Map<String, dynamic>>())
+          PengajuanPencairan.dariJson(p),
+      ];
+      return null;
+    } on ApiException catch (e) {
+      return e.pesan;
+    }
   }
 
   /// Kembalikan ke kondisi awal (dipakai test dan saat keluar akun).
@@ -619,27 +682,8 @@ class TeknisiService {
     online.value = false;
     tawaran.value = null;
     pekerjaan.value = null;
-    riwayat.value = _riwayatAwal;
+    riwayat.value = const [];
+    dompet.value = null;
     pencairan.value = const [];
   }
-
-  static final _riwayatAwal = [
-    RiwayatLayanan(
-      kode: 'AC-000101',
-      layanan: 'Service AC',
-      namaPelanggan: 'Budi Santoso',
-      wilayah: 'Nagoya',
-      selesaiPada: DateTime(2026, 11, 15, 14, 30),
-      diterima: 180000,
-      rating: 5,
-    ),
-    RiwayatLayanan(
-      kode: 'AC-000097',
-      layanan: 'Cuci AC',
-      namaPelanggan: 'Rina Melati',
-      wilayah: 'Batam Centre',
-      selesaiPada: DateTime(2026, 11, 13, 10, 0),
-      diterima: 67500,
-    ),
-  ];
 }

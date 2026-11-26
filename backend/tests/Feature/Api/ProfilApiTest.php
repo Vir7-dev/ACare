@@ -102,6 +102,24 @@ class ProfilApiTest extends TestCase
             ->assertJsonValidationErrors(['deskripsi' => 'Tentang saya maksimal 300 karakter.']);
     }
 
+    public function test_teknisi_bisa_ubah_rekening_pencairan(): void
+    {
+        $token = $this->teknisi();
+
+        $this->withToken($token)->putJson('/api/saya', [
+            'nama_bank' => 'Mandiri',
+            'no_rekening' => '123-456 7890',
+            'atas_nama' => 'Andi Saputra',
+        ])->assertOk()
+            ->assertJsonPath('data.teknisi.nama_bank', 'Mandiri')
+            ->assertJsonPath('data.teknisi.no_rekening', '1234567890')
+            ->assertJsonPath('data.teknisi.atas_nama', 'Andi Saputra');
+
+        $this->withToken($token)->putJson('/api/saya', ['no_rekening' => '12', 'atas_nama' => ''])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['no_rekening', 'atas_nama']);
+    }
+
     public function test_ganti_foto_profil_menghapus_foto_lama(): void
     {
         Storage::fake('public');

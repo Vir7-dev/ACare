@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AlamatController;
 use App\Http\Controllers\Api\AutentikasiController;
+use App\Http\Controllers\Api\DompetController;
 use App\Http\Controllers\Api\LayananController;
 use App\Http\Controllers\Api\PembayaranController;
 use App\Http\Controllers\Api\PerangkatController;
@@ -71,5 +72,8 @@ Route::middleware(['auth:sanctum', 'akun.aktif'])->group(function () {
         Route::post('/pekerjaan/{id}/biaya', [TeknisiController::class, 'ajukanBiaya'])->whereNumber('id')->name('api.teknisi.biaya');
         Route::post('/pekerjaan/{id}/tanpa-biaya', [TeknisiController::class, 'tanpaBiaya'])->whereNumber('id')->name('api.teknisi.tanpa-biaya');
         Route::post('/pekerjaan/{id}/selesai', [TeknisiController::class, 'selesai'])->whereNumber('id')->name('api.teknisi.selesai');
+        Route::get('/dompet', [DompetController::class, 'dompet'])->name('api.teknisi.dompet');
+        Route::get('/riwayat', [DompetController::class, 'riwayat'])->name('api.teknisi.riwayat');
+        Route::post('/pencairan', [DompetController::class, 'ajukanPencairan'])->middleware('throttle:10,1')->name('api.teknisi.pencairan');
     });
 });

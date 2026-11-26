@@ -35,7 +35,7 @@ class ProfilController extends Controller
 
             if ($pengguna->role === Pengguna::ROLE_TEKNISI && $pengguna->teknisi) {
                 $pengguna->teknisi->update(
-                    array_intersect_key($data, array_flip(['jenis_kendaraan', 'plat_nomor', 'deskripsi'])),
+                    array_intersect_key($data, array_flip(['jenis_kendaraan', 'plat_nomor', 'deskripsi', 'nama_bank', 'no_rekening', 'atas_nama'])),
                 );
             }
         });

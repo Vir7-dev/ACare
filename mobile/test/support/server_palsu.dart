@@ -140,6 +140,21 @@ class ServerPalsu {
   void majukan(int id, String status) {
     final p = _p(id);
     p['status'] = status;
+    if (status == 'selesai' && p['id_teknisi'] == _idTeknisi) {
+      // Seperti server: pendapatan teknisi dicatat saat pesanan selesai.
+      final total = (p['biaya'] as Map)['total'] as int;
+      pendapatanTeknisi.insert(0, {
+        'id_pesanan': id,
+        'kode': p['kode'],
+        'layanan': (p['layanan'] as Map)['nama'],
+        'nama_pelanggan': 'Dina Lestari',
+        'wilayah': 'Rumah',
+        'selesai_pada': DateTime.now().toUtc().toIso8601String(),
+        'total_dibayar': total,
+        'diterima': total - (total * 10 / 100).round(),
+        'rating': null,
+      });
+    }
     final k = _kunciWaktu[status];
     if (k != null) {
       (p['waktu'] as Map)[k] = DateTime(2026, 11, 26, 14, 30).toIso8601String();
@@ -359,6 +374,36 @@ class ServerPalsu {
       });
     }
     if (rute == 'PUT /teknisi/lokasi') return _json(200, {'data': {}});
+    if (rute == 'GET /teknisi/dompet') {
+      return _json(200, {'data': _dompetTeknisi()});
+    }
+    if (rute == 'GET /teknisi/riwayat') {
+      return _json(200, {'data': pendapatanTeknisi});
+    }
+    if (rute == 'POST /teknisi/pencairan') {
+      final nominal = (isi['nominal'] as num).toInt();
+      if (nominal < 50000) {
+        return _galat({'nominal': 'Minimal pencairan Rp50.000.'});
+      }
+      if (nominal > (_dompetTeknisi()['saldo'] as int)) {
+        return _json(422, {
+          'message': 'Nominal melebihi saldo yang bisa dicairkan.',
+          'kode': 'saldo_tidak_cukup',
+        });
+      }
+      final id = pencairanTeknisi.length + 1;
+      pencairanTeknisi.insert(0, {
+        'id': id,
+        'kode': 'WD-${id.toString().padLeft(6, '0')}',
+        'nominal': nominal,
+        'status': 'menunggu',
+        'label_status': 'Menunggu',
+        'rekening': 'BNI • 1234567890 a.n Andi Saputra',
+        'alasan_penolakan': null,
+        'diajukan_pada': DateTime.now().toUtc().toIso8601String(),
+      });
+      return _json(201, {'data': _dompetTeknisi()});
+    }
     if (rute == 'GET /teknisi/tawaran') {
       final p = teknisiOnline
           ? pesanan
@@ -565,6 +610,67 @@ class ServerPalsu {
 
   /// token -> id akun.
   final Map<String, int> token = {};
+
+  /// Pendapatan teknisi contoh (Andi), terbaru dulu.
+  final List<Map<String, dynamic>> pendapatanTeknisi = [
+    {
+      'id_pesanan': 1,
+      'kode': 'AC-000001',
+      'layanan': 'Service AC',
+      'nama_pelanggan': 'Budi Santoso',
+      'wilayah': 'Nagoya',
+      'selesai_pada': '2026-11-15T07:30:00Z',
+      'total_dibayar': 200000,
+      'diterima': 180000,
+      'rating': 5,
+    },
+    {
+      'id_pesanan': 2,
+      'kode': 'AC-000002',
+      'layanan': 'Cuci AC',
+      'nama_pelanggan': 'Rina Melati',
+      'wilayah': 'Batam Centre',
+      'selesai_pada': '2026-11-14T03:00:00Z',
+      'total_dibayar': 75000,
+      'diterima': 67500,
+      'rating': null,
+    },
+  ];
+
+  /// Pengajuan pencairan teknisi, terbaru dulu.
+  final List<Map<String, dynamic>> pencairanTeknisi = [];
+
+  Map<String, dynamic> _dompetTeknisi() {
+    final masuk = pendapatanTeknisi.fold<int>(
+      0,
+      (a, r) => a + (r['diterima'] as int),
+    );
+    final keluar = pencairanTeknisi
+        .where((p) => p['status'] != 'ditolak')
+        .fold<int>(0, (a, p) => a + (p['nominal'] as int));
+    final hariIni = DateTime.now();
+    final hari = pendapatanTeknisi.where((r) {
+      final t = DateTime.parse(r['selesai_pada'] as String).toLocal();
+      return t.year == hariIni.year &&
+          t.month == hariIni.month &&
+          t.day == hariIni.day;
+    });
+    return {
+      'saldo': masuk - keluar,
+      'pendapatan_hari_ini': hari.fold<int>(
+        0,
+        (a, r) => a + (r['diterima'] as int),
+      ),
+      'total_pendapatan': masuk,
+      'minimum_pencairan': 50000,
+      'rekening': {
+        'nama_bank': 'BNI',
+        'no_rekening': '1234567890',
+        'atas_nama': 'Andi Saputra',
+      },
+      'pencairan': pencairanTeknisi,
+    };
+  }
 
   /// Token FCM perangkat -> id akun pemiliknya.
   final Map<String, int> perangkat = {};
@@ -786,7 +892,14 @@ class ServerPalsu {
         if (telepon != null) saya['no_telepon'] = telepon;
         final t = saya['teknisi'] as Map<String, dynamic>?;
         if (t != null) {
-          for (final k in ['jenis_kendaraan', 'plat_nomor', 'deskripsi']) {
+          for (final k in [
+            'jenis_kendaraan',
+            'plat_nomor',
+            'deskripsi',
+            'nama_bank',
+            'no_rekening',
+            'atas_nama',
+          ]) {
             if (isi.containsKey(k)) t[k] = isi[k];
           }
         }

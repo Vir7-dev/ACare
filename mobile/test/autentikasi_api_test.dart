@@ -155,6 +155,42 @@ void main() {
       expect(AuthService.akun.value?.teknisi?.jenisKendaraan, 'Yamaha NMAX');
     },
   );
+
+  testWidgets('Profil teknisi: rekening pencairan bisa diubah', (tester) async {
+    ukuranHp(tester);
+    await AuthService.login(
+      'teknisi@acare.id',
+      ServerPalsu.sandiContoh,
+      UserRole.teknisi,
+    );
+    await tester.pumpWidget(const MaterialApp(home: KelolaProfilTeknisiPage()));
+    await tester.pumpAndSettle();
+    expect(find.text('Rekening Pencairan'), findsOneWidget);
+
+    await tester.tap(find.text('Edit Profil'));
+    await tester.pump();
+    final rekening = find.widgetWithText(TextFormField, 'Nomor Rekening');
+    await tester.ensureVisible(rekening);
+    await tester.enterText(rekening, '12');
+    await tester.ensureVisible(find.text('Simpan Perubahan'));
+    await tester.tap(find.text('Simpan Perubahan'));
+    await tester.pump();
+    expect(find.text('Nomor rekening tidak valid'), findsOneWidget);
+
+    await tester.enterText(rekening, '9876543210');
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Bank'),
+      'Mandiri',
+    );
+    await tester.ensureVisible(find.text('Simpan Perubahan'));
+    await tester.tap(find.text('Simpan Perubahan'));
+    await tester.pumpAndSettle();
+
+    final t = ServerPalsu.aktif.akun[1]['teknisi'] as Map<String, dynamic>;
+    expect(t['no_rekening'], '9876543210');
+    expect(t['nama_bank'], 'Mandiri');
+    expect(AuthService.akun.value?.teknisi?.noRekening, '9876543210');
+  });
 }
 
 /// Klien yang selalu gagal terhubung, meniru HP tanpa internet.

@@ -56,7 +56,10 @@ class PengerjaanServisPage extends StatelessWidget {
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text('Pesanan selesai. ${rupiah(komisi)} masuk ke dompet.'),
+          content: Text(
+            'Pesanan selesai. ${rupiah(komisi)} masuk ke dompet setelah '
+            'pembayaran pelanggan lunas.',
+          ),
         ),
       );
   }

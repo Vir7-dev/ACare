@@ -183,12 +183,18 @@ void main() {
 
     expect(find.textContaining('masuk ke dompet'), findsOneWidget);
     expect(layanan.pekerjaan.value, isNull);
-    expect(layanan.pendapatanHariIni, pendapatanAwal + 333000);
-    // Biaya disetujui: pelanggan diminta melunasi sisa tagihan.
+    // Biaya disetujui: pelanggan diminta melunasi sisa tagihan; pendapatan
+    // baru dicatat setelah lunas.
     expect(
       server().pesanan.firstWhere((x) => x['id'] == id)['status'],
       'menunggu_pembayaran',
     );
+    expect(layanan.pendapatanHariIni, pendapatanAwal);
+
+    server().majukan(id, 'selesai');
+    await layanan.muatDompet();
+    expect(layanan.pendapatanHariIni, pendapatanAwal + 333000);
+    expect(layanan.riwayat.value.first.kode, p['kode']);
 
     // Hentikan pemeriksaan berkala & tunggu snackbar hilang.
     layanan.reset();
@@ -240,7 +246,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(layanan.saldo, 147500);
+    expect(server().pencairanTeknisi.single['nominal'], 100000);
     expect(find.text('Riwayat Pencairan'), findsOneWidget);
     expect(find.text('Menunggu'), findsOneWidget);
+    expect(find.text('Pencairan #WD-000001'), findsOneWidget);
+    expect(find.textContaining('BNI • 1234567890'), findsWidgets);
   });
 }

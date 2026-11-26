@@ -44,6 +44,7 @@ API dan panel Admin untuk aplikasi pemesanan servis AC ACare.
 | `PUT /api/teknisi/status`, `PUT /api/teknisi/lokasi` | Online/offline (online wajib kirim lokasi), lokasi berkala |
 | `GET /api/teknisi/tawaran`, `POST /api/teknisi/tawaran/{id}/terima\|tolak` | Tawaran 30 detik ke teknisi terdekat |
 | `GET /api/teknisi/pekerjaan`, `POST /api/teknisi/pekerjaan/{id}/tiba\|pengecekan\|foto-pemeriksaan\|biaya\|tanpa-biaya\|selesai` | Langkah kerja teknisi, harus berurutan (409 bila tidak) |
+| `GET /api/teknisi/dompet`, `GET /api/teknisi/riwayat`, `POST /api/teknisi/pencairan` | Saldo (`Teknisi::saldo()`), pendapatan hari ini (WIB), rekening, riwayat pencairan; riwayat pekerjaan selesai dari `pendapatan`; pencairan `nominal` min. 50.000 dan ≤ saldo (`saldo_tidak_cukup`), butuh rekening lengkap (`rekening_belum_lengkap`), rekening disalin ke pengajuan |
 
 - Galat: `{message, kode?}`; validasi 422 `{message, errors}` berbahasa
   Indonesia (pesan di `App\Http\Requests\Api\ApiRequest`).

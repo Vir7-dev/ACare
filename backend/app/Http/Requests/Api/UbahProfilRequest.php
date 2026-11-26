@@ -23,6 +23,9 @@ class UbahProfilRequest extends ApiRequest
         if ($this->has('no_telepon')) {
             $ubah['no_telepon'] = NomorTelepon::normalkan($this->input('no_telepon'));
         }
+        if ($this->has('no_rekening')) {
+            $ubah['no_rekening'] = preg_replace('/\D+/', '', (string) $this->input('no_rekening'));
+        }
         if ($this->has('plat_nomor')) {
             $ubah['plat_nomor'] = strtoupper(trim((string) $this->input('plat_nomor')));
         }
@@ -42,6 +45,10 @@ class UbahProfilRequest extends ApiRequest
             'jenis_kendaraan' => ['sometimes', 'required', 'string', 'max:50'],
             'plat_nomor' => ['sometimes', 'required', 'string', 'max:15', 'regex:'.DaftarTeknisiRequest::POLA_PLAT],
             'deskripsi' => ['sometimes', 'nullable', 'string', 'max:300'],
+            // Rekening pencairan teknisi; pengajuan lama tetap ke rekening lama.
+            'nama_bank' => ['sometimes', 'required', 'string', 'max:50'],
+            'no_rekening' => ['sometimes', 'required', 'regex:/^[0-9]{5,30}$/'],
+            'atas_nama' => ['sometimes', 'required', 'string', 'max:100'],
         ];
     }
 }

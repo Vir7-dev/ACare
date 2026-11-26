@@ -24,6 +24,12 @@ class _DompetTeknisiPageState extends State<DompetTeknisiPage> {
   TeknisiService get _layanan => TeknisiService.instance;
 
   @override
+  void initState() {
+    super.initState();
+    _layanan.muatDompet();
+  }
+
+  @override
   void dispose() {
     _nominal.dispose();
     super.dispose();
@@ -39,7 +45,7 @@ class _DompetTeknisiPageState extends State<DompetTeknisiPage> {
         title: const Text('Ajukan pencairan?'),
         content: Text(
           '${rupiah(nominal)} akan ditransfer Admin ke\n'
-          '${TeknisiService.rekeningTujuan}.',
+          '${_layanan.rekeningTujuan ?? '-'}.',
         ),
         actions: [
           TextButton(
@@ -55,7 +61,8 @@ class _DompetTeknisiPageState extends State<DompetTeknisiPage> {
     );
     if (ya != true || !mounted) return;
 
-    final galat = _layanan.ajukanPencairan(nominal);
+    final galat = await _layanan.ajukanPencairan(nominal);
+    if (!mounted) return;
     if (galat != null) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
@@ -97,171 +104,193 @@ class _DompetTeknisiPageState extends State<DompetTeknisiPage> {
           ),
         ),
       ),
-      body: AnimatedBuilder(
-        animation: Listenable.merge([_layanan.riwayat, _layanan.pencairan]),
-        builder: (context, _) {
-          final saldo = _layanan.saldo;
-          final nominal = angkaDari(_nominal.text);
-          final valid =
-              nominal >= TeknisiService.minimumPencairan && nominal <= saldo;
+      body: RefreshIndicator(
+        onRefresh: _layanan.muatDompet,
+        child: AnimatedBuilder(
+          animation: Listenable.merge([
+            _layanan.dompet,
+            _layanan.riwayat,
+            _layanan.pencairan,
+          ]),
+          builder: (context, _) {
+            final saldo = _layanan.saldo;
+            final nominal = angkaDari(_nominal.text);
+            final rekening = _layanan.rekeningTujuan;
+            final valid =
+                rekening != null &&
+                nominal >= TeknisiService.minimumPencairan &&
+                nominal <= saldo;
 
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [AppColors.gradienAtas, AppColors.gradienBawah],
+            return ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(16),
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [AppColors.gradienAtas, AppColors.gradienBawah],
+                    ),
+                    borderRadius: BorderRadius.circular(18),
                   ),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Saldo Siap Ditarik',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 12,
-                        color: Colors.white70,
-                      ),
-                    ),
-                    Text(
-                      rupiah(saldo),
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
-              _Kartu(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text('Nominal Penarikan', style: _judul),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Saldo Siap Ditarik',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12,
+                          color: Colors.white70,
                         ),
-                        Text('Min. Rp50.000', style: _kecil),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _nominal,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: const [FormatRibuan()],
-                      onChanged: (_) => setState(() {}),
-                      decoration: const InputDecoration(
-                        prefixText: 'Rp ',
-                        hintText: '0',
-                        border: OutlineInputBorder(),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        for (final n in const [100000, 250000, 500000]) ...[
+                      Text(
+                        rupiah(saldo),
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                _Kartu(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text('Nominal Penarikan', style: _judul),
+                          ),
+                          Text('Min. Rp50.000', style: _kecil),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _nominal,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: const [FormatRibuan()],
+                        onChanged: (_) => setState(() {}),
+                        decoration: const InputDecoration(
+                          prefixText: 'Rp ',
+                          hintText: '0',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          for (final n in const [100000, 250000, 500000]) ...[
+                            Expanded(
+                              child: _TombolNominal(
+                                label: rupiah(n),
+                                onTap: () => _isiCepat(n),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                          ],
                           Expanded(
                             child: _TombolNominal(
-                              label: rupiah(n),
-                              onTap: () => _isiCepat(n),
+                              label: 'Semua',
+                              onTap: saldo > 0 ? () => _isiCepat(saldo) : null,
                             ),
-                          ),
-                          const SizedBox(width: 6),
-                        ],
-                        Expanded(
-                          child: _TombolNominal(
-                            label: 'Semua',
-                            onTap: saldo > 0 ? () => _isiCepat(saldo) : null,
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (nominal > saldo)
-                      Text(
-                        'Nominal melebihi saldo',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 11,
-                          color: AppColors.merah,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              _Kartu(
-                child: Row(
-                  children: [
-                    const Icon(Icons.account_balance, color: AppColors.biruTua),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Rekening Tujuan', style: _kecil),
-                          Text(
-                            TeknisiService.rekeningTujuan,
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          Text(
-                            'Untuk mengganti rekening, hubungi Pusat Bantuan',
-                            style: _kecil,
                           ),
                         ],
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 48,
-                child: FilledButton(
-                  onPressed: valid ? _ajukan : null,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.biru,
+                      if (nominal > saldo)
+                        Text(
+                          'Nominal melebihi saldo',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 11,
+                            color: AppColors.merah,
+                          ),
+                        ),
+                    ],
                   ),
-                  child: const Text('Ajukan Pencairan'),
                 ),
-              ),
-              const SizedBox(height: 20),
-              if (_layanan.pencairan.value.isNotEmpty) ...[
-                Text('Riwayat Pencairan', style: _judul),
-                for (final p in _layanan.pencairan.value)
+                const SizedBox(height: 12),
+                _Kartu(
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.account_balance,
+                        color: AppColors.biruTua,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Rekening Tujuan', style: _kecil),
+                            Text(
+                              rekening ?? 'Belum diisi',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Text('Ubah rekening di menu Profil', style: _kecil),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 48,
+                  child: FilledButton(
+                    onPressed: valid ? _ajukan : null,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.biru,
+                    ),
+                    child: const Text('Ajukan Pencairan'),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                if (_layanan.pencairan.value.isNotEmpty) ...[
+                  Text('Riwayat Pencairan', style: _judul),
+                  for (final p in _layanan.pencairan.value)
+                    _BarisRiwayat(
+                      judul: 'Pencairan #${p.kode}',
+                      sub: DateFormat(
+                        'd MMM yyyy, HH:mm',
+                        'id_ID',
+                      ).format(p.diajukanPada),
+                      nilai: '-${rupiah(p.nominal)}',
+                      status: p.status,
+                      warna: p.status == 'Ditolak'
+                          ? AppColors.teksSamar
+                          : AppColors.merah,
+                    ),
+                  const SizedBox(height: 16),
+                ],
+                Text('Pendapatan Masuk', style: _judul),
+                if (_layanan.riwayat.value.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      'Belum ada pendapatan. Pendapatan masuk setelah pelanggan '
+                      'melunasi pesanan.',
+                      style: _kecil,
+                    ),
+                  ),
+                for (final r in _layanan.riwayat.value)
                   _BarisRiwayat(
-                    judul: 'Pencairan #${p.kode}',
+                    judul: '#${r.kode} • ${r.layanan}',
                     sub: DateFormat(
                       'd MMM yyyy, HH:mm',
                       'id_ID',
-                    ).format(p.diajukanPada),
-                    nilai: '-${rupiah(p.nominal)}',
-                    status: p.status,
-                    warna: AppColors.merah,
+                    ).format(r.selesaiPada),
+                    nilai: '+${rupiah(r.diterima)}',
+                    warna: AppColors.hijau,
                   ),
-                const SizedBox(height: 16),
               ],
-              Text('Pendapatan Masuk', style: _judul),
-              for (final r in _layanan.riwayat.value)
-                _BarisRiwayat(
-                  judul: '#${r.kode} • ${r.layanan}',
-                  sub: DateFormat(
-                    'd MMM yyyy, HH:mm',
-                    'id_ID',
-                  ).format(r.selesaiPada),
-                  nilai: '+${rupiah(r.diterima)}',
-                  warna: AppColors.hijau,
-                ),
-            ],
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
