@@ -19,7 +19,12 @@ String inisialNama(String nama) {
 class KepalaProfil extends StatelessWidget {
   final String nama;
   final String keterangan;
+
+  /// Foto yang baru dipilih (tampil segera, sebelum/selama diunggah).
   final Uint8List? foto;
+
+  /// Foto profil tersimpan di server.
+  final String? fotoUrl;
   final VoidCallback? onGantiFoto;
 
   const KepalaProfil({
@@ -27,12 +32,16 @@ class KepalaProfil extends StatelessWidget {
     required this.nama,
     required this.keterangan,
     this.foto,
+    this.fotoUrl,
     this.onGantiFoto,
   });
 
   @override
   Widget build(BuildContext context) {
     final tampilNama = nama.trim().isEmpty ? 'Lengkapi nama kamu' : nama;
+    final ImageProvider? gambar = foto != null
+        ? MemoryImage(foto!)
+        : (fotoUrl != null ? NetworkImage(fotoUrl!) : null);
     return Column(
       children: [
         Stack(
@@ -41,8 +50,9 @@ class KepalaProfil extends StatelessWidget {
             CircleAvatar(
               radius: 40,
               backgroundColor: AppColors.biruMuda,
-              backgroundImage: foto == null ? null : MemoryImage(foto!),
-              child: foto != null
+              backgroundImage: gambar,
+              onBackgroundImageError: gambar == null ? null : (_, _) {},
+              child: gambar != null
                   ? null
                   : nama.trim().isEmpty
                   ? const Icon(Icons.person, size: 40, color: AppColors.biru)

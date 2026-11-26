@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../services/sesi_pengguna.dart';
+import '../../services/api_client.dart';
+import '../../services/auth_service.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/auth_button.dart';
 import '../../widgets/auth_header.dart';
@@ -38,15 +39,39 @@ class _DaftarPageState extends State<DaftarPage> {
 
   bool _memproses = false;
 
+  /// Galat dari server per kolom (misal email sudah terdaftar). Ditampilkan
+  /// di bawah kolomnya dan hilang begitu kolom diubah.
+  Map<String, String> _galatServer = {};
+
+  String? _server(String kolom) => _galatServer[kolom];
+
   Future<void> _daftar() async {
-    if (_memproses || !_formKey.currentState!.validate()) return;
+    if (_memproses) return;
+    setState(() => _galatServer = {});
+    if (!_formKey.currentState!.validate()) return;
     setState(() => _memproses = true);
-    // TODO: panggil API register Laravel; sementara disimpan di perangkat
-    await SesiPengguna.simpanAkun(
-      nama: _nama.text,
-      telepon: _telepon.text,
-      email: _email.text,
-    );
+    try {
+      await AuthService.daftarPelanggan(
+        nama: _nama.text,
+        telepon: _telepon.text,
+        email: _email.text,
+        kataSandi: _sandi.text,
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _memproses = false;
+        _galatServer = e.galatKolom;
+      });
+      if (e.galatKolom.isEmpty) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text(e.pesan)));
+      } else {
+        _formKey.currentState!.validate();
+      }
+      return;
+    }
     if (!mounted) return;
     setState(() => _memproses = false);
     ScaffoldMessenger.of(context).showSnackBar(
@@ -106,7 +131,8 @@ class _DaftarPageState extends State<DaftarPage> {
                             icon: Icons.person_outline,
                             controller: _nama,
                             textInputAction: TextInputAction.next,
-                            validator: (v) => _wajib(v, 'Nama'),
+                            validator: (v) =>
+                                _wajib(v, 'Nama') ?? _server('nama'),
                           ),
                           const SizedBox(height: 12),
                           AuthTextField(
@@ -121,7 +147,7 @@ class _DaftarPageState extends State<DaftarPage> {
                               final digit = v!.replaceAll(RegExp(r'\D'), '');
                               return digit.length < 9
                                   ? 'Nomor telepon tidak valid'
-                                  : null;
+                                  : _server('no_telepon');
                             },
                           ),
                           const SizedBox(height: 12),
@@ -136,7 +162,9 @@ class _DaftarPageState extends State<DaftarPage> {
                               if (salah != null) return salah;
                               final ok = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
                                   .hasMatch(v!.trim());
-                              return ok ? null : 'Format email tidak valid';
+                              return ok
+                                  ? _server('email')
+                                  : 'Format email tidak valid';
                             },
                           ),
                           const SizedBox(height: 12),
@@ -151,7 +179,7 @@ class _DaftarPageState extends State<DaftarPage> {
                               if (salah != null) return salah;
                               return v!.length < 8
                                   ? 'Kata sandi minimal 8 karakter'
-                                  : null;
+                                  : _server('kata_sandi');
                             },
                           ),
                           const SizedBox(height: 12),

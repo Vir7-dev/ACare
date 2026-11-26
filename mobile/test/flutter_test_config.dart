@@ -7,6 +7,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'support/server_palsu.dart';
+
 /// Environment test memakai font "Ahem" yang lebar hurufnya tidak realistis,
 /// sehingga teks sering overflow. Di sini Roboto bawaan SDK Flutter dipakai
 /// sebagai pengganti (termasuk untuk Plus Jakarta Sans) supaya ukuran teks
@@ -14,11 +16,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   GoogleFonts.config.allowRuntimeFetching = false;
 
-  // Setiap test mulai dengan penyimpanan kosong dan fitur perangkat asli
-  // (yang diganti tiruan di test yang membutuhkan).
+  // Setiap test mulai dengan penyimpanan kosong, fitur perangkat asli
+  // (yang diganti tiruan di test yang membutuhkan), dan server API palsu
+  // dengan akun contoh (lihat support/server_palsu.dart).
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     Perangkat.reset();
+    ServerPalsu.pasang();
   });
 
   final root = Platform.environment['FLUTTER_ROOT'];

@@ -6,6 +6,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:acare_mobile/models/layanan.dart';
 import 'package:acare_mobile/pages/umum/main_shell.dart';
 import 'package:acare_mobile/pages/pelanggan/mencari_teknisi_page.dart';
+import 'package:acare_mobile/services/auth_service.dart';
+
+import 'support/server_palsu.dart';
 
 void main() {
   setUpAll(() async {
@@ -68,14 +71,14 @@ void main() {
   testWidgets('Profil: tampil, simpan, dan keluar ke pilih peran', (
     tester,
   ) async {
-    SharedPreferences.setMockInitialValues({
-      'sudah_masuk': true,
-      'nama': 'Dina Safitri',
-      'telepon': '083862865166',
-      'email': 'sdina3066@gmail.com',
-      'is_logged_in': true,
-      'role': 'pelanggan',
-    });
+    SharedPreferences.setMockInitialValues({});
+    // Masuk lewat server palsu, sama seperti dari halaman Masuk.
+    final hasil = await AuthService.login(
+      'dina@gmail.com',
+      ServerPalsu.sandiContoh,
+      UserRole.pelanggan,
+    );
+    expect(hasil.berhasil, isTrue);
     await bukaShell(tester);
     await tester.tap(find.text('Profil').last);
     await tester.pumpAndSettle();
@@ -103,6 +106,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(TextButton, 'Keluar'));
     await tester.pumpAndSettle();
+    // Token dihapus di server dan di perangkat.
+    expect(ServerPalsu.aktif.token, isEmpty);
+    expect(AuthService.akun.value, isNull);
     expect(find.text('Masuk sebagai'), findsOneWidget);
     expect(find.text('Lanjutkan'), findsOneWidget);
     expect(find.text('Selamat Datang!'), findsNothing);

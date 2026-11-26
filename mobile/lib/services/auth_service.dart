@@ -1,4 +1,11 @@
-import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
+import 'package:image_picker/image_picker.dart';
+
+import '../models/akun.dart';
+import 'api_client.dart';
+import 'sesi_pengguna.dart';
 
 /// Peran pengguna di aplikasi ACare.
 enum UserRole {
@@ -7,13 +14,13 @@ enum UserRole {
 
   const UserRole(this.label);
 
-  /// Nilai teks yang disimpan di SharedPreferences / dikirim ke API.
+  /// Nilai teks yang dikirim ke API.
   String get nilai => name;
 
   /// Label untuk ditampilkan di UI.
   final String label;
 
-  /// Konversi dari nilai tersimpan; null bila tidak dikenali.
+  /// Konversi dari nilai teks; null bila tidak dikenali.
   static UserRole? dari(String? nilai) {
     for (final role in UserRole.values) {
       if (role.nilai == nilai) return role;
@@ -22,116 +29,234 @@ enum UserRole {
   }
 }
 
-/// Hasil percobaan masuk.
-enum HasilLogin { berhasil, gagal, belumTerverifikasi }
+/// Status hasil percobaan masuk.
+enum HasilLogin { berhasil, gagal, belumTerverifikasi, ditolak }
 
-/// Satu-satunya pintu untuk autentikasi.
-///
-/// Saat ini masih mock lokal (SharedPreferences) karena backend belum ada.
-/// Halaman cukup memanggil kelas ini; jangan mengakses SharedPreferences
-/// langsung, supaya nanti cukup mengganti isi method di sini ke panggilan API.
+/// Hasil masuk beserta pesan yang siap ditampilkan.
+class HasilMasuk {
+  final HasilLogin status;
+  final String pesan;
+
+  /// Alasan Admin menolak pendaftaran teknisi.
+  final String? alasan;
+
+  const HasilMasuk(this.status, {this.pesan = '', this.alasan});
+
+  bool get berhasil => status == HasilLogin.berhasil;
+}
+
+/// Satu-satunya pintu untuk autentikasi dan data akun (API Laravel).
+/// Halaman cukup memanggil kelas ini, tidak memanggil API langsung.
 class AuthService {
-  static const _kRole = 'role';
-  static const _kMasuk = 'is_logged_in';
-  static const _kTeknisiMenunggu = 'teknisi_menunggu_verifikasi';
-
-  /// Mock: email apa pun yang tidak kosong dianggap ada.
-  static const _placeholderEmail = 'pengguna@acare.id';
-
   AuthService._();
 
-  /// Membaca peran yang tersimpan di perangkat.
+  static const _kAkun = 'akun';
+
+  /// Akun yang sedang masuk; `null` bila belum masuk.
+  static final ValueNotifier<Akun?> akun = ValueNotifier(null);
+
+  /// Peran akun yang tersimpan di perangkat.
   static Future<UserRole?> getSavedRole() async {
-    // TODO(backend): ambil peran dari respons API / token, bukan penyimpanan lokal.
-    final p = await SharedPreferences.getInstance();
-    return UserRole.dari(p.getString(_kRole));
+    final a = akun.value ?? await _akunTersimpan();
+    return UserRole.dari(a?.role);
   }
 
-  /// Validasi sesi: sudah login dan perannya dikenal.
+  /// Memeriksa sesi saat aplikasi dibuka. Data akun diperbarui dari server;
+  /// bila server tidak bisa dihubungi, data terakhir di perangkat dipakai
+  /// supaya aplikasi tetap bisa dibuka tanpa internet.
   static Future<bool> isLoggedIn() async {
-    // TODO(backend): panggil endpoint validasi sesi/refresh token.
-    // Sesi dianggap tidak valid bila peran hilang, agar tidak macet di splash.
-    final p = await SharedPreferences.getInstance();
-    final masuk = p.getBool(_kMasuk) ?? false;
-    if (!masuk) return false;
-    return UserRole.dari(p.getString(_kRole)) != null;
+    if (await ApiClient.token() == null) return false;
+    try {
+      await muatUlangAkun();
+      return true;
+    } on ApiException catch (e) {
+      if (e.tanpaKoneksi || e.status >= 500) {
+        final a = await _akunTersimpan();
+        akun.value = a;
+        return a != null;
+      }
+      await _bersihkan();
+      return false;
+    }
   }
 
-  /// Login mock: sukses bila email/nomor telepon dan password tidak kosong.
-  /// Teknisi yang baru mendaftar ditolak sampai diverifikasi Admin (UC-02).
-  static Future<HasilLogin> login(
-    String email,
+  /// Ambil data akun terbaru dari server.
+  static Future<Akun> muatUlangAkun() async {
+    final res = await ApiClient.get('/saya');
+    return _simpanAkun(Akun.dariJson(res['data'] as Map<String, dynamic>));
+  }
+
+  /// Masuk dengan email atau nomor telepon.
+  static Future<HasilMasuk> login(
+    String identitas,
     String password,
     UserRole role,
   ) async {
-    // TODO(backend): ganti dengan POST /api/login (email atau no. telepon,
-    // password) dan simpan token hasil respons ke secure storage.
-    await Future<void>.delayed(const Duration(milliseconds: 800));
-    if (email.trim().isEmpty || password.trim().isEmpty) {
-      return HasilLogin.gagal;
+    try {
+      final res = await ApiClient.post('/masuk', {
+        'identitas': identitas.trim(),
+        'kata_sandi': password,
+        'peran': role.nilai,
+        'nama_perangkat': 'aplikasi-mobile',
+      });
+      await ApiClient.simpanToken(res['token'] as String);
+      await _simpanAkun(
+        Akun.dariJson(res['pengguna'] as Map<String, dynamic>),
+      );
+      return const HasilMasuk(HasilLogin.berhasil);
+    } on ApiException catch (e) {
+      return switch (e.kode) {
+        'belum_terverifikasi' => HasilMasuk(
+          HasilLogin.belumTerverifikasi,
+          pesan: e.pesan,
+        ),
+        'verifikasi_ditolak' => HasilMasuk(
+          HasilLogin.ditolak,
+          pesan: e.pesan,
+          alasan: e.data['alasan'] as String?,
+        ),
+        _ => HasilMasuk(HasilLogin.gagal, pesan: e.pesan),
+      };
     }
-
-    final p = await SharedPreferences.getInstance();
-    final menunggu = p.getStringList(_kTeknisiMenunggu) ?? const [];
-    if (role == UserRole.teknisi &&
-        menunggu.contains(email.trim().toLowerCase())) {
-      return HasilLogin.belumTerverifikasi;
-    }
-
-    await p.setBool(_kMasuk, true);
-    await p.setString(_kRole, role.nilai);
-    return HasilLogin.berhasil;
   }
 
-  /// Ubah kata sandi (mock). Mengembalikan pesan galat atau `null`.
-  static Future<String?> ubahKataSandi({
-    required String lama,
-    required String baru,
-  }) async {
-    // TODO(backend): PUT /api/profil/kata-sandi; server memeriksa kata
-    // sandi lama dan mengembalikan "Kata sandi lama tidak sesuai".
-    await Future<void>.delayed(const Duration(milliseconds: 600));
-    if (lama.isEmpty) return 'Kata sandi lama tidak sesuai';
-    if (lama == baru) return 'Kata sandi baru harus berbeda dari yang lama';
-    return null;
-  }
-
-  /// Registrasi teknisi mock. Akun baru berstatus menunggu verifikasi Admin.
-  ///
-  /// Data sensitif (password, dokumen, rekening) sengaja TIDAK disimpan di
-  /// SharedPreferences; nanti dikirim langsung ke backend. Yang diingat
-  /// hanya email, untuk meniru status "menunggu verifikasi" saat login.
-  static Future<bool> registerTeknisi({
+  /// Daftar akun pelanggan. Melempar [ApiException] bila ditolak server
+  /// (misal email sudah terdaftar); galat per kolom ada di `galatKolom`.
+  static Future<void> daftarPelanggan({
     required String nama,
     required String telepon,
     required String email,
+    required String kataSandi,
+  }) async {
+    await ApiClient.post('/daftar', {
+      'nama': nama.trim(),
+      'no_telepon': telepon.trim(),
+      'email': email.trim(),
+      'kata_sandi': kataSandi,
+    });
+    await SesiPengguna.simpanAkun(nama: nama, telepon: telepon, email: email);
+  }
+
+  /// Registrasi teknisi beserta dokumen. Akun menunggu verifikasi Admin.
+  /// Melempar [ApiException] bila ditolak server.
+  static Future<void> registerTeknisi({
+    required String nama,
+    required String telepon,
+    required String email,
+    required String kataSandi,
     required String bank,
     required String nomorRekening,
     required String namaPemilik,
     required String jenisKendaraan,
     required String platNomor,
-    required Map<String, String> dokumen,
+    required Map<String, XFile> dokumen,
   }) async {
-    // TODO(backend): kirim payload beserta file dokumen (multipart) ke
-    // POST /api/registrasi-teknisi; status verifikasi dikelola Admin.
-    await Future<void>.delayed(const Duration(seconds: 1));
-    final p = await SharedPreferences.getInstance();
-    final menunggu = p.getStringList(_kTeknisiMenunggu) ?? <String>[];
-    final kunci = email.trim().toLowerCase();
-    if (!menunggu.contains(kunci)) {
-      await p.setStringList(_kTeknisiMenunggu, [...menunggu, kunci]);
+    await ApiClient.multipart(
+      '/daftar/teknisi',
+      kolom: {
+        'nama': nama.trim(),
+        'no_telepon': telepon.trim(),
+        'email': email.trim(),
+        'kata_sandi': kataSandi,
+        'jenis_kendaraan': jenisKendaraan,
+        'plat_nomor': platNomor,
+        'nama_bank': bank,
+        'no_rekening': nomorRekening.trim(),
+        'atas_nama': namaPemilik.trim(),
+      },
+      berkas: {
+        for (final e in dokumen.entries) 'dokumen[${e.key}]': e.value,
+      },
+    );
+    await SesiPengguna.simpanAkun(nama: nama, telepon: telepon, email: email);
+  }
+
+  /// Ubah sebagian data profil. Kolom bernilai `null` tidak diubah.
+  /// Melempar [ApiException] bila ditolak server.
+  static Future<Akun> ubahProfil({
+    String? nama,
+    String? telepon,
+    String? email,
+    String? jenisKendaraan,
+    String? platNomor,
+    String? deskripsi,
+  }) async {
+    final res = await ApiClient.put('/saya', {
+      'nama': ?nama?.trim(),
+      'no_telepon': ?telepon?.trim(),
+      'email': ?email?.trim(),
+      'jenis_kendaraan': ?jenisKendaraan?.trim(),
+      'plat_nomor': ?platNomor?.trim(),
+      'deskripsi': ?deskripsi?.trim(),
+    });
+    return _simpanAkun(Akun.dariJson(res['data'] as Map<String, dynamic>));
+  }
+
+  /// Unggah foto profil baru. Melempar [ApiException] bila gagal.
+  static Future<Akun> ubahFoto(XFile foto) async {
+    final res = await ApiClient.multipart('/saya/foto', berkas: {'foto': foto});
+    return _simpanAkun(Akun.dariJson(res['data'] as Map<String, dynamic>));
+  }
+
+  /// Ubah kata sandi. Mengembalikan pesan galat atau `null` bila berhasil.
+  /// Perangkat lain yang masuk dengan akun ini akan dikeluarkan.
+  static Future<String?> ubahKataSandi({
+    required String lama,
+    required String baru,
+  }) async {
+    try {
+      await ApiClient.put('/saya/kata-sandi', {
+        'kata_sandi_lama': lama,
+        'kata_sandi_baru': baru,
+        'kata_sandi_baru_confirmation': baru,
+      });
+      return null;
+    } on ApiException catch (e) {
+      return e.pesan;
     }
-    return true;
   }
 
-  /// Menghapus sesi di perangkat.
+  /// Keluar dari perangkat ini. Data lokal tetap dihapus walau server
+  /// tidak bisa dihubungi.
   static Future<void> logout() async {
-    // TODO(backend): panggil POST /api/logout dan hapus token.
-    final p = await SharedPreferences.getInstance();
-    await p.remove(_kMasuk);
-    await p.remove(_kRole);
+    try {
+      await ApiClient.post('/keluar');
+    } on ApiException {
+      // Token akan kedaluwarsa sendiri di server.
+    }
+    await _bersihkan();
   }
 
-  /// Email mock untuk pratinjauan di UI (bukan kredensial).
-  static String get placeholderEmail => _placeholderEmail;
+  /// Hapus sesi di perangkat (dipakai juga saat sesi berakhir).
+  static Future<void> bersihkanSesi() => _bersihkan();
+
+  static Future<Akun> _simpanAkun(Akun a) async {
+    akun.value = a;
+    await ApiClient.penyimpanan.tulis(_kAkun, jsonEncode(a.keJson()));
+    // Nama, telepon, dan email juga diingat untuk beranda & form masuk.
+    await SesiPengguna.simpanAkun(
+      nama: a.nama,
+      telepon: a.noTelepon,
+      email: a.email,
+    );
+    await SesiPengguna.masuk(a.nama);
+    return a;
+  }
+
+  static Future<Akun?> _akunTersimpan() async {
+    final s = await ApiClient.penyimpanan.baca(_kAkun);
+    if (s == null) return null;
+    try {
+      return Akun.dariJson(jsonDecode(s) as Map<String, dynamic>);
+    } on Object {
+      return null;
+    }
+  }
+
+  static Future<void> _bersihkan() async {
+    akun.value = null;
+    await ApiClient.hapusToken();
+    await ApiClient.penyimpanan.hapus(_kAkun);
+    await SesiPengguna.keluar();
+  }
 }

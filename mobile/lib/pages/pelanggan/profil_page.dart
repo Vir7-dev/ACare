@@ -2,7 +2,9 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 
+import '../../services/api_client.dart';
 import '../../services/auth_service.dart';
 import '../../services/perangkat.dart';
 import '../../services/sesi_pengguna.dart';
@@ -32,6 +34,10 @@ class _ProfilPageState extends State<ProfilPage> {
 
   Uint8List? _foto;
   bool _modeEdit = false;
+  bool _menyimpan = false;
+
+  /// Galat per kolom dari server (misal email sudah dipakai akun lain).
+  Map<String, String> _galatServer = {};
 
   @override
   void initState() {
@@ -39,11 +45,12 @@ class _ProfilPageState extends State<ProfilPage> {
     _muatData();
   }
 
-  // TODO(backend): ambil profil dari API; sementara dari data pendaftaran.
+  /// Data dari akun yang sedang masuk; data di perangkat sebagai cadangan.
   Future<void> _muatData() async {
-    final nama = await SesiPengguna.nama();
-    final telepon = await SesiPengguna.telepon();
-    final email = await SesiPengguna.email();
+    final akun = AuthService.akun.value;
+    final nama = akun?.nama ?? await SesiPengguna.nama();
+    final telepon = akun?.noTelepon ?? await SesiPengguna.telepon();
+    final email = akun?.email ?? await SesiPengguna.email();
     if (!mounted) return;
     setState(() {
       _nama.text = nama ?? '';
@@ -60,39 +67,73 @@ class _ProfilPageState extends State<ProfilPage> {
     super.dispose();
   }
 
+  void _pesan(String teks) => ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(content: Text(teks)));
+
   Future<void> _gantiFoto() async {
+    final XFile? f;
     try {
-      final f = await Perangkat.ambilFoto();
-      if (f == null) return;
-      final data = await f.readAsBytes();
-      // TODO(backend): unggah foto ke API supaya tersimpan permanen.
-      if (mounted) setState(() => _foto = data);
+      f = await Perangkat.ambilFoto();
     } catch (_) {
+      if (mounted) _pesan('Gagal memilih foto');
+      return;
+    }
+    if (f == null) return;
+    final sebelumnya = _foto;
+    final data = await f.readAsBytes();
+    if (mounted) setState(() => _foto = data);
+    try {
+      await AuthService.ubahFoto(f);
+      if (mounted) _pesan('Foto profil diperbarui');
+    } on ApiException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Gagal memilih foto')));
+      setState(() => _foto = sebelumnya);
+      _pesan(e.pesan);
     }
   }
 
   Future<void> _batal() async {
+    _galatServer = {};
     await _muatData();
     if (mounted) setState(() => _modeEdit = false);
   }
 
+  String? _server(String kolom) => _galatServer[kolom];
+
   Future<void> _simpan() async {
+    if (_menyimpan) return;
+    _galatServer = {};
     if (!_formKey.currentState!.validate()) return;
-    // TODO(backend): kirim perubahan profil ke API.
-    await SesiPengguna.simpanAkun(
-      nama: _nama.text.trim(),
-      telepon: _telepon.text.trim(),
-      email: _email.text.trim(),
-    );
+    setState(() => _menyimpan = true);
+    try {
+      await AuthService.ubahProfil(
+        nama: _nama.text,
+        telepon: _telepon.text,
+        email: _email.text,
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _menyimpan = false;
+        _galatServer = e.galatKolom;
+      });
+      if (e.galatKolom.isEmpty) {
+        _pesan(e.pesan);
+      } else {
+        _formKey.currentState!.validate();
+      }
+      return;
+    }
+    if (!mounted) return;
+    await _muatData();
     if (!mounted) return;
     FocusScope.of(context).unfocus();
-    setState(() => _modeEdit = false);
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(const SnackBar(content: Text('Perubahan disimpan')));
+    setState(() {
+      _menyimpan = false;
+      _modeEdit = false;
+    });
+    _pesan('Perubahan disimpan');
   }
 
   Future<void> _keluar() async {
@@ -154,6 +195,7 @@ class _ProfilPageState extends State<ProfilPage> {
               nama: _nama.text,
               keterangan: 'Pelanggan ACare',
               foto: _foto,
+              fotoUrl: AuthService.akun.value?.fotoProfil,
               onGantiFoto: _gantiFoto,
             ),
             const SizedBox(height: 24),
@@ -164,8 +206,9 @@ class _ProfilPageState extends State<ProfilPage> {
               controller: _nama,
               bisaDiubah: _modeEdit,
               onChanged: (_) => setState(() {}),
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'Nama wajib diisi' : null,
+              validator: (v) => (v == null || v.trim().isEmpty)
+                  ? 'Nama wajib diisi'
+                  : _server('nama'),
             ),
             IsianProfil(
               label: 'Nomor Telepon',
@@ -175,7 +218,7 @@ class _ProfilPageState extends State<ProfilPage> {
               keyboardType: TextInputType.phone,
               validator: (v) => (v == null || v.trim().isEmpty)
                   ? 'Nomor telepon wajib diisi'
-                  : null,
+                  : _server('no_telepon'),
             ),
             IsianProfil(
               label: 'Email',
@@ -187,7 +230,7 @@ class _ProfilPageState extends State<ProfilPage> {
                   (v == null ||
                       !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v.trim()))
                   ? 'Email tidak valid'
-                  : null,
+                  : _server('email'),
             ),
             const SizedBox(height: 4),
             TombolEditProfil(

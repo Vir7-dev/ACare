@@ -85,30 +85,27 @@ class _MasukPageState extends State<MasukPage> {
     );
     if (!mounted) return;
     setState(() => _memproses = false);
-    switch (hasil) {
+    switch (hasil.status) {
       case HasilLogin.gagal:
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Email/nomor telepon atau kata sandi salah'),
-          ),
-        );
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text(hasil.pesan)));
         return;
       case HasilLogin.belumTerverifikasi:
-        await showDialog<void>(
-          context: context,
-          builder: (dialogContext) => AlertDialog(
-            title: const Text('Akun belum diverifikasi'),
-            content: const Text(
-              'Akun kamu belum diverifikasi oleh Admin. Kami akan mengirim '
+        await _dialog(
+          'Akun belum diverifikasi',
+          'Akun kamu belum diverifikasi oleh Admin. Kami akan mengirim '
               'notifikasi setelah dokumenmu selesai diperiksa.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('OK'),
-              ),
-            ],
-          ),
+        );
+        return;
+      case HasilLogin.ditolak:
+        final alasan = hasil.alasan?.trim() ?? '';
+        await _dialog(
+          'Pendaftaran ditolak',
+          alasan.isEmpty
+              ? 'Pendaftaran kamu ditolak Admin. Hubungi Pusat Bantuan '
+                    'untuk informasi lebih lanjut.'
+              : 'Pendaftaran kamu ditolak Admin dengan alasan:\n\n"$alasan"',
         );
         return;
       case HasilLogin.berhasil:
@@ -123,6 +120,20 @@ class _MasukPageState extends State<MasukPage> {
       ),
     );
   }
+
+  Future<void> _dialog(String judul, String isi) => showDialog<void>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text(judul),
+      content: Text(isi),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext),
+          child: const Text('OK'),
+        ),
+      ],
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
