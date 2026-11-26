@@ -7,6 +7,7 @@ import 'package:acare_mobile/models/layanan.dart';
 import 'package:acare_mobile/pages/umum/main_shell.dart';
 import 'package:acare_mobile/pages/pelanggan/mencari_teknisi_page.dart';
 import 'package:acare_mobile/services/auth_service.dart';
+import 'package:acare_mobile/services/order_service.dart';
 
 import 'support/server_palsu.dart';
 
@@ -119,17 +120,30 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: MencariTeknisiPage(
-          layanan: daftarLayanan.first,
-          lamaCari: const Duration(seconds: 2),
-        ),
+    await ServerPalsu.masukPelanggan();
+    final dibuat = await OrderService.instance.buat(
+      PesananPelanggan(
+        idLokasi: 1,
+        layanan: daftarLayanan.first,
+        jumlahUnit: 1,
+        jenisAc: JenisAc.split,
+        pk: 1,
+        alamat: 'Perumahan Batu Aji Blok C No. 12, Batam',
+        detailAlamat: '',
+        jadwal: DateTime.now(),
+        metodeBayar: 'QRIS',
+        biayaAwal: 75000,
       ),
+    );
+    final dibayar = await OrderService.instance.simulasiLunas(dibuat);
+
+    await tester.pumpWidget(
+      MaterialApp(home: MencariTeknisiPage(pesanan: dibayar)),
     );
     expect(find.text('Mencari Teknisi Terdekat...'), findsOneWidget);
 
-    await tester.pump(const Duration(seconds: 3));
+    // Pemeriksaan kedua (3 detik kemudian): teknisi palsu menerima.
+    await tester.pump(const Duration(seconds: 4));
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('Teknisi Menuju Lokasi'), findsOneWidget);
   });

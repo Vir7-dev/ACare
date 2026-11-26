@@ -61,6 +61,10 @@ class _BuatPesananPageState extends State<BuatPesananPage> {
 
   String _alamat = '';
 
+  /// Id alamat tersimpan yang dipakai pesanan (wajib: teknisi butuh titik
+  /// lokasi yang tepat).
+  int? _idLokasi;
+
   /// Hanya Service AC (perbaikan) yang butuh checklist keluhan. Cek AC cukup
   /// catatan karena pelanggan awam belum tentu tahu masalahnya.
   bool get _perluKeluhan => _layanan.nama == 'Service AC';
@@ -84,21 +88,30 @@ class _BuatPesananPageState extends State<BuatPesananPage> {
         builder: (_) => const KelolaAlamatPage(modePilih: true),
       ),
     );
-    if (a != null && mounted) setState(() => _alamat = a.alamatLengkap);
+    if (a != null && mounted) {
+      setState(() {
+        _alamat = a.alamatLengkap;
+        _idLokasi = a.id;
+      });
+    }
   }
 
+  /// Pakai alamat tersimpan yang sama dengan lokasi beranda; kalau tidak ada
+  /// yang cocok, alamat tersimpan pertama. Belum punya alamat: diminta
+  /// menambah saat lanjut.
   Future<void> _muatAlamat() async {
-    final awal = widget.alamatAwal;
-    if (awal != null && awal.trim().isNotEmpty) {
-      setState(() => _alamat = awal.trim());
-      return;
-    }
-    final dariSesi = await SesiPengguna.lokasi();
+    final layananAlamat = AlamatService.instance;
+    await layananAlamat.muat();
+    final awal = (widget.alamatAwal ?? await SesiPengguna.lokasi() ?? '')
+        .trim();
     if (!mounted) return;
+    final daftar = layananAlamat.daftar.value;
+    final dipilih =
+        daftar.where((a) => a.alamatLengkap == awal).firstOrNull ??
+        daftar.firstOrNull;
     setState(() {
-      _alamat = (dariSesi == null || dariSesi.trim().isEmpty)
-          ? 'Lokasi belum diatur'
-          : dariSesi.trim();
+      _idLokasi = dipilih?.id;
+      _alamat = dipilih?.alamatLengkap ?? 'Pilih alamat tersimpan';
     });
   }
 
@@ -164,10 +177,16 @@ class _BuatPesananPageState extends State<BuatPesananPage> {
       _pesanValidasi('Lengkapi tanggal dan jam servis');
       return;
     }
+    if (_idLokasi == null) {
+      _pesanValidasi('Pilih atau tambahkan alamat agar teknisi tahu titik lokasimu');
+      _pilihAlamat();
+      return;
+    }
 
     FocusScope.of(context).unfocus();
 
     final pesanan = PesananPelanggan(
+      idLokasi: _idLokasi,
       layanan: _layanan,
       jumlahUnit: _jumlahUnit,
       jenisAc: _jenisAc!,

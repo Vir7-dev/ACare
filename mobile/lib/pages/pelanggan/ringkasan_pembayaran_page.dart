@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../models/layanan.dart';
 import '../../models/metode_bayar.dart';
+import '../../services/api_client.dart';
 import '../../services/order_service.dart';
 import '../../theme/app_colors.dart';
 import 'mencari_teknisi_page.dart';
@@ -13,7 +14,6 @@ import 'menunggu_pembayaran_page.dart';
 ///
 /// Biaya awal wajib dibayar non-tunai lebih dulu; teknisi baru dicari
 /// setelah pembayaran berhasil.
-// TODO(backend): simpan pesanan dan buat invoice Xendit lewat API.
 class RingkasanPembayaranPage extends StatefulWidget {
   const RingkasanPembayaranPage({super.key, required this.pesanan});
 
@@ -32,12 +32,33 @@ class _RingkasanPembayaranPageState extends State<RingkasanPembayaranPage> {
   bool get _perluPersetujuanTambahan =>
       OrderService.layananBerbiayaTambahan.contains(pesanan.layanan.nama);
 
+  bool _memproses = false;
+
+  void _pesan(String teks) => ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(content: Text(teks)));
+
+  /// Simpan pesanan di server, bayar biaya awal, lalu mulai mencari teknisi.
   Future<void> _bayar() async {
+    if (_memproses) return;
+    setState(() => _memproses = true);
+    final layanan = OrderService.instance;
+    PesananPelanggan dibuat;
+    try {
+      dibuat = await layanan.buat(pesanan.copyWith(metodeBayar: _metode.label));
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _memproses = false);
+      _pesan(e.pesan);
+      return;
+    }
+    if (!mounted) return;
+
     final berhasil = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => MenungguPembayaranPage(
           metode: _metode,
-          nominal: pesanan.biayaAwal,
+          nominal: dibuat.biayaAwal,
           keterangan: 'Biaya awal ${pesanan.layanan.nama}',
           pesanBerhasil:
               'Terima kasih, pembayaran kamu sudah kami terima. Kami carikan '
@@ -45,21 +66,32 @@ class _RingkasanPembayaranPageState extends State<RingkasanPembayaranPage> {
         ),
       ),
     );
-    if (berhasil != true || !mounted) return;
+    if (!mounted) return;
+    if (berhasil != true) {
+      // Pembayaran ditinggalkan: batalkan pesanan yang belum dibayar supaya
+      // tidak menghalangi pesanan berikutnya.
+      layanan.pesananAktif.value = dibuat;
+      await layanan.batalkan(alasan: 'Pembayaran tidak diselesaikan');
+      if (mounted) setState(() => _memproses = false);
+      return;
+    }
 
-    final dibayar = pesanan.copyWith(metodeBayar: _metode.label);
-    OrderService.instance.pesananAktif.value = dibayar;
+    final PesananPelanggan dibayar;
+    try {
+      // TODO(xendit): status lunas datang dari server, bukan simulasi.
+      dibayar = await layanan.simulasiLunas(dibuat);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _memproses = false);
+      _pesan(e.pesan);
+      return;
+    }
+    if (!mounted) return;
 
     // Halaman form dan pembayaran dibuang dari stack supaya tombol kembali
     // dari alur pencarian tidak membuka lagi pembayaran yang sudah lunas.
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(
-        builder: (_) => MencariTeknisiPage(
-          layanan: dibayar.layanan,
-          pesanan: dibayar,
-          metodeBayar: dibayar.metodeBayar,
-        ),
-      ),
+      MaterialPageRoute(builder: (_) => MencariTeknisiPage(pesanan: dibayar)),
       (route) => route.isFirst,
     );
   }
@@ -206,8 +238,10 @@ class _RingkasanPembayaranPageState extends State<RingkasanPembayaranPage> {
         child: SizedBox(
           height: 46,
           child: ElevatedButton.icon(
-            onPressed: _bayar,
-            label: Text('Bayar ${rupiah(pesanan.biayaAwal)}'),
+            onPressed: _memproses ? null : _bayar,
+            label: Text(
+              _memproses ? 'Memproses...' : 'Bayar ${rupiah(pesanan.biayaAwal)}',
+            ),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.biru,
               foregroundColor: Colors.white,

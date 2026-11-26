@@ -7,6 +7,8 @@ import 'package:acare_mobile/pages/pelanggan/mencari_teknisi_page.dart';
 import 'package:acare_mobile/pages/umum/main_shell.dart';
 import 'package:acare_mobile/services/order_service.dart';
 
+import 'support/server_palsu.dart';
+
 void main() {
   setUpAll(() async {
     await initializeDateFormatting('id_ID');
@@ -14,12 +16,34 @@ void main() {
 
   setUp(() => OrderService.instance.reset());
 
+  /// Buka halaman sebagai pelanggan yang sudah masuk (punya alamat "Rumah").
   Future<void> buka(WidgetTester tester, Widget halaman) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
+    await ServerPalsu.masukPelanggan();
     await tester.pumpWidget(MaterialApp(home: halaman));
     await tester.pumpAndSettle();
+  }
+
+  /// Pesanan Cuci AC yang sudah dibuat dan dibayar di server palsu.
+  Future<PesananPelanggan> pesananDibayar() async {
+    await ServerPalsu.masukPelanggan();
+    final dibuat = await OrderService.instance.buat(
+      PesananPelanggan(
+        idLokasi: 1,
+        layanan: OrderService.layananDenganNama('Cuci AC'),
+        jumlahUnit: 1,
+        jenisAc: JenisAc.split,
+        pk: 1,
+        alamat: 'Perumahan Batu Aji Blok C No. 12, Batam',
+        detailAlamat: 'Pagar hitam',
+        jadwal: DateTime.now(),
+        metodeBayar: 'QRIS',
+        biayaAwal: 75000,
+      ),
+    );
+    return OrderService.instance.simulasiLunas(dibuat);
   }
 
   /// Isi "Detail alamat / patokan", field terakhir sebelum jadwal.
@@ -189,34 +213,29 @@ void main() {
     expect(find.text('Buka'), findsOneWidget);
   });
 
-  testWidgets('Batalkan pesanan saat mencari: kembali, pesanan aktif null', (
-    tester,
-  ) async {
-    final cuci = OrderService.layananDenganNama('Cuci AC');
-
-    await buka(
-      tester,
-      Builder(
-        builder: (context) => Scaffold(
-          body: Center(
-            child: ElevatedButton(
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => MencariTeknisiPage(
-                    layanan: cuci,
-                    lamaCari: const Duration(seconds: 10),
-                  ),
-                ),
-              ),
-              child: const Text('Buka'),
-            ),
+  Widget tombolBuka(PesananPelanggan p) => Builder(
+    builder: (context) => Scaffold(
+      body: Center(
+        child: ElevatedButton(
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => MencariTeknisiPage(pesanan: p)),
           ),
+          child: const Text('Buka'),
         ),
       ),
-    );
+    ),
+  );
+
+  testWidgets('Batalkan pesanan saat mencari: batal di server, dana tertahan', (
+    tester,
+  ) async {
+    ServerPalsu.aktif.terimaSetelahPeriksa = null;
+    final p = await pesananDibayar();
+    await buka(tester, tombolBuka(p));
 
     await tester.tap(find.text('Buka'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('Mencari Teknisi Terdekat...'), findsOneWidget);
 
     await tester.tap(find.text('Batalkan Pesanan'));
@@ -228,6 +247,49 @@ void main() {
     expect(find.text('Buka'), findsOneWidget);
     expect(find.text('Mencari Teknisi Terdekat...'), findsNothing);
     expect(OrderService.instance.pesananAktif.value, isNull);
+    final diServer = ServerPalsu.aktif.pesanan.single;
+    expect(diServer['status'], 'dibatalkan');
+    expect((diServer['pembayaran'] as List).first['status'], 'tertahan');
+  });
+
+  testWidgets('Tidak ada teknisi dalam batas waktu: kembali dengan pesan', (
+    tester,
+  ) async {
+    ServerPalsu.aktif.terimaSetelahPeriksa = null;
+    final p = await pesananDibayar();
+    await buka(tester, tombolBuka(p));
+    await tester.tap(find.text('Buka'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    ServerPalsu.aktif.habisWaktuPencarian(p.id!);
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Buka'), findsOneWidget);
+    expect(find.textContaining('Belum ada teknisi yang tersedia'), findsOneWidget);
+    expect(OrderService.instance.pesananAktif.value, isNull);
+  });
+
+  testWidgets('Masih ada pesanan aktif: pesan dari server saat bayar', (
+    tester,
+  ) async {
+    ServerPalsu.aktif.terimaSetelahPeriksa = null;
+    await pesananDibayar();
+    await buka(
+      tester,
+      BuatPesananPage(layanan: OrderService.layananDenganNama('Cuci AC')),
+    );
+    await tester.tap(find.text('Split'));
+    await tester.tap(find.text('1 PK'));
+    await isiAlamat(tester, 'Blok C No. 12');
+    await tapLanjut(tester);
+
+    await tester.tap(find.textContaining('Bayar Rp'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Masih ada pesanan yang sedang berjalan'), findsOneWidget);
+    expect(find.text('Ringkasan Pembayaran'), findsOneWidget);
   });
 
   testWidgets('Dari tracking, kembali ke beranda: pesanan berlangsung tampil', (
@@ -254,17 +316,19 @@ void main() {
     expect(find.text('Pembayaran QRIS'), findsOneWidget);
     expect(find.text('Menunggu Pembayaran'), findsOneWidget);
 
-    // 5 detik dummy: pembayaran berhasil -> mencari teknisi.
+    // 5 detik dummy: pembayaran berhasil (simulasi di server) -> mencari.
     await tester.pump(const Duration(seconds: 5));
     await tester.pump(const Duration(seconds: 1));
-    await tester.pumpAndSettle();
+    await tester.pump();
     expect(find.text('Mencari Teknisi Terdekat...'), findsOneWidget);
-    expect(OrderService.instance.pesananAktif.value?.metodeBayar, 'QRIS');
+    expect(ServerPalsu.aktif.pesanan.single['status'], 'mencari_teknisi');
+    expect(OrderService.instance.pesananAktif.value?.sudahDibayar, isTrue);
 
-    // Pencarian (lamaCari default 5 detik) -> tracking teknisi.
-    await tester.pump(const Duration(seconds: 6));
+    // Status diperiksa ke server; teknisi palsu menerima -> tracking.
+    await tester.pump(const Duration(seconds: 4));
     await tester.pumpAndSettle();
     expect(find.text('Teknisi Menuju Lokasi'), findsOneWidget);
+    expect(find.text('Andi Saputra'), findsOneWidget);
 
     // 5 detik setelah tracking -> detail pesanan, mulai dari pengecekan awal.
     await tester.pump(const Duration(seconds: 5));

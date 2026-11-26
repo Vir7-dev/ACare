@@ -5,83 +5,58 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/layanan.dart';
 import '../../services/order_service.dart';
-import '../../services/sesi_pengguna.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/ilustrasi_teknisi.dart';
 import 'tracking_teknisi_page.dart';
 
 class MencariTeknisiPage extends StatefulWidget {
-  final Layanan layanan;
+  /// Pesanan yang biaya awalnya sudah dibayar (sudah ada di server).
+  final PesananPelanggan pesanan;
 
-  /// Pesanan yang dibuat di [BuatPesananPage]. Kalau null, dibuatkan pesanan
-  /// minimal supaya halaman tetap bisa dibuka langsung (mis. dari test).
-  final PesananPelanggan? pesanan;
-
-  /// Metode bayar pilihan dari RingkasanPembayaranPage.
-  final String metodeBayar;
-
-  /// Lama simulasi pencarian sebelum teknisi "ditemukan".
-  final Duration lamaCari;
-
-  const MencariTeknisiPage({
-    super.key,
-    required this.layanan,
-    this.pesanan,
-    this.metodeBayar = '',
-    this.lamaCari = const Duration(seconds: 5),
-  });
+  const MencariTeknisiPage({super.key, required this.pesanan});
 
   @override
   State<MencariTeknisiPage> createState() => _MencariTeknisiPageState();
 }
 
 class _MencariTeknisiPageState extends State<MencariTeknisiPage> {
-  late String _lokasi = widget.pesanan?.alamat ?? 'Perumahan Batu aji, Batam';
   bool _selesai = false;
 
-  Layanan get layanan => widget.layanan;
+  PesananPelanggan get _pesanan => widget.pesanan;
+
+  String get _lokasi => _pesanan.alamatLengkap;
 
   @override
   void initState() {
     super.initState();
     _mulaiCari();
-    SesiPengguna.lokasi().then((l) {
-      if (mounted && l != null && widget.pesanan == null) {
-        setState(() => _lokasi = l);
-      }
-    });
   }
 
-  /// Pesanan minimal untuk pemanggil yang membuka halaman ini tanpa
-  /// [MencariTeknisiPage.pesanan].
-  PesananPelanggan get _pesanan =>
-      widget.pesanan ??
-      PesananPelanggan(
-        layanan: layanan,
-        jumlahUnit: 1,
-        jenisAc: JenisAc.split,
-        pk: 1,
-        alamat: _lokasi,
-        detailAlamat: '',
-        jadwal: DateTime.now(),
-        metodeBayar: widget.metodeBayar,
-        biayaAwal: OrderService.hitungBiayaAwal(layanan, 1),
-      );
+  @override
+  void dispose() {
+    // Pencarian tetap berjalan di server; aplikasi berhenti memeriksa.
+    if (!_selesai) OrderService.instance.hentikanPencarian();
+    super.dispose();
+  }
 
   Future<void> _mulaiCari() async {
-    final bool ditemukan;
-    try {
-      ditemukan = await OrderService.instance.cariTeknisi(
-        _pesanan,
-        lamaCari: widget.lamaCari,
-      );
-    } catch (_) {
-      // Sudah ada pesanan aktif: kembali tanpa menimpa pesanan tersebut.
-      if (mounted) Navigator.of(context).maybePop();
+    final ditemukan = await OrderService.instance.cariTeknisi(_pesanan);
+    if (!mounted) return;
+    if (!ditemukan) {
+      // Batal karena tidak ada teknisi yang menerima dalam batas waktu.
+      if (OrderService.instance.pesananAktif.value == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Belum ada teknisi yang tersedia. Pesanan dibatalkan dan biaya '
+              'awal bisa kamu ajukan refund dari Riwayat.',
+            ),
+          ),
+        );
+        Navigator.of(context).maybePop();
+      }
       return;
     }
-    // Dibatalkan atau halaman sudah ditinggalkan: jangan pindah layar.
-    if (!mounted || !ditemukan) return;
     setState(() => _selesai = true);
     _keTracking();
   }
@@ -104,10 +79,17 @@ class _MencariTeknisiPageState extends State<MencariTeknisiPage> {
       context: context,
       builder: (_) => const _DialogBatal(),
     );
-    if (batal == true && context.mounted) {
-      OrderService.instance.batalkan();
-      Navigator.of(context).pop();
+    if (batal != true || !context.mounted) return;
+    final galat = await OrderService.instance.batalkan();
+    if (!context.mounted) return;
+    if (galat != null) {
+      // Misal teknisi baru saja menerima: pesanan tidak bisa dibatalkan.
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(galat)));
+      return;
     }
+    _selesai = true;
+    Navigator.of(context).pop();
   }
 
   @override
@@ -201,24 +183,29 @@ class _LokasiAnda extends StatelessWidget {
             child: Icon(Icons.location_on, size: 16, color: AppColors.biruTua),
           ),
           const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Lokasi Anda',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
+          // Expanded: alamat asli bisa panjang, jangan meluber keluar kartu.
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Lokasi Anda',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-              ),
-              Text(
-                lokasi,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 11,
-                  color: Colors.black54,
+                Text(
+                  lokasi,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11,
+                    color: Colors.black54,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),

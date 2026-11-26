@@ -73,6 +73,53 @@ class ServerPalsu {
   /// Id alamat yang sedang dipakai pesanan aktif (tidak bisa dihapus).
   final Set<int> alamatDipakai = {};
 
+  /// Pesanan di server palsu (bentuk sama dengan PesananResource).
+  final List<Map<String, dynamic>> pesanan = [];
+
+  /// Teknisi palsu menerima pesanan yang sudah dibayar setelah status
+  /// diperiksa sebanyak ini; `null` = tidak pernah ada yang menerima.
+  int? terimaSetelahPeriksa = 2;
+
+  final Map<int, int> _jumlahPeriksa = {};
+
+  /// Langsung batalkan pencarian seolah 15 menit tanpa teknisi.
+  void habisWaktuPencarian(int id) {
+    final p = pesanan.firstWhere((p) => p['id'] == id);
+    p['status'] = 'dibatalkan';
+    p['alasan_pembatalan'] = 'Tidak ada teknisi yang menerima dalam batas waktu';
+  }
+
+  Map<String, dynamic> _buatPesanan(Map<String, dynamic> isi, int idPelanggan) {
+    final l = layanan.firstWhere((l) => l['id'] == isi['id_layanan']);
+    final alamatnya = (alamat[idPelanggan] ?? [])
+        .firstWhere((a) => a['id'] == isi['id_lokasi']);
+    final unit = (isi['jumlah_unit'] as num).toInt();
+    final total = (l['harga'] as int) * unit;
+    final id = 100 + pesanan.length;
+    return {
+      'id': id,
+      'id_pelanggan': idPelanggan,
+      'kode': 'AC-${id.toString().padLeft(6, '0')}',
+      'status': 'mencari_teknisi',
+      'layanan': {'id': l['id'], 'nama': l['nama'], 'harga': l['harga']},
+      'jumlah_unit': unit,
+      'jenis_ac': isi['jenis_ac'],
+      'pk': isi['pk'],
+      'merek': isi['merek'],
+      'alamat': alamatnya,
+      'detail_lokasi': isi['detail_lokasi'],
+      'jadwal_service': isi['jadwal_service'],
+      'detail_layanan': isi['detail_layanan'] ?? {},
+      'catatan': isi['catatan'],
+      'biaya': {'total': total},
+      'pembayaran': [
+        {'id': id * 10, 'jenis': 'awal', 'status': 'menunggu', 'jumlah': total, 'metode': null},
+      ],
+      'teknisi': null,
+      'bisa_dibatalkan': true,
+    };
+  }
+
   int _idAlamat = 10;
 
   /// token -> id akun.
@@ -316,6 +363,77 @@ class ServerPalsu {
         };
         (alamat[saya['id'] as int] ??= []).add(baru);
         return _json(201, {'data': baru});
+    }
+
+    final rute = '${r.method} $path';
+    final milikSaya = pesanan.where((p) => p['id_pelanggan'] == saya['id']);
+
+    if (rute == 'POST /pesanan') {
+      final aktif = milikSaya.any(
+        (p) => !['selesai', 'dibatalkan'].contains(p['status']),
+      );
+      if (aktif) {
+        return _json(409, {
+          'message': 'Masih ada pesanan yang sedang berjalan. Selesaikan atau batalkan dulu sebelum memesan lagi.',
+          'kode': 'masih_ada_pesanan_aktif',
+        });
+      }
+      final baru = _buatPesanan(isi, saya['id'] as int);
+      pesanan.add(baru);
+      return _json(201, {'data': baru});
+    }
+
+    if (rute == 'GET /pesanan') {
+      final status = r.url.queryParameters['status'];
+      final hasil = milikSaya.where((p) => switch (status) {
+        'aktif' => !['selesai', 'dibatalkan'].contains(p['status']),
+        null => true,
+        _ => p['status'] == status,
+      }).toList().reversed.toList();
+      return _json(200, {'data': hasil});
+    }
+
+    final cocokPesanan = RegExp(
+      r'^(GET|POST) /pesanan/(\d+)(?:/(batal|pembayaran/(\d+)/simulasi-lunas))?$',
+    ).firstMatch(rute);
+    if (cocokPesanan != null) {
+      final id = int.parse(cocokPesanan.group(2)!);
+      final p = milikSaya.where((p) => p['id'] == id).firstOrNull;
+      if (p == null) return _json(404, {'message': 'Data tidak ditemukan.'});
+      final aksi = cocokPesanan.group(3);
+      final bayar = (p['pembayaran'] as List).first as Map<String, dynamic>;
+
+      if (aksi == 'batal') {
+        if (p['status'] != 'mencari_teknisi') {
+          return _json(422, {
+            'message': 'Pesanan tidak bisa dibatalkan karena teknisi sudah ditemukan.',
+            'kode': 'tidak_bisa_dibatalkan',
+          });
+        }
+        p['status'] = 'dibatalkan';
+        p['bisa_dibatalkan'] = false;
+        p['alasan_pembatalan'] = isi['alasan'] ?? 'Dibatalkan oleh pelanggan saat mencari teknisi';
+        bayar['status'] = bayar['status'] == 'berhasil' ? 'tertahan' : 'kedaluwarsa';
+      } else if (aksi != null) {
+        bayar['status'] = 'berhasil';
+        bayar['metode'] = 'SIMULASI';
+      } else if (p['status'] == 'mencari_teknisi' && bayar['status'] == 'berhasil') {
+        // Pelanggan memeriksa status: teknisi palsu menerima setelah beberapa kali.
+        final n = _jumlahPeriksa[id] = (_jumlahPeriksa[id] ?? 0) + 1;
+        if (terimaSetelahPeriksa != null && n >= terimaSetelahPeriksa!) {
+          p['status'] = 'menuju_lokasi';
+          p['bisa_dibatalkan'] = false;
+          p['teknisi'] = {
+            'id': 2,
+            'nama': 'Andi Saputra',
+            'no_telepon': '081234567890',
+            'jenis_kendaraan': 'Honda Beat',
+            'plat_nomor': 'BP 4892 QL',
+            'deskripsi': 'Berpengalaman 5 tahun menangani AC rumah dan kantor.',
+          };
+        }
+      }
+      return _json(200, {'data': p});
     }
 
     final cocokAlamat = RegExp(r'^(PUT|DELETE) /alamat/(\d+)$').firstMatch(

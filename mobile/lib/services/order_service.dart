@@ -1,11 +1,11 @@
 import 'dart:async';
-import 'dart:math';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/scheduler.dart';
 
 import '../models/layanan.dart';
 import '../models/teknisi.dart';
+import 'api_client.dart';
+import 'layanan_service.dart';
 
 /// Status ringkas pesanan pelanggan.
 enum StatusPesananPelanggan {
@@ -17,6 +17,15 @@ enum StatusPesananPelanggan {
 
   final String label;
   const StatusPesananPelanggan(this.label);
+
+  /// Dari status pesanan di server (9 status) ke status ringkas.
+  static StatusPesananPelanggan dariServer(String? s) => switch (s) {
+    'mencari_teknisi' => mencariTeknisi,
+    'menuju_lokasi' || 'tiba' => teknisiDitemukan,
+    'selesai' => selesai,
+    'dibatalkan' => dibatalkan,
+    _ => dikerjakan,
+  };
 }
 
 /// Jenis AC yang bisa dipilih pelanggan.
@@ -40,9 +49,22 @@ enum JenisBongkarPasang {
   const JenisBongkarPasang(this.label);
 }
 
-/// Data pesanan pelanggan. Dipakai untuk menyimpan pesanan yang sedang
-/// berjalan di [OrderService.pesananAktif].
+/// Data pesanan pelanggan: draf dari form, atau pesanan dari server
+/// (`id` terisi) yang disimpan di [OrderService.pesananAktif].
 class PesananPelanggan {
+  /// Id pesanan di server; `null` selama masih draf di form.
+  final int? id;
+  final String? kode;
+
+  /// Id alamat tersimpan (tabel `lokasi`) yang dipakai pesanan.
+  final int? idLokasi;
+
+  /// Id tagihan biaya awal di server.
+  final int? idPembayaranAwal;
+
+  /// Status lengkap dari server, misal `pengecekan_awal`.
+  final String? statusServer;
+
   final Layanan layanan;
   final int jumlahUnit;
   final JenisAc jenisAc;
@@ -62,11 +84,19 @@ class PesananPelanggan {
   final StatusPesananPelanggan status;
   final String? namaTeknisi;
   final String? plat;
+  final String? kendaraan;
+  final String? teleponTeknisi;
+  final String? deskripsiTeknisi;
   final String? rating;
   final int? jumlahUlasan;
   final Duration? estimasiTiba;
 
   const PesananPelanggan({
+    this.id,
+    this.kode,
+    this.idLokasi,
+    this.idPembayaranAwal,
+    this.statusServer,
     required this.layanan,
     required this.jumlahUnit,
     required this.jenisAc,
@@ -82,10 +112,63 @@ class PesananPelanggan {
     this.status = StatusPesananPelanggan.mencariTeknisi,
     this.namaTeknisi,
     this.plat,
+    this.kendaraan,
+    this.teleponTeknisi,
+    this.deskripsiTeknisi,
     this.rating,
     this.jumlahUlasan,
     this.estimasiTiba,
   });
+
+  /// Dari `PesananResource` di backend.
+  factory PesananPelanggan.dariJson(Map<String, dynamic> j) {
+    final layananJson = j['layanan'] as Map<String, dynamic>?;
+    final nama = layananJson?['nama'] as String? ?? '';
+    final layanan =
+        daftarLayanan.where((l) => l.nama == nama).firstOrNull ??
+        Layanan.dariJson({'nama': nama, 'harga': layananJson?['harga']});
+    final pembayaran = (j['pembayaran'] as List? ?? const [])
+        .cast<Map<String, dynamic>>();
+    final awal = pembayaran.where((p) => p['jenis'] == 'awal').firstOrNull;
+    final alamat = j['alamat'] as Map<String, dynamic>?;
+    final teknisi = j['teknisi'] as Map<String, dynamic>?;
+    final detail = j['detail_layanan'];
+    return PesananPelanggan(
+      id: j['id'] as int?,
+      kode: j['kode'] as String?,
+      idLokasi: alamat?['id'] as int?,
+      idPembayaranAwal: awal?['id'] as int?,
+      statusServer: j['status'] as String?,
+      layanan: layanan,
+      jumlahUnit: (j['jumlah_unit'] as num?)?.toInt() ?? 1,
+      jenisAc: JenisAc.values
+              .where((e) => e.name == j['jenis_ac'])
+              .firstOrNull ??
+          JenisAc.split,
+      pk: (j['pk'] as num?)?.toDouble() ?? 1,
+      merek: j['merek'] as String?,
+      alamat: alamat?['alamat_lengkap'] as String? ?? '',
+      detailAlamat: j['detail_lokasi'] as String? ?? '',
+      jadwal:
+          DateTime.tryParse(j['jadwal_service'] as String? ?? '')?.toLocal() ??
+          DateTime.now(),
+      catatan: j['catatan'] as String?,
+      detailLayanan: detail is Map
+          ? detail.map((k, v) => MapEntry('$k', v as Object))
+          : const {},
+      metodeBayar: awal?['metode'] as String? ?? '',
+      biayaAwal: (awal?['jumlah'] as num?)?.toInt() ?? 0,
+      status: StatusPesananPelanggan.dariServer(j['status'] as String?),
+      namaTeknisi: teknisi?['nama'] as String?,
+      plat: teknisi?['plat_nomor'] as String?,
+      kendaraan: teknisi?['jenis_kendaraan'] as String?,
+      teleponTeknisi: teknisi?['no_telepon'] as String?,
+      deskripsiTeknisi: teknisi?['deskripsi'] as String?,
+    );
+  }
+
+  /// Biaya awal sudah dibayar (pencarian teknisi sudah berjalan).
+  bool get sudahDibayar => metodeBayar.isNotEmpty;
 
   bool get teknisiSudahDitemukan =>
       namaTeknisi != null && namaTeknisi!.trim().isNotEmpty;
@@ -107,19 +190,15 @@ class PesananPelanggan {
     if (!teknisiSudahDitemukan) return null;
     return Teknisi(
       nama: namaTeknisi!,
+      // TODO(ulasan): rating dari tabel rating_ulasan.
       rating: rating ?? '-',
       jumlahUlasan: jumlahUlasan ?? 0,
-      // TODO(backend): ambil kendaraan teknisi dari API.
-      kendaraan: teknisiDummy.kendaraan,
+      kendaraan: kendaraan ?? '-',
       plat: plat ?? '-',
-      telepon: _teleponTeknisi,
-      testimoni: 'Berpengalaman 5 tahun menangani AC rumah dan kantor. Selalu menjelaskan masalah sebelum mulai bekerja.',
+      telepon: teleponTeknisi ?? '',
+      testimoni: deskripsiTeknisi ?? '',
     );
   }
-
-  /// Nomor telepon teknisi (dummy untuk sementara).
-  // TODO(backend): ambil nomor teknisi dari API.
-  static const String _teleponTeknisi = '081234567890';
 
   /// Salinan dengan sebagian data diganti.
   PesananPelanggan copyWith({
@@ -130,8 +209,14 @@ class PesananPelanggan {
     int? jumlahUlasan,
     Duration? estimasiTiba,
     String? metodeBayar,
+    int? idLokasi,
   }) {
     return PesananPelanggan(
+      id: id,
+      kode: kode,
+      idLokasi: idLokasi ?? this.idLokasi,
+      idPembayaranAwal: idPembayaranAwal,
+      statusServer: statusServer,
       layanan: layanan,
       jumlahUnit: jumlahUnit,
       jenisAc: jenisAc,
@@ -147,6 +232,9 @@ class PesananPelanggan {
       status: status ?? this.status,
       namaTeknisi: namaTeknisi ?? this.namaTeknisi,
       plat: plat ?? this.plat,
+      kendaraan: kendaraan,
+      teleponTeknisi: teleponTeknisi,
+      deskripsiTeknisi: deskripsiTeknisi,
       rating: rating ?? this.rating,
       jumlahUlasan: jumlahUlasan ?? this.jumlahUlasan,
       estimasiTiba: estimasiTiba ?? this.estimasiTiba,
@@ -158,11 +246,10 @@ class PesananPelanggan {
 String _pkLabel(double pk) =>
     pk == pk.roundToDouble() ? pk.toStringAsFixed(0) : pk.toString();
 
-/// Sumber tunggal mock data pesanan pelanggan.
+/// Pesanan pelanggan lewat API `/api/pesanan`.
 ///
-/// Harga layanan TIDAK disimpan di sini: semuanya dibaca dari
-/// [daftarLayanan] (lihat [layananDenganNama] dan [hitungBiayaAwal])
-/// supaya tidak ada angka yang di-hardcode di halaman.
+/// Harga layanan TIDAK disimpan di sini: semuanya dibaca dari katalog
+/// ([daftarLayanan]) dan dihitung ulang server saat pesanan dibuat.
 class OrderService {
   OrderService._();
 
@@ -173,13 +260,16 @@ class OrderService {
   /// mengajukan biaya perbaikan sesuai masalah yang ditemukan.
   static const Set<String> layananBerbiayaTambahan = {'Service AC', 'Cek AC'};
 
+  /// Selang pemeriksaan status saat menunggu teknisi.
+  // TODO(fcm): ganti dengan notifikasi; pemeriksaan berkala jadi cadangan.
+  static Duration selangPeriksa = const Duration(seconds: 3);
+
   /// Pesanan yang sedang berjalan. `null` berarti pelanggan belum punya
   /// pesanan aktif, sehingga section "Sedang Berlangsung" disembunyikan.
   final ValueNotifier<PesananPelanggan?> pesananAktif =
       ValueNotifier<PesananPelanggan?>(null);
 
-  /// Riwayat servis terakhir pelanggan (mock, kosong = belum pernah servis).
-  // TODO(backend): ambil riwayat dari API pelanggan.
+  /// Pesanan terakhir yang selesai (kartu "Servis Terakhir" di beranda).
   final ValueNotifier<PesananPelanggan?> servisTerakhir =
       ValueNotifier<PesananPelanggan?>(null);
 
@@ -192,105 +282,151 @@ class OrderService {
     throw ArgumentError.value(nama, 'nama', 'Layanan tidak dikenal');
   }
 
-  /// Biaya awal yang dibayar di muka sebelum mencari teknisi:
-  /// harga layanan x jumlah unit. Biaya perbaikan (bila ada) diajukan
-  /// teknisi setelah pengecekan dan dibayar saat pelunasan.
+  /// Perkiraan biaya awal untuk ditampilkan: harga layanan x jumlah unit.
+  /// Jumlah yang ditagih tetap dihitung server.
   static int hitungBiayaAwal(Layanan layanan, int jumlahUnit) =>
       layanan.harga * jumlahUnit;
 
-  /// Nomor pencarian yang sedang berjalan; dinaikkan tiap [batalkan] supaya
-  /// hasil pencarian lama tidak menimpa pembatalan.
+  /// Dinaikkan setiap pencarian dihentikan, supaya pemeriksaan lama berhenti.
   int _tokenPencarian = 0;
 
-  /// Timer pencarian yang aktif, dibatalkan oleh [batalkan].
-  Timer? _timerPencarian;
+  /// Muat pesanan aktif dan servis terakhir dari server (beranda).
+  Future<void> muatAktif() async {
+    if (await ApiClient.token() == null) return;
+    try {
+      final aktif = await ApiClient.get('/pesanan?status=aktif');
+      final daftar = (aktif['data'] as List? ?? const []);
+      pesananAktif.value = daftar.isEmpty
+          ? null
+          : PesananPelanggan.dariJson(daftar.first as Map<String, dynamic>);
+      final selesai = await ApiClient.get('/pesanan?status=selesai');
+      final s = (selesai['data'] as List? ?? const []);
+      servisTerakhir.value = s.isEmpty
+          ? null
+          : PesananPelanggan.dariJson(s.first as Map<String, dynamic>);
+    } on ApiException {
+      // Tetap tampilkan data terakhir.
+    }
+  }
 
-  /// Hasil pencarian yang menunggu; diselesaikan `false` saat dibatalkan.
-  Completer<bool>? _hasilPencarian;
+  /// Ambil pesanan terbaru dari server dan perbarui [pesananAktif].
+  Future<PesananPelanggan> muatUlang(int id) async {
+    final res = await ApiClient.get('/pesanan/$id');
+    final p = PesananPelanggan.dariJson(res['data'] as Map<String, dynamic>);
+    _simpanAktif(p);
+    return p;
+  }
 
-  /// Mencari teknisi terdekat untuk [p]. Data teknisi masih dummy dan
-  /// diselesaikan setelah [lamaCari] (default 5 detik).
-  ///
-  /// Mengembalikan `false` kalau pencarian dibatalkan (lewat [batalkan] atau
-  /// karena pelanggan meninggalkan halaman pencarian).
-  // TODO(backend): panggil API pencarian teknisi dan langganan statusnya.
-  Future<bool> cariTeknisi(
-    PesananPelanggan p, {
-    Duration lamaCari = const Duration(seconds: 5),
-  }) {
-    _pastikanBelumAdaPesananAktif();
-
-    final token = ++_tokenPencarian;
-    _timerPencarian?.cancel();
-    _selesaikanPencarian(false);
-
-    final hasil = _hasilPencarian = Completer<bool>();
-    // Ditunda ke akhir frame: cariTeknisi sering dipanggil dari initState,
-    // dan memberi tahu ValueNotifier saat frame sedang dibangun akan memicu
-    // "setState() called during build" pada listener (mis. beranda).
-    _tundaSetelahFrame(() {
-      if (token == _tokenPencarian) pesananAktif.value = p;
-    });
-
-    _timerPencarian = Timer(lamaCari, () {
-      _timerPencarian = null;
-      // Pesanan dibatalkan selama proses pencarian: jangan timpa.
-      if (token != _tokenPencarian || pesananAktif.value == null) {
-        if (!hasil.isCompleted) hasil.complete(false);
-        return;
-      }
-
-      final menit = 10 + Random().nextInt(11);
-      pesananAktif.value = p.copyWith(
-        status: StatusPesananPelanggan.teknisiDitemukan,
-        namaTeknisi: 'Andi Saputra',
-        plat: 'BP 4892 QL',
-        rating: '4.9',
-        jumlahUlasan: 67,
-        estimasiTiba: Duration(minutes: menit),
+  /// Buat pesanan di server dari draf form. Melempar [ApiException] bila
+  /// ditolak (misal masih ada pesanan aktif, atau data tidak valid).
+  Future<PesananPelanggan> buat(PesananPelanggan draf) async {
+    var idLayanan = draf.layanan.id;
+    if (idLayanan == null) {
+      // Katalog bawaan belum diganti data server: muat dulu.
+      await LayananService.instance.muat();
+      idLayanan = daftarLayanan
+          .where((l) => l.nama == draf.layanan.nama)
+          .firstOrNull
+          ?.id;
+    }
+    if (idLayanan == null || draf.idLokasi == null) {
+      throw const ApiException(
+        status: 0,
+        pesan: 'Data layanan atau alamat belum termuat. Periksa koneksi lalu coba lagi.',
       );
-      if (!hasil.isCompleted) hasil.complete(true);
+    }
+    final res = await ApiClient.post('/pesanan', {
+      'id_layanan': idLayanan,
+      'jumlah_unit': draf.jumlahUnit,
+      'jenis_ac': draf.jenisAc.name,
+      'pk': draf.pk,
+      'merek': ?draf.merek,
+      'id_lokasi': draf.idLokasi,
+      'detail_lokasi': draf.detailAlamat,
+      'jadwal_service': draf.jadwal.toUtc().toIso8601String(),
+      'catatan': ?draf.catatan,
+      'detail_layanan': draf.detailLayanan,
     });
-    return hasil.future;
+    return PesananPelanggan.dariJson(res['data'] as Map<String, dynamic>);
   }
 
-  /// Tolak pesanan baru kalau masih ada pesanan aktif.
-  // TODO(backend): validasi juga di sisi server.
-  void _pastikanBelumAdaPesananAktif() {
-    final aktif = pesananAktif.value;
-    if (aktif != null && aktif.aktif) {
-      throw StateError('Masih ada pesanan yang sedang berjalan.');
+  /// Anggap biaya awal lunas (sebelum Xendit tersambung).
+  // TODO(xendit): ganti dengan menunggu status pembayaran dari server.
+  Future<PesananPelanggan> simulasiLunas(PesananPelanggan p) async {
+    final res = await ApiClient.post(
+      '/pesanan/${p.id}/pembayaran/${p.idPembayaranAwal}/simulasi-lunas',
+    );
+    final hasil = PesananPelanggan.dariJson(
+      res['data'] as Map<String, dynamic>,
+    );
+    _simpanAktif(hasil);
+    return hasil;
+  }
+
+  /// Tunggu sampai teknisi menerima pesanan [p]: status diperiksa ke server
+  /// setiap [selangPeriksa]. Mengembalikan `false` bila pesanan batal (oleh
+  /// pelanggan atau karena tidak ada teknisi) atau pencarian dihentikan.
+  Future<bool> cariTeknisi(PesananPelanggan p) async {
+    final token = ++_tokenPencarian;
+    _simpanAktif(p);
+    while (token == _tokenPencarian) {
+      try {
+        final terbaru = await muatUlang(p.id!);
+        if (terbaru.status == StatusPesananPelanggan.dibatalkan) {
+          pesananAktif.value = null;
+          return false;
+        }
+        if (terbaru.teknisiSudahDitemukan) return true;
+      } on ApiException {
+        // Koneksi putus sesaat: coba lagi di putaran berikutnya.
+      }
+      if (token != _tokenPencarian) break;
+      await _tunggu();
     }
+    return false;
   }
 
-  /// Batalkan pencarian/pesanan yang sedang berjalan.
-  // TODO(backend): panggil API pembatalan pesanan.
-  void batalkan() {
+  Timer? _timerTunggu;
+  Completer<void>? _jeda;
+
+  /// Jeda antar pemeriksaan yang bisa dihentikan seketika.
+  Future<void> _tunggu() {
+    final c = _jeda = Completer<void>();
+    _timerTunggu = Timer(selangPeriksa, () {
+      if (!c.isCompleted) c.complete();
+    });
+    return c.future;
+  }
+
+  void _hentikanJeda() {
     _tokenPencarian++;
-    _timerPencarian?.cancel();
-    _timerPencarian = null;
-    _selesaikanPencarian(false);
-    pesananAktif.value = null;
+    _timerTunggu?.cancel();
+    final c = _jeda;
+    if (c != null && !c.isCompleted) c.complete();
   }
 
-  void _selesaikanPencarian(bool ditemukan) {
-    final hasil = _hasilPencarian;
-    if (hasil != null && !hasil.isCompleted) hasil.complete(ditemukan);
-    _hasilPencarian = null;
-  }
+  /// Hentikan pemeriksaan tanpa membatalkan pesanan (halaman ditutup).
+  void hentikanPencarian() => _hentikanJeda();
 
-  /// Jalankan [aksi] setelah frame saat ini selesai dibangun.
-  void _tundaSetelahFrame(VoidCallback aksi) {
-    final binding = SchedulerBinding.instance;
-    if (binding.schedulerPhase == SchedulerPhase.persistentCallbacks) {
-      binding.addPostFrameCallback((_) => aksi());
-    } else {
-      aksi();
+  /// Batalkan pesanan aktif di server. Mengembalikan pesan galat atau
+  /// `null` bila berhasil.
+  Future<String?> batalkan({String? alasan}) async {
+    _hentikanJeda();
+    final p = pesananAktif.value;
+    if (p?.id == null) {
+      pesananAktif.value = null;
+      return null;
     }
+    try {
+      await ApiClient.post('/pesanan/${p!.id}/batal', {'alasan': ?alasan});
+    } on ApiException catch (e) {
+      return e.pesan;
+    }
+    pesananAktif.value = null;
+    return null;
   }
 
-  /// Selesaikan pesanan aktif lalu simpan sebagai riwayat servis terakhir.
-  // TODO(backend): kirim status selesai ke API dan tarik riwayat terbaru.
+  /// Pesanan aktif selesai: pindahkan ke servis terakhir.
   void selesaikan() {
     final p = pesananAktif.value;
     if (p == null) return;
@@ -298,13 +434,20 @@ class OrderService {
     pesananAktif.value = null;
   }
 
-  /// Kembalikan service ke kondisi awal (dipakai unit test).
-  @visibleForTesting
+  void _simpanAktif(PesananPelanggan p) {
+    if (p.status == StatusPesananPelanggan.selesai) {
+      servisTerakhir.value = p;
+      pesananAktif.value = null;
+    } else if (p.status == StatusPesananPelanggan.dibatalkan) {
+      pesananAktif.value = null;
+    } else {
+      pesananAktif.value = p;
+    }
+  }
+
+  /// Kembalikan service ke kondisi awal (dipakai unit test dan saat keluar).
   void reset() {
-    _tokenPencarian++;
-    _timerPencarian?.cancel();
-    _timerPencarian = null;
-    _selesaikanPencarian(false);
+    _hentikanJeda();
     pesananAktif.value = null;
     servisTerakhir.value = null;
   }

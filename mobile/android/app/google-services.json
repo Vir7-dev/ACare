@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "636247258403",
+    "project_id": "acare-54690",
+    "storage_bucket": "acare-54690.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:636247258403:android:f30d55a560d1b392424896",
+        "android_client_info": {
+          "package_name": "id.acare.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBXDWkW1tGscxdDOu_4e87l08H8zhGZuZQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

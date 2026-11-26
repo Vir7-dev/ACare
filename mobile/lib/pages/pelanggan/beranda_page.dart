@@ -42,6 +42,7 @@ class _BerandaPageState extends State<BerandaPage> {
     LayananService.instance.katalog.addListener(_segarkan);
     LayananService.instance.muat();
     AlamatService.instance.muat();
+    OrderService.instance.muatAktif();
   }
 
   @override

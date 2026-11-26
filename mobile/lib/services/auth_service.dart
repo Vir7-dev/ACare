@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import '../models/akun.dart';
 import 'alamat_service.dart';
 import 'api_client.dart';
+import 'order_service.dart';
 import 'sesi_pengguna.dart';
 
 /// Peran pengguna di aplikasi ACare.
@@ -258,6 +259,7 @@ class AuthService {
     akun.value = null;
     // Data milik akun sebelumnya tidak boleh terlihat akun berikutnya.
     AlamatService.instance.reset();
+    OrderService.instance.reset();
     await ApiClient.hapusToken();
     await ApiClient.penyimpanan.hapus(_kAkun);
     await SesiPengguna.keluar();
