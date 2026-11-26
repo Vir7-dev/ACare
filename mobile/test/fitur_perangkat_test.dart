@@ -6,7 +6,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:acare_mobile/models/status_layanan.dart';
 import 'package:acare_mobile/pages/pelanggan/daftar_page.dart';
 import 'package:acare_mobile/pages/pelanggan/detail_pesanan_page.dart';
 import 'package:acare_mobile/pages/umum/main_shell.dart';
@@ -14,6 +13,8 @@ import 'package:acare_mobile/pages/pelanggan/masuk_page.dart';
 import 'package:acare_mobile/pages/pelanggan/pengaduan_page.dart';
 import 'package:acare_mobile/pages/umum/splash_page.dart';
 import 'package:acare_mobile/services/perangkat.dart';
+
+import 'support/server_palsu.dart';
 
 // PNG 1x1 piksel
 final _png = base64Decode(
@@ -39,14 +40,8 @@ void main() {
       return true;
     };
 
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: DetailPesananPage(
-          status: StatusLayanan.pengecekanAwal,
-          otomatis: false,
-        ),
-      ),
-    );
+    final p = await ServerPalsu.aktif.buatPesananUji();
+    await tester.pumpWidget(MaterialApp(home: DetailPesananPage(pesanan: p)));
     await tester.tap(find.text('Telepon'));
     await tester.pump();
 
@@ -58,14 +53,8 @@ void main() {
     ukuranHp(tester);
     Perangkat.bukaUrl = (_) async => false;
 
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: DetailPesananPage(
-          status: StatusLayanan.pengecekanAwal,
-          otomatis: false,
-        ),
-      ),
-    );
+    final p = await ServerPalsu.aktif.buatPesananUji();
+    await tester.pumpWidget(MaterialApp(home: DetailPesananPage(pesanan: p)));
     await tester.tap(find.text('Telepon'));
     await tester.pump();
 

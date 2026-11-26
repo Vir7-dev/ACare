@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../models/layanan.dart';
+import '../models/pesanan.dart';
+import '../models/status_layanan.dart';
+import '../models/tagihan.dart';
 import '../models/teknisi.dart';
 import 'api_client.dart';
 import 'layanan_service.dart';
@@ -91,6 +94,22 @@ class PesananPelanggan {
   final int? jumlahUlasan;
   final Duration? estimasiTiba;
 
+  /// Item biaya perbaikan dari teknisi (jasa/suku cadang).
+  final List<KomponenTagihan> biayaPerbaikan;
+
+  /// `menunggu`, `disetujui`, `ditolak`, atau null (belum diajukan).
+  final String? statusBiaya;
+  final String catatanBiaya;
+
+  /// Tagihan pelunasan biaya perbaikan (bila ada).
+  final int? idPembayaranPelunasan;
+  final String? statusPelunasan;
+  final int jumlahPelunasan;
+
+  /// Waktu tiap tahap dari server: `pengecekan`, `dikerjakan`,
+  /// `menunggu_pembayaran`, `selesai`, dst.
+  final Map<String, DateTime> waktu;
+
   const PesananPelanggan({
     this.id,
     this.kode,
@@ -118,6 +137,13 @@ class PesananPelanggan {
     this.rating,
     this.jumlahUlasan,
     this.estimasiTiba,
+    this.biayaPerbaikan = const [],
+    this.statusBiaya,
+    this.catatanBiaya = '',
+    this.idPembayaranPelunasan,
+    this.statusPelunasan,
+    this.jumlahPelunasan = 0,
+    this.waktu = const {},
   });
 
   /// Dari `PesananResource` di backend.
@@ -130,6 +156,13 @@ class PesananPelanggan {
     final pembayaran = (j['pembayaran'] as List? ?? const [])
         .cast<Map<String, dynamic>>();
     final awal = pembayaran.where((p) => p['jenis'] == 'awal').firstOrNull;
+    final pelunasan = pembayaran
+        .where((p) => p['jenis'] == 'pelunasan')
+        .lastOrNull;
+    final biaya = j['biaya'] as Map<String, dynamic>? ?? const {};
+    final rincian = (biaya['rincian'] as List? ?? const [])
+        .cast<Map<String, dynamic>>();
+    final waktuJson = j['waktu'] as Map<String, dynamic>? ?? const {};
     final alamat = j['alamat'] as Map<String, dynamic>?;
     final teknisi = j['teknisi'] as Map<String, dynamic>?;
     final detail = j['detail_layanan'];
@@ -141,9 +174,8 @@ class PesananPelanggan {
       statusServer: j['status'] as String?,
       layanan: layanan,
       jumlahUnit: (j['jumlah_unit'] as num?)?.toInt() ?? 1,
-      jenisAc: JenisAc.values
-              .where((e) => e.name == j['jenis_ac'])
-              .firstOrNull ??
+      jenisAc:
+          JenisAc.values.where((e) => e.name == j['jenis_ac']).firstOrNull ??
           JenisAc.split,
       pk: (j['pk'] as num?)?.toDouble() ?? 1,
       merek: j['merek'] as String?,
@@ -164,8 +196,48 @@ class PesananPelanggan {
       kendaraan: teknisi?['jenis_kendaraan'] as String?,
       teleponTeknisi: teknisi?['no_telepon'] as String?,
       deskripsiTeknisi: teknisi?['deskripsi'] as String?,
+      biayaPerbaikan: [
+        for (final r in rincian)
+          if (r['jenis'] != 'layanan')
+            KomponenTagihan(
+              r['nama'] as String? ?? '',
+              (r['subtotal'] as num?)?.toInt() ?? 0,
+            ),
+      ],
+      statusBiaya: biaya['status_biaya'] as String?,
+      catatanBiaya: biaya['catatan_teknisi'] as String? ?? '',
+      idPembayaranPelunasan: pelunasan?['id'] as int?,
+      statusPelunasan: pelunasan?['status'] as String?,
+      jumlahPelunasan: (pelunasan?['jumlah'] as num?)?.toInt() ?? 0,
+      waktu: {
+        for (final e in waktuJson.entries)
+          if (e.value is String && DateTime.tryParse(e.value as String) != null)
+            e.key: DateTime.parse(e.value as String).toLocal(),
+      },
     );
   }
+
+  /// Tagihan untuk halaman detail & pelunasan.
+  Tagihan get tagihan => Tagihan(
+    pemeriksaan: biayaAwal,
+    komponen: biayaPerbaikan,
+    catatanTeknisi: catatanBiaya,
+  );
+
+  bool get biayaDitolak => statusBiaya == 'ditolak';
+
+  /// Tahap pada garis waktu detail pesanan.
+  StatusLayanan get statusLayanan => switch (statusServer) {
+    'menunggu_persetujuan_biaya' => StatusLayanan.menungguPersetujuanBiaya,
+    'dikerjakan' => StatusLayanan.melakukanPerbaikan,
+    'menunggu_pembayaran' => StatusLayanan.menungguPembayaran,
+    'selesai' => StatusLayanan.selesai,
+    _ => StatusLayanan.pengecekanAwal,
+  };
+
+  /// Teknisi masih di perjalanan (halaman tracking).
+  bool get teknisiDiPerjalanan =>
+      statusServer == 'menuju_lokasi' || statusServer == 'tiba';
 
   /// Biaya awal sudah dibayar (pencarian teknisi sudah berjalan).
   bool get sudahDibayar => metodeBayar.isNotEmpty;
@@ -238,6 +310,13 @@ class PesananPelanggan {
       rating: rating ?? this.rating,
       jumlahUlasan: jumlahUlasan ?? this.jumlahUlasan,
       estimasiTiba: estimasiTiba ?? this.estimasiTiba,
+      biayaPerbaikan: biayaPerbaikan,
+      statusBiaya: statusBiaya,
+      catatanBiaya: catatanBiaya,
+      idPembayaranPelunasan: idPembayaranPelunasan,
+      statusPelunasan: statusPelunasan,
+      jumlahPelunasan: jumlahPelunasan,
+      waktu: waktu,
     );
   }
 }
@@ -307,6 +386,17 @@ class OrderService {
     } on ApiException {
       // Tetap tampilkan data terakhir.
     }
+  }
+
+  /// Riwayat pesanan selesai dan dibatalkan, terbaru dulu. Melempar
+  /// [ApiException] bila gagal.
+  Future<List<Pesanan>> muatRiwayat() async {
+    final res = await ApiClient.get('/pesanan');
+    return [
+      for (final j in (res['data'] as List? ?? const []))
+        if (['selesai', 'dibatalkan'].contains((j as Map)['status']))
+          Pesanan.dariJson(j as Map<String, dynamic>),
+    ];
   }
 
   /// Ambil pesanan terbaru dari server dan perbarui [pesananAktif].
@@ -424,6 +514,35 @@ class OrderService {
     }
     pesananAktif.value = null;
     return null;
+  }
+
+  /// Pelanggan menyetujui atau menolak rincian biaya perbaikan. Melempar
+  /// [ApiException] bila ditolak server (misal waktu persetujuan habis).
+  Future<PesananPelanggan> tanggapiBiaya(
+    PesananPelanggan p, {
+    required bool setuju,
+  }) async {
+    final res = await ApiClient.post('/pesanan/${p.id}/biaya', {
+      'setuju': setuju,
+    });
+    final hasil = PesananPelanggan.dariJson(
+      res['data'] as Map<String, dynamic>,
+    );
+    _simpanAktif(hasil);
+    return hasil;
+  }
+
+  /// Anggap pelunasan lunas (sebelum Xendit tersambung).
+  // TODO(xendit): ganti dengan menunggu status pembayaran dari server.
+  Future<PesananPelanggan> simulasiPelunasan(PesananPelanggan p) async {
+    final res = await ApiClient.post(
+      '/pesanan/${p.id}/pembayaran/${p.idPembayaranPelunasan}/simulasi-lunas',
+    );
+    final hasil = PesananPelanggan.dariJson(
+      res['data'] as Map<String, dynamic>,
+    );
+    _simpanAktif(hasil);
+    return hasil;
   }
 
   /// Pesanan aktif selesai: pindahkan ke servis terakhir.

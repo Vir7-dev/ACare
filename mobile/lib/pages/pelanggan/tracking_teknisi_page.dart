@@ -6,6 +6,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../models/teknisi.dart';
+import '../../services/api_client.dart';
+import '../../services/order_service.dart';
 import '../../services/perangkat.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/teknisi_info_card.dart';
@@ -14,53 +16,62 @@ import 'detail_pesanan_page.dart';
 
 /// Halaman peta teknisi menuju lokasi.
 ///
-/// Setelah [lamaTampil] halaman ini otomatis pindah ke [DetailPesananPage],
-/// yang lalu menampilkan status pekerjaan secara berurutan.
+/// Status diperiksa ke server; begitu teknisi mulai mengecek AC, halaman
+/// ini diganti [DetailPesananPage].
 class TrackingTeknisiPage extends StatefulWidget {
-  final Teknisi teknisi;
+  /// Pesanan dari server yang sudah punya teknisi.
+  final PesananPelanggan pesanan;
 
-  /// Lama dummy sebelum layar detail pesanan muncul.
-  final Duration lamaTampil;
-
-  const TrackingTeknisiPage({
-    super.key,
-    required this.teknisi,
-    this.lamaTampil = const Duration(seconds: 5),
-  });
+  const TrackingTeknisiPage({super.key, required this.pesanan});
 
   @override
   State<TrackingTeknisiPage> createState() => _TrackingTeknisiPageState();
 }
 
 class _TrackingTeknisiPageState extends State<TrackingTeknisiPage> {
-  Timer? _timerPindah;
+  Timer? _timerPeriksa;
+  late PesananPelanggan _p = widget.pesanan;
 
   @override
   void initState() {
     super.initState();
-    _timerPindah = Timer(widget.lamaTampil, _keDetailPesanan);
+    _timerPeriksa = Timer.periodic(
+      OrderService.selangPeriksa,
+      (_) => _periksa(),
+    );
   }
 
   @override
   void dispose() {
-    _timerPindah?.cancel();
+    _timerPeriksa?.cancel();
     super.dispose();
+  }
+
+  Future<void> _periksa() async {
+    if (_p.id == null) return;
+    try {
+      final terbaru = await OrderService.instance.muatUlang(_p.id!);
+      if (!mounted) return;
+      setState(() => _p = terbaru);
+      if (!terbaru.teknisiDiPerjalanan) _keDetailPesanan();
+    } on ApiException {
+      // Koneksi putus sesaat: coba lagi di putaran berikutnya.
+    }
   }
 
   /// Ganti halaman tracking dengan detail pesanan di stack, supaya tombol
   /// back dari detail pesanan tidak kembali ke peta tracking.
   void _keDetailPesanan() {
+    _timerPeriksa?.cancel();
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => DetailPesananPage(teknisi: widget.teknisi),
-      ),
+      MaterialPageRoute(builder: (_) => DetailPesananPage(pesanan: _p)),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final teknisi = widget.teknisi;
+    final teknisi = _p.teknisi ?? teknisiDummy;
 
     return Scaffold(
       backgroundColor: Colors.white,

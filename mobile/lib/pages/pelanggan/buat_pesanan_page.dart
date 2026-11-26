@@ -178,7 +178,9 @@ class _BuatPesananPageState extends State<BuatPesananPage> {
       return;
     }
     if (_idLokasi == null) {
-      _pesanValidasi('Pilih atau tambahkan alamat agar teknisi tahu titik lokasimu');
+      _pesanValidasi(
+        'Pilih atau tambahkan alamat agar teknisi tahu titik lokasimu',
+      );
       _pilihAlamat();
       return;
     }

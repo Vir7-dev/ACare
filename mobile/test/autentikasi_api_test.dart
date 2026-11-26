@@ -122,38 +122,39 @@ void main() {
     expect(AuthService.akun.value?.nama, 'Dina Safitri');
   });
 
-  testWidgets('Profil teknisi: data dari akun dan perubahan dikirim ke server', (
-    tester,
-  ) async {
-    ukuranHp(tester);
-    await AuthService.login(
-      'teknisi@acare.id',
-      ServerPalsu.sandiContoh,
-      UserRole.teknisi,
-    );
-    await tester.pumpWidget(
-      const MaterialApp(home: KelolaProfilTeknisiPage()),
-    );
-    await tester.pumpAndSettle();
+  testWidgets(
+    'Profil teknisi: data dari akun dan perubahan dikirim ke server',
+    (tester) async {
+      ukuranHp(tester);
+      await AuthService.login(
+        'teknisi@acare.id',
+        ServerPalsu.sandiContoh,
+        UserRole.teknisi,
+      );
+      await tester.pumpWidget(
+        const MaterialApp(home: KelolaProfilTeknisiPage()),
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text('Rizky Pratama'), findsWidgets);
-    expect(find.text('Honda Beat'), findsOneWidget);
+      expect(find.text('Rizky Pratama'), findsWidgets);
+      expect(find.text('Honda Beat'), findsOneWidget);
 
-    await tester.tap(find.text('Edit Profil'));
-    await tester.pump();
-    await tester.enterText(
-      find.widgetWithText(TextFormField, 'Jenis Kendaraan'),
-      'Yamaha NMAX',
-    );
-    await tester.ensureVisible(find.text('Simpan Perubahan'));
-    await tester.tap(find.text('Simpan Perubahan'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Edit Profil'));
+      await tester.pump();
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Jenis Kendaraan'),
+        'Yamaha NMAX',
+      );
+      await tester.ensureVisible(find.text('Simpan Perubahan'));
+      await tester.tap(find.text('Simpan Perubahan'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('Perubahan disimpan'), findsOneWidget);
-    final t = ServerPalsu.aktif.akun[1]['teknisi'] as Map<String, dynamic>;
-    expect(t['jenis_kendaraan'], 'Yamaha NMAX');
-    expect(AuthService.akun.value?.teknisi?.jenisKendaraan, 'Yamaha NMAX');
-  });
+      expect(find.text('Perubahan disimpan'), findsOneWidget);
+      final t = ServerPalsu.aktif.akun[1]['teknisi'] as Map<String, dynamic>;
+      expect(t['jenis_kendaraan'], 'Yamaha NMAX');
+      expect(AuthService.akun.value?.teknisi?.jenisKendaraan, 'Yamaha NMAX');
+    },
+  );
 }
 
 /// Klien yang selalu gagal terhubung, meniru HP tanpa internet.

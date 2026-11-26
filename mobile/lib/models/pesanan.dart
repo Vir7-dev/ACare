@@ -1,6 +1,9 @@
 enum StatusPesanan { selesai, dibatalkan }
 
+/// Pesanan yang sudah selesai atau dibatalkan (halaman Riwayat).
 class Pesanan {
+  /// Id di server; `null` untuk data contoh.
+  final int? id;
   final String kode;
   final DateTime tanggal;
   final String namaLayanan;
@@ -10,7 +13,12 @@ class Pesanan {
   final StatusPesanan status;
   final String? alasanBatal;
 
+  /// Pesanan batal yang sudah dibayar: dana menunggu refund. Pesanan batal
+  /// yang belum dibayar tidak punya dana untuk dikembalikan.
+  final bool danaTertahan;
+
   const Pesanan({
+    this.id,
     required this.kode,
     required this.tanggal,
     required this.namaLayanan,
@@ -19,7 +27,52 @@ class Pesanan {
     required this.totalBiaya,
     required this.status,
     this.alasanBatal,
+    this.danaTertahan = true,
   });
+
+  /// Dari `PesananResource` (status `selesai` atau `dibatalkan`).
+  factory Pesanan.dariJson(Map<String, dynamic> j) {
+    final waktu = j['waktu'] as Map<String, dynamic>? ?? const {};
+    final batal = j['status'] == 'dibatalkan';
+    final tanggal =
+        DateTime.tryParse(
+          (batal ? waktu['dibatalkan'] : waktu['selesai']) as String? ??
+              waktu['dibuat'] as String? ??
+              '',
+        )?.toLocal() ??
+        DateTime.now();
+    final pembayaran = (j['pembayaran'] as List? ?? const [])
+        .cast<Map<String, dynamic>>();
+    final tertahan = pembayaran.where((p) => p['status'] == 'tertahan');
+    final unit = (j['jumlah_unit'] as num?)?.toInt() ?? 1;
+    final pk = (j['pk'] as num?)?.toDouble();
+    final merek = (j['merek'] as String?)?.trim();
+    return Pesanan(
+      id: j['id'] as int?,
+      kode: '#${j['kode']}',
+      tanggal: tanggal,
+      namaLayanan:
+          (j['layanan'] as Map<String, dynamic>?)?['nama'] as String? ?? '-',
+      detailUnit: [
+        '$unit Unit AC',
+        if (merek != null && merek.isNotEmpty) merek,
+        if (pk != null) '${pk == pk.roundToDouble() ? pk.toInt() : pk} PK',
+      ].join(' '),
+      namaTeknisi:
+          (j['teknisi'] as Map<String, dynamic>?)?['nama'] as String? ?? '-',
+      totalBiaya: batal
+          ? tertahan.fold(
+              0,
+              (a, p) => a + ((p['jumlah'] as num?)?.toInt() ?? 0),
+            )
+          : ((j['biaya'] as Map<String, dynamic>?)?['total'] as num?)
+                    ?.toInt() ??
+                0,
+      status: batal ? StatusPesanan.dibatalkan : StatusPesanan.selesai,
+      alasanBatal: j['alasan_pembatalan'] as String?,
+      danaTertahan: tertahan.isNotEmpty,
+    );
+  }
 }
 
 // Data dummy, nanti diganti data dari API Laravel

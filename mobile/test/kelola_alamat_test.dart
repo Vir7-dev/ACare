@@ -78,17 +78,17 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(FormAlamatPage), findsOneWidget);
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'Perumahan Batu Aji Blok C No. 12, Batam'),
+      find.widgetWithText(
+        TextFormField,
+        'Perumahan Batu Aji Blok C No. 12, Batam',
+      ),
       'Perumahan Batu Aji Blok D No. 1, Batam',
     );
     await tester.tap(find.text('Simpan'));
     await tester.pumpAndSettle();
 
     expect(alamat.daftar.value.single.id, isNot(1));
-    expect(
-      find.text('Perumahan Batu Aji Blok D No. 1, Batam'),
-      findsOneWidget,
-    );
+    expect(find.text('Perumahan Batu Aji Blok D No. 1, Batam'), findsOneWidget);
   });
 
   testWidgets('Hapus alamat dengan konfirmasi', (tester) async {

@@ -24,7 +24,10 @@ void main() {
   }
 
   testWidgets('Riwayat -> Beri Ulasan -> kirim', (tester) async {
+    ServerPalsu.aktif.tambahRiwayat(layanan: 'Service AC', status: 'selesai');
+    await ServerPalsu.masukPelanggan();
     await bukaShell(tester);
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Riwayat').last);
     await tester.pumpAndSettle();
 

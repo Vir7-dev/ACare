@@ -2,11 +2,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 
 import '../../models/layanan.dart';
 import '../../models/status_layanan.dart';
 import '../../models/tagihan.dart';
 import '../../models/teknisi.dart';
+import '../../services/api_client.dart';
+import '../../services/order_service.dart';
 import '../../services/perangkat.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/teknisi_info_card.dart';
@@ -24,30 +27,13 @@ import 'pembayaran_page.dart';
 ///
 /// Pesanan tidak bisa dibatalkan di sini karena teknisi sudah ditemukan.
 ///
-/// Kalau [otomatis] aktif, tahap yang dikerjakan teknisi (pengecekan dan
-/// perbaikan) maju sendiri setiap [durasiStatus]. Tahap yang menunggu
-/// tindakan pelanggan (persetujuan dan pembayaran) berhenti sampai pelanggan
-/// bertindak.
-// TODO(backend): status dan tagihan diambil dari API, bukan timer.
+/// Status diambil dari server setiap [OrderService.selangPeriksa] selama
+/// pesanan belum selesai.
 class DetailPesananPage extends StatefulWidget {
-  final StatusLayanan status;
-  final Teknisi teknisi;
-  final Tagihan tagihan;
+  /// Pesanan dari server yang sudah punya teknisi.
+  final PesananPelanggan pesanan;
 
-  /// Jalankan perubahan status otomatis selama halaman terbuka.
-  final bool otomatis;
-
-  /// Jeda sebelum tahap pekerjaan teknisi berpindah ke tahap berikutnya.
-  final Duration durasiStatus;
-
-  const DetailPesananPage({
-    super.key,
-    this.status = StatusLayanan.pengecekanAwal,
-    this.teknisi = teknisiDummy,
-    this.tagihan = tagihanDummy,
-    this.otomatis = true,
-    this.durasiStatus = const Duration(milliseconds: 2500),
-  });
+  const DetailPesananPage({super.key, required this.pesanan});
 
   @override
   State<DetailPesananPage> createState() => _DetailPesananPageState();
@@ -55,17 +41,20 @@ class DetailPesananPage extends StatefulWidget {
 
 class _DetailPesananPageState extends State<DetailPesananPage> {
   bool _komponenTerbuka = false;
+  bool _memproses = false;
 
-  /// Pelanggan menolak biaya perbaikan: pesanan selesai dengan biaya awal.
-  bool _biayaDitolak = false;
-
-  late StatusLayanan _status = widget.status;
-  Timer? _timerStatus;
+  late PesananPelanggan _p = widget.pesanan;
+  Timer? _timerPeriksa;
 
   static const _daftarTampil = StatusLayanan.langkahTampil;
 
-  // Jam tiap langkah (dummy), tampil kalau langkah sudah dicapai.
-  static const _jam = ['12.30', '13.00', '14.30', '15.00'];
+  /// Kunci waktu di server untuk tiap langkah garis waktu.
+  static const _kunciWaktu = {
+    StatusLayanan.pengecekanAwal: 'pengecekan',
+    StatusLayanan.melakukanPerbaikan: 'dikerjakan',
+    StatusLayanan.menungguPembayaran: 'menunggu_pembayaran',
+    StatusLayanan.selesai: 'selesai',
+  };
 
   static const _ikonLangkah = {
     StatusLayanan.pengecekanAwal: Icons.search,
@@ -74,55 +63,74 @@ class _DetailPesananPageState extends State<DetailPesananPage> {
     StatusLayanan.selesai: Icons.check_circle_outline,
   };
 
-  Tagihan get _tagihan => widget.tagihan;
+  StatusLayanan get _status => _p.statusLayanan;
+  Tagihan get _tagihan => _p.tagihan;
+  Teknisi get _teknisi => _p.teknisi ?? teknisiDummy;
+
+  /// Pelanggan menolak (atau tidak menanggapi) biaya perbaikan: pesanan
+  /// selesai dengan biaya awal.
+  bool get _biayaDitolak => _p.biayaDitolak;
 
   /// Posisi status sekarang di garis waktu.
   int get _indeks => _daftarTampil.indexOf(_status.langkah);
 
+  /// Jam langkah ke-[i] (mis. "14.30"), bila sudah dicapai.
+  String? _jam(int i) {
+    final w = _p.waktu[_kunciWaktu[_daftarTampil[i]]];
+    return w == null ? null : DateFormat('HH.mm').format(w);
+  }
+
   @override
   void initState() {
     super.initState();
-    _jadwalkanTahapTeknisi();
+    _timerPeriksa = Timer.periodic(
+      OrderService.selangPeriksa,
+      (_) => _segarkan(),
+    );
   }
 
   @override
   void dispose() {
-    _timerStatus?.cancel();
+    _timerPeriksa?.cancel();
     super.dispose();
   }
 
-  /// Tahap berikutnya yang dikerjakan teknisi tanpa menunggu pelanggan,
-  /// atau `null` bila status sekarang menunggu tindakan pelanggan.
-  StatusLayanan? get _tahapTeknisiBerikutnya => switch (_status) {
-    StatusLayanan.pengecekanAwal =>
-      _tagihan.adaBiayaPerbaikan
-          ? StatusLayanan.menungguPersetujuanBiaya
-          : StatusLayanan.melakukanPerbaikan,
-    StatusLayanan.melakukanPerbaikan =>
-      _tagihan.adaBiayaPerbaikan
-          ? StatusLayanan.menungguPembayaran
-          : StatusLayanan.selesai,
-    _ => null,
-  };
+  Future<void> _segarkan() async {
+    if (_p.id == null || _status == StatusLayanan.selesai) {
+      _timerPeriksa?.cancel();
+      return;
+    }
+    try {
+      final terbaru = await OrderService.instance.muatUlang(_p.id!);
+      if (mounted) setState(() => _p = terbaru);
+    } on ApiException {
+      // Koneksi putus sesaat: coba lagi di putaran berikutnya.
+    }
+  }
 
-  void _jadwalkanTahapTeknisi() {
-    _timerStatus?.cancel();
-    _timerStatus = null;
-    final berikutnya = _tahapTeknisiBerikutnya;
-    if (!widget.otomatis || berikutnya == null) return;
-    _timerStatus = Timer(widget.durasiStatus, () {
-      _timerStatus = null;
+  void _pesan(String teks) => ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(content: Text(teks)));
+
+  Future<void> _tanggapi({required bool setuju}) async {
+    if (_memproses) return;
+    setState(() => _memproses = true);
+    try {
+      final hasil = await OrderService.instance.tanggapiBiaya(
+        _p,
+        setuju: setuju,
+      );
+      if (mounted) setState(() => _p = hasil);
+    } on ApiException catch (e) {
       if (!mounted) return;
-      _ubahStatus(berikutnya);
-    });
+      _pesan(e.pesan);
+      await _segarkan();
+    } finally {
+      if (mounted) setState(() => _memproses = false);
+    }
   }
 
-  void _ubahStatus(StatusLayanan status) {
-    setState(() => _status = status);
-    _jadwalkanTahapTeknisi();
-  }
-
-  void _setujuiBiaya() => _ubahStatus(StatusLayanan.melakukanPerbaikan);
+  void _setujuiBiaya() => _tanggapi(setuju: true);
 
   Future<void> _tolakBiaya() async {
     final ya = await showDialog<bool>(
@@ -146,23 +154,19 @@ class _DetailPesananPageState extends State<DetailPesananPage> {
       ),
     );
     if (ya != true || !mounted) return;
-    _biayaDitolak = true;
-    _ubahStatus(StatusLayanan.selesai);
+    await _tanggapi(setuju: false);
   }
 
   Future<void> _bayar() async {
     final lunas = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) =>
-            PembayaranPage(teknisi: widget.teknisi, tagihan: _tagihan),
-      ),
+      MaterialPageRoute(builder: (_) => PembayaranPage(pesanan: _p)),
     );
-    if (lunas == true && mounted) _ubahStatus(StatusLayanan.selesai);
+    if (lunas == true && mounted) await _segarkan();
   }
 
-  void _pesan() => Navigator.of(context).push(
-    MaterialPageRoute(builder: (_) => ChatTeknisiPage(teknisi: widget.teknisi)),
-  );
+  void _bukaChat() => Navigator.of(
+    context,
+  ).push(MaterialPageRoute(builder: (_) => ChatTeknisiPage(teknisi: _teknisi)));
 
   @override
   Widget build(BuildContext context) {
@@ -183,7 +187,11 @@ class _DetailPesananPageState extends State<DetailPesananPage> {
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
             ),
             Text(
-              _status.label,
+              // Biaya ditolak: teknisi tidak memperbaiki, hanya merampungkan
+              // pesanan dengan biaya awal.
+              _biayaDitolak && !selesai
+                  ? 'Biaya ditolak, teknisi merampungkan pesanan'
+                  : _status.label,
               style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w400),
             ),
           ],
@@ -199,9 +207,9 @@ class _DetailPesananPageState extends State<DetailPesananPage> {
           _KartuBagian(
             judul: 'Teknisi',
             child: TeknisiInfoCard(
-              teknisi: widget.teknisi,
-              onPesan: _pesan,
-              onTelepon: () => teleponKe(context, widget.teknisi.telepon),
+              teknisi: _teknisi,
+              onPesan: _bukaChat,
+              onTelepon: () => teleponKe(context, _teknisi.telepon),
             ),
           ),
           const SizedBox(height: 12),
@@ -216,7 +224,7 @@ class _DetailPesananPageState extends State<DetailPesananPage> {
                     _LangkahStatus(
                       label: _daftarTampil[i].label,
                       ikon: _ikonLangkah[_daftarTampil[i]]!,
-                      jam: i <= idx ? _jam[i] : null,
+                      jam: i <= idx ? _jam(i) : null,
                       tercapai: i <= idx,
                       aktif: i == idx && !selesai,
                       garisBerikutnya: i < _daftarTampil.length - 1,

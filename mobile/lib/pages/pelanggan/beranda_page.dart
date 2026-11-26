@@ -15,6 +15,7 @@ import '../../widgets/servis_terakhir_card.dart';
 import 'buat_pesanan_page.dart';
 import 'chat_teknisi_page.dart';
 import 'detail_layanan_page.dart';
+import 'detail_pesanan_page.dart';
 import 'kelola_alamat_page.dart';
 import '../umum/notifikasi_page.dart';
 import 'tracking_teknisi_page.dart';
@@ -425,10 +426,16 @@ class _BerandaPageState extends State<BerandaPage> {
                   jumlahUlasan: t.jumlahUlasan,
                   kendaraan: '${t.kendaraan} • ${t.plat}',
                   estimasi: '$menit Menit lagi',
-                  onTap: () => _buka(context, TrackingTeknisiPage(teknisi: t)),
+                  // Masih di perjalanan: peta; sudah tiba: detail pesanan.
+                  onTap: () => _buka(
+                    context,
+                    aktif.teknisiDiPerjalanan
+                        ? TrackingTeknisiPage(pesanan: aktif)
+                        : DetailPesananPage(pesanan: aktif),
+                  ),
                   onChat: () => _buka(context, ChatTeknisiPage(teknisi: t)),
                   onLacakPeta: () =>
-                      _buka(context, TrackingTeknisiPage(teknisi: t)),
+                      _buka(context, TrackingTeknisiPage(pesanan: aktif)),
                 );
               },
             ),

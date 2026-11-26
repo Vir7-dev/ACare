@@ -65,10 +65,10 @@ class _MencariTeknisiPageState extends State<MencariTeknisiPage> {
   /// (form, ringkasan, pencarian) dari stack. Beranda tetap jadi halaman
   /// pertama, jadi menekan back dari tracking kembali ke beranda.
   void _keTracking() {
-    final teknisi = OrderService.instance.pesananAktif.value?.teknisi;
-    if (teknisi == null) return;
+    final aktif = OrderService.instance.pesananAktif.value;
+    if (aktif?.teknisi == null) return;
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => TrackingTeknisiPage(teknisi: teknisi)),
+      MaterialPageRoute(builder: (_) => TrackingTeknisiPage(pesanan: aktif!)),
       (route) => route.isFirst,
     );
   }

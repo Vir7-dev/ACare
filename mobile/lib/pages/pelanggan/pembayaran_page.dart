@@ -4,8 +4,8 @@ import 'package:intl/intl.dart';
 
 import '../../models/layanan.dart';
 import '../../models/metode_bayar.dart';
-import '../../models/tagihan.dart';
 import '../../models/teknisi.dart';
+import '../../services/api_client.dart';
 import '../../services/order_service.dart';
 import '../../theme/app_colors.dart';
 import 'menunggu_pembayaran_page.dart';
@@ -16,14 +16,10 @@ import 'menunggu_pembayaran_page.dart';
 /// biaya perbaikan yang sudah disetujui pelanggan. Pembayaran non-tunai.
 /// Halaman ditutup dengan hasil `true` bila pembayaran berhasil.
 class PembayaranPage extends StatefulWidget {
-  final Teknisi teknisi;
-  final Tagihan tagihan;
+  /// Pesanan dari server yang menunggu pelunasan.
+  final PesananPelanggan pesanan;
 
-  const PembayaranPage({
-    super.key,
-    this.teknisi = teknisiDummy,
-    this.tagihan = tagihanDummy,
-  });
+  const PembayaranPage({super.key, required this.pesanan});
 
   @override
   State<PembayaranPage> createState() => _PembayaranPageState();
@@ -31,26 +27,40 @@ class PembayaranPage extends StatefulWidget {
 
 class _PembayaranPageState extends State<PembayaranPage> {
   MetodeBayar _metode = MetodeBayar.eWallet;
+  bool _memproses = false;
+
+  Teknisi get _teknisi => widget.pesanan.teknisi ?? teknisiDummy;
 
   Future<void> _bayar() async {
-    // TODO(backend): buat invoice pelunasan Xendit lewat API.
+    if (_memproses) return;
     final berhasil = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => MenungguPembayaranPage(
           metode: _metode,
-          nominal: widget.tagihan.sisaTagihan,
+          nominal: widget.pesanan.jumlahPelunasan,
           keterangan: 'Pelunasan biaya perbaikan',
         ),
       ),
     );
-    if (berhasil == true && mounted) Navigator.of(context).pop(true);
+    if (berhasil != true || !mounted) return;
+    setState(() => _memproses = true);
+    try {
+      // TODO(xendit): status lunas datang dari server, bukan simulasi.
+      await OrderService.instance.simulasiPelunasan(widget.pesanan);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _memproses = false);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.pesan)));
+      return;
+    }
+    if (mounted) Navigator.of(context).pop(true);
   }
 
   @override
   Widget build(BuildContext context) {
-    final t = widget.tagihan;
-    // Jadwal & alamat dari pesanan yang sedang berjalan.
-    final aktif = OrderService.instance.pesananAktif.value;
+    final t = widget.pesanan.tagihan;
+    final aktif = widget.pesanan;
 
     return Scaffold(
       backgroundColor: AppColors.latar,
@@ -86,14 +96,14 @@ class _PembayaranPageState extends State<PembayaranPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          widget.teknisi.nama,
+                          _teknisi.nama,
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
                         Text(
-                          '★ ${widget.teknisi.rating}  (${widget.teknisi.jumlahUlasan} ulasan)',
+                          '★ ${_teknisi.rating}  (${_teknisi.jumlahUlasan} ulasan)',
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 11,
                             color: AppColors.teksSamar,
@@ -107,15 +117,13 @@ class _PembayaranPageState extends State<PembayaranPage> {
                 const Divider(height: 1),
                 _BarisKecil(
                   'Jadwal',
-                  aktif == null
-                      ? '-'
-                      : DateFormat(
-                          'EEEE, d MMM yyyy | HH.mm',
-                          'id_ID',
-                        ).format(aktif.jadwal),
+                  DateFormat(
+                    'EEEE, d MMM yyyy | HH.mm',
+                    'id_ID',
+                  ).format(aktif.jadwal),
                 ),
                 const Divider(height: 1),
-                _BarisKecil('Alamat', aktif?.alamatLengkap ?? '-'),
+                _BarisKecil('Alamat', aktif.alamatLengkap),
               ],
             ),
           ),
@@ -214,7 +222,7 @@ class _PembayaranPageState extends State<PembayaranPage> {
                   ),
                 ),
                 FilledButton(
-                  onPressed: _bayar,
+                  onPressed: _memproses ? null : _bayar,
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.biru,
                     minimumSize: const Size(120, 48),

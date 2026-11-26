@@ -243,9 +243,11 @@ class PesananCard extends StatelessWidget {
               valueListenable: RefundService.instance.pengajuan,
               builder: (context, _, _) {
                 final refund = RefundService.instance.untuk(pesanan.kode);
-                final status = refund == null
+                final status = refund != null
+                    ? 'Refund: ${refund.status.label}'
+                    : pesanan.danaTertahan
                     ? 'Dana tertahan ${rupiah.format(pesanan.totalBiaya)}'
-                    : 'Refund: ${refund.status.label}';
+                    : 'Belum ada pembayaran';
                 final warna = refund?.status == StatusRefund.selesai
                     ? AppColors.hijau
                     : refund?.status == StatusRefund.ditolak
@@ -279,7 +281,7 @@ class PesananCard extends StatelessWidget {
                             child: const Text('Detail Pembatalan'),
                           ),
                         ),
-                        if (refund == null) ...[
+                        if (refund == null && pesanan.danaTertahan) ...[
                           const SizedBox(width: 8),
                           Expanded(
                             child: FilledButton(

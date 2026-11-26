@@ -2,6 +2,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/pesanan.dart';
+import '../../services/api_client.dart';
+import '../../services/order_service.dart';
 import '../../widgets/pesanan_card.dart';
 import 'pengaduan_page.dart';
 import '../../widgets/keadaan_kosong.dart';
@@ -19,9 +21,41 @@ class _RiwayatPesananPageState extends State<RiwayatPesananPage> {
   String _query = '';
   bool _terbaru = true;
 
+  /// Riwayat dari server (pesanan selesai dan dibatalkan).
+  List<Pesanan> _data = const [];
+  String? _galat;
+
+  @override
+  void initState() {
+    super.initState();
+    _muat();
+    // Pesanan aktif berubah (selesai/batal): riwayat dimuat ulang.
+    OrderService.instance.pesananAktif.addListener(_muat);
+  }
+
+  @override
+  void dispose() {
+    OrderService.instance.pesananAktif.removeListener(_muat);
+    super.dispose();
+  }
+
+  Future<void> _muat() async {
+    if (await ApiClient.token() == null) return;
+    try {
+      final data = await OrderService.instance.muatRiwayat();
+      if (!mounted) return;
+      setState(() {
+        _data = data;
+        _galat = null;
+      });
+    } on ApiException catch (e) {
+      if (mounted) setState(() => _galat = e.pesan);
+    }
+  }
+
   List<Pesanan> get _hasil {
     final q = _query.toLowerCase();
-    final list = dummyPesanan.where((p) {
+    final list = _data.where((p) {
       final cocokFilter =
           _filter == 'Semua' ||
           (_filter == 'Selesai' && p.status == StatusPesanan.selesai) ||
@@ -165,19 +199,29 @@ class _RiwayatPesananPageState extends State<RiwayatPesananPage> {
 
           // List
           Expanded(
-            child: hasil.isEmpty
-                ? const KeadaanKosong(
-                    judul: 'Belum ada pesanan',
-                    keterangan:
-                        'Pesanan yang sudah selesai atau dibatalkan akan '
-                        'muncul di sini.',
-                  )
-                : ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                    itemCount: hasil.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 12),
-                    itemBuilder: (_, i) => PesananCard(pesanan: hasil[i]),
-                  ),
+            child: RefreshIndicator(
+              onRefresh: _muat,
+              child: hasil.isEmpty
+                  ? ListView(
+                      children: [
+                        KeadaanKosong(
+                          judul: _galat == null
+                              ? 'Belum ada pesanan'
+                              : 'Riwayat belum bisa dimuat',
+                          keterangan:
+                              _galat ??
+                              'Pesanan yang sudah selesai atau dibatalkan '
+                                  'akan muncul di sini.',
+                        ),
+                      ],
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                      itemCount: hasil.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 12),
+                      itemBuilder: (_, i) => PesananCard(pesanan: hasil[i]),
+                    ),
+            ),
           ),
         ],
       ),

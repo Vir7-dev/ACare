@@ -267,7 +267,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Buka'), findsOneWidget);
-    expect(find.textContaining('Belum ada teknisi yang tersedia'), findsOneWidget);
+    expect(
+      find.textContaining('Belum ada teknisi yang tersedia'),
+      findsOneWidget,
+    );
     expect(OrderService.instance.pesananAktif.value, isNull);
   });
 
@@ -288,7 +291,10 @@ void main() {
     await tester.tap(find.textContaining('Bayar Rp'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Masih ada pesanan yang sedang berjalan'), findsOneWidget);
+    expect(
+      find.textContaining('Masih ada pesanan yang sedang berjalan'),
+      findsOneWidget,
+    );
     expect(find.text('Ringkasan Pembayaran'), findsOneWidget);
   });
 
@@ -330,27 +336,33 @@ void main() {
     expect(find.text('Teknisi Menuju Lokasi'), findsOneWidget);
     expect(find.text('Andi Saputra'), findsOneWidget);
 
-    // 5 detik setelah tracking -> detail pesanan, mulai dari pengecekan awal.
-    await tester.pump(const Duration(seconds: 5));
-    await tester.pump();
+    final server = ServerPalsu.aktif;
+    final id = server.pesanan.single['id'] as int;
+
+    // Teknisi (di server) mulai pengecekan -> detail pesanan.
+    server.majukan(id, 'pengecekan_awal');
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
     expect(find.text('Detail Pesanan'), findsOneWidget);
     expect(find.text('Pengecekan Awal'), findsWidgets);
     // Teknisi sudah ditemukan: pesanan tidak bisa dibatalkan.
     expect(find.text('Batalkan Pesanan'), findsNothing);
 
     // Teknisi mengajukan biaya perbaikan -> pelanggan menyetujui.
-    await tester.pump(const Duration(milliseconds: 2600));
-    await tester.pump();
+    server.ajukanBiaya(id, {'Kapasitor': 85000});
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
     expect(find.text('Rincian Biaya Perbaikan'), findsOneWidget);
     await tester.ensureVisible(find.text('Setuju'));
     await tester.pump();
     await tester.tap(find.text('Setuju'));
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(find.text('Melakukan Perbaikan'), findsWidgets);
 
     // Perbaikan selesai -> pelunasan.
-    await tester.pump(const Duration(milliseconds: 2600));
-    await tester.pump();
+    server.selesaiDikerjakan(id);
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Bayar Pesanan'));
     await tester.pump();
     await tester.tap(find.text('Bayar Pesanan'));
@@ -362,8 +374,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Detail Pesanan'), findsOneWidget);
     expect(find.text('Total dibayar'), findsOneWidget);
+    expect(server.pesanan.single['status'], 'selesai');
 
-    // Back dari detail pesanan -> beranda dengan section "Sedang Berlangsung".
+    // Back ke beranda: pesanan sudah selesai, tidak ada yang berlangsung.
     await tester.tap(find.byIcon(Icons.arrow_back));
     await tester.pumpAndSettle();
 
@@ -373,7 +386,10 @@ void main() {
       200,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('Sedang Berlangsung'), findsOneWidget);
-    expect(find.text('Andi Saputra'), findsOneWidget);
+    expect(find.text('Belum ada pesanan berjalan'), findsOneWidget);
+    expect(
+      OrderService.instance.servisTerakhir.value?.status,
+      StatusPesananPelanggan.selesai,
+    );
   });
 }

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:acare_mobile/services/api_client.dart';
 import 'package:acare_mobile/services/auth_service.dart';
+import 'package:acare_mobile/services/order_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
@@ -50,11 +51,46 @@ class ServerPalsu {
 
   /// Katalog layanan (sama dengan LayananSeeder).
   final List<Map<String, dynamic>> layanan = [
-    {'id': 1, 'nama': 'Cuci AC', 'deskripsi': 'Cuci', 'harga': 75000, 'estimasi_durasi': 45, 'bisa_biaya_tambahan': false},
-    {'id': 2, 'nama': 'Service AC', 'deskripsi': 'Service', 'harga': 100000, 'estimasi_durasi': 45, 'bisa_biaya_tambahan': true},
-    {'id': 3, 'nama': 'Isi Freon', 'deskripsi': 'Freon', 'harga': 150000, 'estimasi_durasi': 45, 'bisa_biaya_tambahan': false},
-    {'id': 4, 'nama': 'Bongkar Pasang', 'deskripsi': 'Bongkar', 'harga': 100000, 'estimasi_durasi': 45, 'bisa_biaya_tambahan': false},
-    {'id': 5, 'nama': 'Cek AC', 'deskripsi': 'Cek', 'harga': 50000, 'estimasi_durasi': 30, 'bisa_biaya_tambahan': true},
+    {
+      'id': 1,
+      'nama': 'Cuci AC',
+      'deskripsi': 'Cuci',
+      'harga': 75000,
+      'estimasi_durasi': 45,
+      'bisa_biaya_tambahan': false,
+    },
+    {
+      'id': 2,
+      'nama': 'Service AC',
+      'deskripsi': 'Service',
+      'harga': 100000,
+      'estimasi_durasi': 45,
+      'bisa_biaya_tambahan': true,
+    },
+    {
+      'id': 3,
+      'nama': 'Isi Freon',
+      'deskripsi': 'Freon',
+      'harga': 150000,
+      'estimasi_durasi': 45,
+      'bisa_biaya_tambahan': false,
+    },
+    {
+      'id': 4,
+      'nama': 'Bongkar Pasang',
+      'deskripsi': 'Bongkar',
+      'harga': 100000,
+      'estimasi_durasi': 45,
+      'bisa_biaya_tambahan': false,
+    },
+    {
+      'id': 5,
+      'nama': 'Cek AC',
+      'deskripsi': 'Cek',
+      'harga': 50000,
+      'estimasi_durasi': 30,
+      'bisa_biaya_tambahan': true,
+    },
   ];
 
   /// Alamat tersimpan: id akun -> daftar alamat.
@@ -84,15 +120,176 @@ class ServerPalsu {
 
   /// Langsung batalkan pencarian seolah 15 menit tanpa teknisi.
   void habisWaktuPencarian(int id) {
-    final p = pesanan.firstWhere((p) => p['id'] == id);
+    final p = _p(id);
     p['status'] = 'dibatalkan';
-    p['alasan_pembatalan'] = 'Tidak ada teknisi yang menerima dalam batas waktu';
+    p['alasan_pembatalan'] =
+        'Tidak ada teknisi yang menerima dalam batas waktu';
+  }
+
+  Map<String, dynamic> _p(int id) => pesanan.firstWhere((p) => p['id'] == id);
+
+  static const _kunciWaktu = {
+    'pengecekan_awal': 'pengecekan',
+    'dikerjakan': 'dikerjakan',
+    'menunggu_pembayaran': 'menunggu_pembayaran',
+    'selesai': 'selesai',
+    'tiba': 'tiba',
+  };
+
+  /// Teknisi palsu memajukan status pesanan (misal `pengecekan_awal`).
+  void majukan(int id, String status) {
+    final p = _p(id);
+    p['status'] = status;
+    final k = _kunciWaktu[status];
+    if (k != null) {
+      (p['waktu'] as Map)[k] = DateTime(2026, 11, 26, 14, 30).toIso8601String();
+    }
+  }
+
+  /// Teknisi palsu mengajukan biaya perbaikan.
+  void ajukanBiaya(int id, Map<String, int> item, {String catatan = ''}) {
+    final p = _p(id);
+    final biaya = p['biaya'] as Map<String, dynamic>;
+    for (final e in item.entries) {
+      (biaya['rincian'] as List).add({
+        'nama': e.key,
+        'jenis': 'suku_cadang',
+        'jumlah': 1,
+        'harga': e.value,
+        'subtotal': e.value,
+        'ditagih': false,
+      });
+    }
+    biaya['status_biaya'] = 'menunggu';
+    biaya['catatan_teknisi'] = catatan;
+    majukan(id, 'menunggu_persetujuan_biaya');
+  }
+
+  /// Teknisi palsu selesai bekerja: pelunasan bila ada biaya disetujui.
+  void selesaiDikerjakan(int id) {
+    final p = _p(id);
+    final biaya = p['biaya'] as Map<String, dynamic>;
+    final tambahan = (biaya['rincian'] as List)
+        .where(
+          (r) =>
+              r['jenis'] != 'layanan' && biaya['status_biaya'] == 'disetujui',
+        )
+        .fold<int>(0, (a, r) => a + (r['subtotal'] as int));
+    if (tambahan <= 0) {
+      majukan(id, 'selesai');
+      return;
+    }
+    (p['pembayaran'] as List).add({
+      'id': id * 10 + 1,
+      'jenis': 'pelunasan',
+      'status': 'menunggu',
+      'jumlah': tambahan,
+      'metode': null,
+    });
+    majukan(id, 'menunggu_pembayaran');
+  }
+
+  /// Pesanan Dina yang sudah dibayar dan diterima teknisi Andi, lalu
+  /// dimajukan ke [status]. [biaya] diajukan teknisi (dan disetujui bila
+  /// status sudah melewati persetujuan).
+  Future<PesananPelanggan> buatPesananUji({
+    String layanan = 'Service AC',
+    String status = 'pengecekan_awal',
+    Map<String, int>? biaya,
+  }) async {
+    await masukPelanggan();
+    final l = this.layanan.firstWhere((x) => x['nama'] == layanan);
+    final p = _buatPesanan({
+      'id_layanan': l['id'],
+      'jumlah_unit': 1,
+      'jenis_ac': 'split',
+      'pk': 1,
+      'id_lokasi': 1,
+      'detail_lokasi': 'Pagar hitam',
+      'jadwal_service': DateTime.now().toIso8601String(),
+    }, 1);
+    final bayar = (p['pembayaran'] as List).first as Map<String, dynamic>;
+    bayar['status'] = 'berhasil';
+    bayar['metode'] = 'QRIS';
+    p['bisa_dibatalkan'] = false;
+    p['teknisi'] = {
+      'id': 2,
+      'nama': 'Andi Saputra',
+      'no_telepon': '081234567890',
+      'jenis_kendaraan': 'Honda Beat',
+      'plat_nomor': 'BP 4892 QL',
+      'deskripsi': 'Berpengalaman 5 tahun menangani AC rumah dan kantor.',
+    };
+    pesanan.add(p);
+    final id = p['id'] as int;
+    majukan(id, 'pengecekan_awal');
+    if (biaya != null) ajukanBiaya(id, biaya, catatan: 'Perlu diganti.');
+    if (['dikerjakan', 'menunggu_pembayaran', 'selesai'].contains(status)) {
+      if (biaya != null) {
+        final b = p['biaya'] as Map<String, dynamic>;
+        b['status_biaya'] = 'disetujui';
+        b['total'] = (b['rincian'] as List).fold<int>(
+          0,
+          (a, r) => a + (r['subtotal'] as int),
+        );
+      }
+      majukan(id, 'dikerjakan');
+      if (status != 'dikerjakan') selesaiDikerjakan(id);
+    } else if (status != 'pengecekan_awal' && biaya == null) {
+      majukan(id, status);
+    }
+    return PesananPelanggan.dariJson(p);
+  }
+
+  /// Riwayat contoh untuk akun Dina (selesai/dibatalkan).
+  void tambahRiwayat({
+    required String layanan,
+    required String status,
+    int total = 100000,
+    String? alasan,
+    String statusBayar = 'berhasil',
+  }) {
+    final l = this.layanan.firstWhere((x) => x['nama'] == layanan);
+    final id = 100 + pesanan.length;
+    pesanan.add({
+      'id': id,
+      'id_pelanggan': 1,
+      'kode': 'AC-${id.toString().padLeft(6, '0')}',
+      'status': status,
+      'layanan': {'id': l['id'], 'nama': layanan, 'harga': l['harga']},
+      'jumlah_unit': 1,
+      'jenis_ac': 'split',
+      'pk': 1,
+      'merek': 'Daikin',
+      'alamat': alamat[1]!.first,
+      'teknisi': status == 'selesai' ? {'nama': 'Budi Santoso'} : null,
+      'biaya': {'total': total, 'rincian': []},
+      'pembayaran': [
+        {
+          'id': id * 10,
+          'jenis': 'awal',
+          'status': statusBayar,
+          'jumlah': total,
+        },
+      ],
+      'alasan_pembatalan': alasan,
+      'waktu': {
+        'dibuat': DateTime(2026, 10, 1).toIso8601String(),
+        status == 'selesai' ? 'selesai' : 'dibatalkan': DateTime(
+          2026,
+          10,
+          1,
+          12,
+        ).toIso8601String(),
+      },
+    });
   }
 
   Map<String, dynamic> _buatPesanan(Map<String, dynamic> isi, int idPelanggan) {
     final l = layanan.firstWhere((l) => l['id'] == isi['id_layanan']);
-    final alamatnya = (alamat[idPelanggan] ?? [])
-        .firstWhere((a) => a['id'] == isi['id_lokasi']);
+    final alamatnya = (alamat[idPelanggan] ?? []).firstWhere(
+      (a) => a['id'] == isi['id_lokasi'],
+    );
     final unit = (isi['jumlah_unit'] as num).toInt();
     final total = (l['harga'] as int) * unit;
     final id = 100 + pesanan.length;
@@ -111,9 +308,30 @@ class ServerPalsu {
       'jadwal_service': isi['jadwal_service'],
       'detail_layanan': isi['detail_layanan'] ?? {},
       'catatan': isi['catatan'],
-      'biaya': {'total': total},
+      'biaya': {
+        'total': total,
+        'rincian': [
+          {
+            'nama': l['nama'],
+            'jenis': 'layanan',
+            'jumlah': unit,
+            'harga': l['harga'],
+            'subtotal': total,
+            'ditagih': true,
+          },
+        ],
+        'status_biaya': null,
+        'catatan_teknisi': null,
+      },
+      'waktu': {'dibuat': DateTime.now().toIso8601String()},
       'pembayaran': [
-        {'id': id * 10, 'jenis': 'awal', 'status': 'menunggu', 'jumlah': total, 'metode': null},
+        {
+          'id': id * 10,
+          'jenis': 'awal',
+          'status': 'menunggu',
+          'jumlah': total,
+          'metode': null,
+        },
       ],
       'teknisi': null,
       'bisa_dibatalkan': true,
@@ -199,11 +417,7 @@ class ServerPalsu {
   int _jumlahBerkas(http.Request r) =>
       RegExp('filename="').allMatches(latin1.decode(r.bodyBytes)).length;
 
-  Map<String, String> _cekUnik(
-    String? email,
-    String? telepon, {
-    int? kecuali,
-  }) {
+  Map<String, String> _cekUnik(String? email, String? telepon, {int? kecuali}) {
     final g = <String, String>{};
     if (email != null &&
         akun.any((a) => a['email'] == email && a['id'] != kecuali)) {
@@ -385,39 +599,72 @@ class ServerPalsu {
 
     if (rute == 'GET /pesanan') {
       final status = r.url.queryParameters['status'];
-      final hasil = milikSaya.where((p) => switch (status) {
-        'aktif' => !['selesai', 'dibatalkan'].contains(p['status']),
-        null => true,
-        _ => p['status'] == status,
-      }).toList().reversed.toList();
+      final hasil = milikSaya
+          .where(
+            (p) => switch (status) {
+              'aktif' => !['selesai', 'dibatalkan'].contains(p['status']),
+              null => true,
+              _ => p['status'] == status,
+            },
+          )
+          .toList()
+          .reversed
+          .toList();
       return _json(200, {'data': hasil});
     }
 
     final cocokPesanan = RegExp(
-      r'^(GET|POST) /pesanan/(\d+)(?:/(batal|pembayaran/(\d+)/simulasi-lunas))?$',
+      r'^(GET|POST) /pesanan/(\d+)(?:/(batal|biaya|pembayaran/(\d+)/simulasi-lunas))?$',
     ).firstMatch(rute);
     if (cocokPesanan != null) {
       final id = int.parse(cocokPesanan.group(2)!);
       final p = milikSaya.where((p) => p['id'] == id).firstOrNull;
       if (p == null) return _json(404, {'message': 'Data tidak ditemukan.'});
       final aksi = cocokPesanan.group(3);
-      final bayar = (p['pembayaran'] as List).first as Map<String, dynamic>;
+      final semuaBayar = (p['pembayaran'] as List).cast<Map<String, dynamic>>();
+      final idBayar = int.tryParse(cocokPesanan.group(4) ?? '');
+      final bayar = idBayar == null
+          ? semuaBayar.first
+          : semuaBayar.firstWhere((b) => b['id'] == idBayar);
 
-      if (aksi == 'batal') {
+      if (aksi == 'biaya') {
+        final biaya = p['biaya'] as Map<String, dynamic>;
+        if (p['status'] != 'menunggu_persetujuan_biaya') {
+          return _json(409, {
+            'message': 'Waktu persetujuan sudah habis, pesanan dilanjutkan dengan biaya awal saja.',
+            'kode': 'tidak_ada_persetujuan',
+          });
+        }
+        final setuju = isi['setuju'] == true;
+        biaya['status_biaya'] = setuju ? 'disetujui' : 'ditolak';
+        if (setuju) {
+          biaya['total'] = (biaya['rincian'] as List).fold<int>(
+            0,
+            (a, r) => a + (r['subtotal'] as int),
+          );
+        }
+        majukan(id, 'dikerjakan');
+      } else if (aksi == 'batal') {
         if (p['status'] != 'mencari_teknisi') {
           return _json(422, {
-            'message': 'Pesanan tidak bisa dibatalkan karena teknisi sudah ditemukan.',
+            'message':
+                'Pesanan tidak bisa dibatalkan karena teknisi sudah ditemukan.',
             'kode': 'tidak_bisa_dibatalkan',
           });
         }
         p['status'] = 'dibatalkan';
         p['bisa_dibatalkan'] = false;
-        p['alasan_pembatalan'] = isi['alasan'] ?? 'Dibatalkan oleh pelanggan saat mencari teknisi';
-        bayar['status'] = bayar['status'] == 'berhasil' ? 'tertahan' : 'kedaluwarsa';
+        p['alasan_pembatalan'] =
+            isi['alasan'] ?? 'Dibatalkan oleh pelanggan saat mencari teknisi';
+        bayar['status'] = bayar['status'] == 'berhasil'
+            ? 'tertahan'
+            : 'kedaluwarsa';
       } else if (aksi != null) {
         bayar['status'] = 'berhasil';
         bayar['metode'] = 'SIMULASI';
-      } else if (p['status'] == 'mencari_teknisi' && bayar['status'] == 'berhasil') {
+        if (bayar['jenis'] == 'pelunasan') majukan(id, 'selesai');
+      } else if (p['status'] == 'mencari_teknisi' &&
+          bayar['status'] == 'berhasil') {
         // Pelanggan memeriksa status: teknisi palsu menerima setelah beberapa kali.
         final n = _jumlahPeriksa[id] = (_jumlahPeriksa[id] ?? 0) + 1;
         if (terimaSetelahPeriksa != null && n >= terimaSetelahPeriksa!) {
@@ -436,9 +683,8 @@ class ServerPalsu {
       return _json(200, {'data': p});
     }
 
-    final cocokAlamat = RegExp(r'^(PUT|DELETE) /alamat/(\d+)$').firstMatch(
-      '${r.method} $path',
-    );
+    final cocokAlamat = RegExp(r'^(PUT|DELETE) /alamat/(\d+)$')
+        .firstMatch('${r.method} $path');
     if (cocokAlamat != null) {
       final daftar = alamat[saya['id'] as int] ?? [];
       final id = int.parse(cocokAlamat.group(2)!);
@@ -447,8 +693,7 @@ class ServerPalsu {
       if (cocokAlamat.group(1) == 'DELETE') {
         if (alamatDipakai.contains(id)) {
           return _json(422, {
-            'message':
-                'Alamat tidak dapat dihapus karena sedang digunakan pada pesanan aktif.',
+            'message': 'Alamat tidak dapat dihapus karena sedang digunakan pada pesanan aktif.',
             'kode': 'alamat_dipakai',
           });
         }

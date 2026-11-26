@@ -240,7 +240,9 @@ class _RingkasanPembayaranPageState extends State<RingkasanPembayaranPage> {
           child: ElevatedButton.icon(
             onPressed: _memproses ? null : _bayar,
             label: Text(
-              _memproses ? 'Memproses...' : 'Bayar ${rupiah(pesanan.biayaAwal)}',
+              _memproses
+                  ? 'Memproses...'
+                  : 'Bayar ${rupiah(pesanan.biayaAwal)}',
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.biru,
