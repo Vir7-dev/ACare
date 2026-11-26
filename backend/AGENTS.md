@@ -20,6 +20,29 @@ API dan panel Admin untuk aplikasi pemesanan servis AC ACare.
 - Trigger dan CHECK constraint hanya untuk MySQL, dibungkus
   `if (DB::getDriverName() === 'mysql')` agar test SQLite tetap jalan.
 
+## API mobile (`routes/api.php`)
+
+| Endpoint | Keterangan |
+|---|---|
+| `POST /api/daftar` | Daftar pelanggan |
+| `POST /api/daftar/teknisi` | Daftar teknisi (multipart, 5 dokumen `dokumen[cv\|lamaran_kerja\|ktp\|ijazah\|pas_foto]`), status `menunggu` |
+| `POST /api/masuk` | `identitas` (email/no HP), `kata_sandi`, `peran` → `token` + `pengguna` |
+| `POST /api/keluar` | Cabut token perangkat ini |
+| `GET/PUT /api/saya` | Data akun; ubah sebagian (teknisi juga kendaraan & deskripsi) |
+| `POST /api/saya/foto` | Foto profil (disk `public`) |
+| `PUT /api/saya/kata-sandi` | Mengeluarkan perangkat lain |
+
+- Galat: `{message, kode?}`; validasi 422 `{message, errors}` berbahasa
+  Indonesia (pesan di `App\Http\Requests\Api\ApiRequest`).
+- `kode` masuk: `kredensial_salah`, `peran_tidak_sesuai`, `akun_diblokir`,
+  `belum_terverifikasi`, `verifikasi_ditolak` (+ `alasan`),
+  `terlalu_banyak_percobaan` (5x salah → kunci 60 detik).
+- Nomor HP diseragamkan ke `08…` (`App\Support\NomorTelepon`).
+- Dokumen teknisi di disk privat `local` (`dokumen-teknisi/{id}`), tidak
+  bisa dibuka lewat URL publik.
+- Token berlaku 30 hari (`SANCTUM_EXPIRATION`, menit). Akun yang diblokir
+  ditolak middleware `akun.aktif`.
+
 ## Aturan bisnis penting
 
 - Status pesanan (9): `mencari_teknisi`, `menuju_lokasi`, `tiba`,
