@@ -1,4 +1,4 @@
-package com.example.acare_mobile
+package id.acare.mobile
 
 import io.flutter.embedding.android.FlutterActivity
 
