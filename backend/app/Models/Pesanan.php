@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -169,9 +170,16 @@ class Pesanan extends Model
         return $this->belongsTo(Teknisi::class, 'id_teknisi', 'id_pengguna');
     }
 
+    /** Alamat pesanan; tetap terbaca walau pelanggan sudah menghapusnya. */
     public function lokasi(): BelongsTo
     {
-        return $this->belongsTo(Lokasi::class, 'id_lokasi', 'id_lokasi');
+        return $this->belongsTo(Lokasi::class, 'id_lokasi', 'id_lokasi')->withTrashed();
+    }
+
+    /** Pesanan yang masih berjalan (belum selesai atau dibatalkan). */
+    public function scopeAktif(Builder $query): Builder
+    {
+        return $query->whereNotIn('status_pesanan', [self::SELESAI, self::DIBATALKAN]);
     }
 
     public function detail(): HasMany
