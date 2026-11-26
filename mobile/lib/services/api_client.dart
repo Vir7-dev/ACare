@@ -98,12 +98,10 @@ class ApiClient {
   static final ValueNotifier<int> sesiBerakhir = ValueNotifier(0);
 
   static Future<String?> token() => penyimpanan.baca(kunciToken);
-  static Future<void> simpanToken(String t) =>
-      penyimpanan.tulis(kunciToken, t);
+  static Future<void> simpanToken(String t) => penyimpanan.tulis(kunciToken, t);
   static Future<void> hapusToken() => penyimpanan.hapus(kunciToken);
 
-  static Future<Map<String, dynamic>> get(String path) =>
-      _kirim('GET', path);
+  static Future<Map<String, dynamic>> get(String path) => _kirim('GET', path);
 
   static Future<Map<String, dynamic>> post(
     String path, [
@@ -146,10 +144,7 @@ class ApiClient {
 
   static Uri _uri(String path) => Uri.parse('$alamat$path');
 
-  static Future<void> _header(
-    Map<String, String> h, {
-    bool json = true,
-  }) async {
+  static Future<void> _header(Map<String, String> h, {bool json = true}) async {
     h['Accept'] = 'application/json';
     if (json) h['Content-Type'] = 'application/json';
     final t = await token();
@@ -191,8 +186,7 @@ class ApiClient {
     } catch (_) {
       throw const ApiException(
         status: 0,
-        pesan:
-            'Tidak bisa terhubung ke server. Periksa koneksi internet kamu.',
+        pesan: 'Tidak bisa terhubung ke server. Periksa koneksi internet kamu.',
       );
     }
 
@@ -225,7 +219,9 @@ class ApiClient {
     throw ApiException(
       status: res.statusCode,
       pesan:
-          (galat.isNotEmpty ? galat.values.first : data['message'] as String?) ??
+          (galat.isNotEmpty
+              ? galat.values.first
+              : data['message'] as String?) ??
           _pesanUmum(res.statusCode),
       kode: kode,
       galatKolom: galat,

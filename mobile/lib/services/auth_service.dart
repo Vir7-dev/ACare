@@ -8,6 +8,7 @@ import 'alamat_service.dart';
 import 'api_client.dart';
 import 'order_service.dart';
 import 'sesi_pengguna.dart';
+import 'teknisi_service.dart';
 
 /// Peran pengguna di aplikasi ACare.
 enum UserRole {
@@ -102,9 +103,7 @@ class AuthService {
         'nama_perangkat': 'aplikasi-mobile',
       });
       await ApiClient.simpanToken(res['token'] as String);
-      await _simpanAkun(
-        Akun.dariJson(res['pengguna'] as Map<String, dynamic>),
-      );
+      await _simpanAkun(Akun.dariJson(res['pengguna'] as Map<String, dynamic>));
       return const HasilMasuk(HasilLogin.berhasil);
     } on ApiException catch (e) {
       return switch (e.kode) {
@@ -166,9 +165,7 @@ class AuthService {
         'no_rekening': nomorRekening.trim(),
         'atas_nama': namaPemilik.trim(),
       },
-      berkas: {
-        for (final e in dokumen.entries) 'dokumen[${e.key}]': e.value,
-      },
+      berkas: {for (final e in dokumen.entries) 'dokumen[${e.key}]': e.value},
     );
     await SesiPengguna.simpanAkun(nama: nama, telepon: telepon, email: email);
   }
@@ -260,6 +257,7 @@ class AuthService {
     // Data milik akun sebelumnya tidak boleh terlihat akun berikutnya.
     AlamatService.instance.reset();
     OrderService.instance.reset();
+    TeknisiService.instance.reset();
     await ApiClient.hapusToken();
     await ApiClient.penyimpanan.hapus(_kAkun);
     await SesiPengguna.keluar();

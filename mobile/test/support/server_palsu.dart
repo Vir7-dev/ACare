@@ -241,6 +241,214 @@ class ServerPalsu {
     return PesananPelanggan.dariJson(p);
   }
 
+  // ---------- Sisi teknisi (akun id 2) ----------
+
+  static const _idTeknisi = 2;
+  bool teknisiOnline = false;
+
+  /// Pelanggan tiruan menyetujui biaya setelah teknisi memeriksa status
+  /// sebanyak ini; `null` = tidak pernah menanggapi.
+  int? setujuiSetelahPeriksa = 1;
+  int _periksaBiaya = 0;
+
+  /// Masuk sebagai teknisi contoh (Rizky).
+  static Future<void> masukTeknisi() async {
+    final h = await AuthService.login(
+      'teknisi@acare.id',
+      sandiContoh,
+      UserRole.teknisi,
+    );
+    if (!h.berhasil) throw StateError('Gagal masuk: ${h.pesan}');
+  }
+
+  /// Pesanan baru yang sudah dibayar dan ditawarkan ke teknisi contoh.
+  Map<String, dynamic> tawarkan({String layanan = 'Service AC'}) {
+    final l = this.layanan.firstWhere((x) => x['nama'] == layanan);
+    final p = _buatPesanan({
+      'id_layanan': l['id'],
+      'jumlah_unit': 1,
+      'jenis_ac': 'split',
+      'pk': 1,
+      'merek': 'Daikin',
+      'id_lokasi': 1,
+      'detail_lokasi': 'Batu Aji',
+      'jadwal_service': DateTime.now().toIso8601String(),
+      'catatan': 'AC kamar utama netes air.',
+      'detail_layanan': {
+        'keluhan': ['Tidak dingin'],
+      },
+    }, 1);
+    ((p['pembayaran'] as List).first as Map)['status'] = 'berhasil';
+    p['ditawari'] = _idTeknisi;
+    p['foto'] = <Map<String, dynamic>>[];
+    pesanan.add(p);
+    return p;
+  }
+
+  Map<String, dynamic> _jsonPekerjaan(Map<String, dynamic> p) {
+    final tawaran = p['status'] == 'mencari_teknisi';
+    final l = p['layanan'] as Map<String, dynamic>;
+    final biaya = p['biaya'] as Map<String, dynamic>;
+    return {
+      'id': p['id'],
+      'kode': p['kode'],
+      'status': p['status'],
+      'layanan': l['nama'],
+      'bisa_biaya_tambahan': (layanan.firstWhere(
+        (x) => x['id'] == l['id'],
+      ))['bisa_biaya_tambahan'],
+      'jumlah_unit': p['jumlah_unit'],
+      'jenis_ac': p['jenis_ac'],
+      'pk': p['pk'],
+      'merek': p['merek'],
+      'biaya_awal': ((biaya['rincian'] as List).first as Map)['subtotal'],
+      'detail_layanan': p['detail_layanan'],
+      'catatan': p['catatan'],
+      'pelanggan': {
+        'nama': 'Dina Safitri',
+        'no_telepon': tawaran ? null : '081111111111',
+      },
+      'alamat': {
+        'alamat_lengkap': (p['alamat'] as Map)['alamat_lengkap'],
+        'detail_lokasi': p['detail_lokasi'],
+        'latitude': (p['alamat'] as Map)['latitude'],
+        'longitude': (p['alamat'] as Map)['longitude'],
+      },
+      'jarak_km': 2.1,
+      'menit_tempuh': 7,
+      if (tawaran) 'tawaran': {'sisa_detik': 30},
+      'biaya': {
+        'rincian': biaya['rincian'],
+        'total': biaya['total'],
+        'status_biaya': biaya['status_biaya'],
+        'catatan': biaya['catatan_teknisi'],
+      },
+      'foto': p['foto'] ?? [],
+      'waktu': p['waktu'],
+    };
+  }
+
+  static const _statusBekerja = {
+    'menuju_lokasi',
+    'tiba',
+    'pengecekan_awal',
+    'menunggu_persetujuan_biaya',
+    'dikerjakan',
+    'menunggu_pembayaran',
+  };
+
+  Map<String, dynamic>? get _pekerjaanTeknisi => pesanan
+      .where(
+        (p) =>
+            p['id_teknisi'] == _idTeknisi &&
+            _statusBekerja.contains(p['status']),
+      )
+      .firstOrNull;
+
+  http.Response? _ruteTeknisi(String rute, Map<String, dynamic> isi) {
+    if (rute == 'PUT /teknisi/status') {
+      if (isi['online'] != true && _pekerjaanTeknisi != null) {
+        return _json(409, {
+          'message': 'Selesaikan pesanan yang sedang berjalan sebelum offline.',
+          'kode': 'masih_ada_pekerjaan',
+        });
+      }
+      teknisiOnline = isi['online'] == true;
+      return _json(200, {
+        'data': {'online': teknisiOnline},
+      });
+    }
+    if (rute == 'PUT /teknisi/lokasi') return _json(200, {'data': {}});
+    if (rute == 'GET /teknisi/tawaran') {
+      final p = teknisiOnline
+          ? pesanan
+                .where(
+                  (p) =>
+                      p['ditawari'] == _idTeknisi &&
+                      p['status'] == 'mencari_teknisi',
+                )
+                .firstOrNull
+          : null;
+      return _json(200, {'data': p == null ? null : _jsonPekerjaan(p)});
+    }
+    if (rute == 'GET /teknisi/pekerjaan') {
+      final p = _pekerjaanTeknisi;
+      // Pelanggan tiruan menanggapi biaya.
+      if (p != null &&
+          p['status'] == 'menunggu_persetujuan_biaya' &&
+          setujuiSetelahPeriksa != null &&
+          ++_periksaBiaya >= setujuiSetelahPeriksa!) {
+        final b = p['biaya'] as Map<String, dynamic>;
+        b['status_biaya'] = 'disetujui';
+        b['total'] = (b['rincian'] as List).fold<int>(
+          0,
+          (a, r) => a + (r['subtotal'] as int),
+        );
+        majukan(p['id'] as int, 'dikerjakan');
+      }
+      return _json(200, {'data': p == null ? null : _jsonPekerjaan(p)});
+    }
+
+    final m = RegExp(r'^POST /teknisi/(tawaran|pekerjaan)/(\d+)/([\w-]+)$')
+        .firstMatch(rute);
+    if (m == null) return null;
+    final p = pesanan
+        .where((x) => x['id'] == int.parse(m.group(2)!))
+        .firstOrNull;
+    if (p == null) return _json(404, {'message': 'Data tidak ditemukan.'});
+    final id = p['id'] as int;
+    String? harus;
+    switch (m.group(3)) {
+      case 'terima':
+        if (p['ditawari'] != _idTeknisi || p['status'] != 'mencari_teknisi') {
+          return _json(409, {
+            'message':
+                'Tawaran ini sudah tidak berlaku. Tunggu tawaran berikutnya.',
+            'kode': 'tawaran_tidak_berlaku',
+          });
+        }
+        p['id_teknisi'] = _idTeknisi;
+        p['ditawari'] = null;
+        p['teknisi'] = {'nama': 'Rizky Pratama'};
+        majukan(id, 'menuju_lokasi');
+      case 'tolak':
+        p['ditawari'] = null;
+        return _json(200, {'message': 'Tawaran ditolak.'});
+      case 'tiba':
+        harus = 'menuju_lokasi';
+        if (p['status'] == harus) majukan(id, 'tiba');
+      case 'pengecekan':
+        harus = 'tiba';
+        if (p['status'] == harus) majukan(id, 'pengecekan_awal');
+      case 'foto-pemeriksaan':
+        (p['foto'] as List).add({
+          'id': (p['foto'] as List).length + 1,
+          'tahap': 'pemeriksaan',
+        });
+      case 'biaya':
+        harus = 'pengecekan_awal';
+        if (p['status'] == harus) {
+          ajukanBiaya(id, {
+            for (final i in (isi['item'] as List).cast<Map>())
+              '${i['nama']}': (i['harga'] as num).toInt(),
+          }, catatan: '${isi['catatan'] ?? ''}');
+          _periksaBiaya = 0;
+        }
+      case 'tanpa-biaya':
+        harus = 'pengecekan_awal';
+        if (p['status'] == harus) majukan(id, 'dikerjakan');
+      case 'selesai':
+        harus = 'dikerjakan';
+        if (p['status'] == harus) selesaiDikerjakan(id);
+    }
+    if (harus != null && p['status'] == harus) {
+      return _json(409, {
+        'message': 'Langkah ini tidak sesuai dengan status pesanan saat ini.',
+      });
+    }
+    return _json(200, {'data': _jsonPekerjaan(p)});
+  }
+
   /// Riwayat contoh untuk akun Dina (selesai/dibatalkan).
   void tambahRiwayat({
     required String layanan,
@@ -580,6 +788,10 @@ class ServerPalsu {
     }
 
     final rute = '${r.method} $path';
+    if (path.startsWith('/teknisi/')) {
+      return _ruteTeknisi(rute, isi) ??
+          _json(404, {'message': 'Tidak ditemukan.'});
+    }
     final milikSaya = pesanan.where((p) => p['id_pelanggan'] == saya['id']);
 
     if (rute == 'POST /pesanan') {

@@ -84,9 +84,7 @@ class AlamatService {
       _isi(label, alamatLengkap, latitude, longitude),
     );
     final baru = AlamatTersimpan.dariJson(res['data'] as Map<String, dynamic>);
-    daftar.value = [
-      for (final a in daftar.value) a.id == lama.id ? baru : a,
-    ];
+    daftar.value = [for (final a in daftar.value) a.id == lama.id ? baru : a];
     return baru;
   }
 

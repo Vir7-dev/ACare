@@ -16,16 +16,12 @@ class BerandaTeknisiPage extends StatelessWidget {
 
   TeknisiService get _layanan => TeknisiService.instance;
 
-  void _ubahOnline(BuildContext context, bool nilai) {
-    if (!_layanan.aturOnline(nilai)) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(
-            content: Text('Selesaikan pesanan aktif terlebih dahulu'),
-          ),
-        );
-    }
+  Future<void> _ubahOnline(BuildContext context, bool nilai) async {
+    final galat = await _layanan.aturOnline(nilai);
+    if (galat == null || !context.mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(galat)));
   }
 
   void _bukaPekerjaan(BuildContext context) {
@@ -196,21 +192,27 @@ class _BagianBawah extends StatelessWidget {
                 key: ValueKey(tawaran.kode),
                 tawaran: tawaran,
                 batas: layanan.batasAktif,
-                onTerima: () {
-                  layanan.terimaTawaran();
+                onTerima: () async {
+                  final galat = await layanan.terimaTawaran();
+                  if (!context.mounted) return;
+                  if (galat != null) {
+                    ScaffoldMessenger.of(context)
+                      ..hideCurrentSnackBar()
+                      ..showSnackBar(SnackBar(content: Text(galat)));
+                    return;
+                  }
                   onBukaPekerjaan();
                 },
-                onTolak: (sisa) {
-                  layanan.tolakTawaran(sisaDetik: sisa);
+                // Ditolak = langsung diteruskan server ke teknisi lain, jadi
+                // tidak bisa dibatalkan.
+                onTolak: (_) {
+                  layanan.tolakTawaran();
                   ScaffoldMessenger.of(context)
                     ..hideCurrentSnackBar()
                     ..showSnackBar(
-                      SnackBar(
-                        content: const Text('Tawaran ditolak'),
-                        duration: const Duration(seconds: 4),
-                        action: SnackBarAction(
-                          label: 'Batalkan',
-                          onPressed: layanan.batalkanTolak,
+                      const SnackBar(
+                        content: Text(
+                          'Tawaran ditolak dan diteruskan ke teknisi lain',
                         ),
                       ),
                     );

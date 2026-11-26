@@ -61,7 +61,10 @@ class _InputBiayaPageState extends State<InputBiayaPage> {
     });
   }
 
-  void _kirim() {
+  bool _mengirim = false;
+
+  Future<void> _kirim() async {
+    if (_mengirim) return;
     if (_item.isEmpty) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
@@ -71,10 +74,19 @@ class _InputBiayaPageState extends State<InputBiayaPage> {
       return;
     }
     if (!_formKey.currentState!.validate()) return;
-    TeknisiService.instance.ajukanBiaya([
+    setState(() => _mengirim = true);
+    final galat = await TeknisiService.instance.ajukanBiaya([
       for (final i in _item)
         ItemBiaya(nama: i.nama.text.trim(), jenis: i.jenis, harga: i.nilai),
     ], _catatan.text.trim());
+    if (!mounted) return;
+    setState(() => _mengirim = false);
+    if (galat != null) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(galat)));
+      return;
+    }
     Navigator.of(context).pop();
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()

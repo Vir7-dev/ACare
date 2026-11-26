@@ -18,12 +18,28 @@ class PengerjaanServisPage extends StatelessWidget {
 
   TeknisiService get _layanan => TeknisiService.instance;
 
+  void _pesan(BuildContext context, String? galat) {
+    if (galat == null || !context.mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(galat)));
+  }
+
   Future<void> _ambilFoto(BuildContext context) async {
     final berkas = await Perangkat.ambilFoto();
     if (berkas == null) return;
-    _layanan.tambahFotoPemeriksaan(
-      berkas.name.isEmpty ? 'Foto pemeriksaan' : berkas.name,
-    );
+    final galat = await _layanan.tambahFotoPemeriksaan(berkas);
+    if (context.mounted) _pesan(context, galat);
+  }
+
+  Future<void> _lanjut(BuildContext context) async {
+    final galat = await _layanan.lanjutTahap();
+    if (context.mounted) _pesan(context, galat);
+  }
+
+  Future<void> _tanpaBiaya(BuildContext context) async {
+    final galat = await _layanan.lanjutTanpaBiayaTambahan();
+    if (context.mounted) _pesan(context, galat);
   }
 
   Future<void> _inputBiaya(BuildContext context) async {
@@ -77,11 +93,14 @@ class PengerjaanServisPage extends StatelessWidget {
           body: ListView(
             padding: const EdgeInsets.only(bottom: 24),
             children: [
-              const SizedBox(
+              SizedBox(
                 height: 170,
                 child: PetaLokasi(
-                  posisiTeknisi: LatLng(1.1350, 104.0450),
-                  posisiPelanggan: LatLng(1.1283, 104.0530),
+                  // TODO(lokasi): posisi teknisi dari GPS perangkat.
+                  posisiTeknisi: const LatLng(1.1350, 104.0450),
+                  posisiPelanggan: p.latitude == null
+                      ? const LatLng(1.1283, 104.0530)
+                      : LatLng(p.latitude!, p.longitude!),
                 ),
               ),
               Padding(
@@ -226,9 +245,9 @@ class PengerjaanServisPage extends StatelessWidget {
             minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
             child: _TombolTahap(
               kerja: kerja,
-              onLanjut: _layanan.lanjutTahap,
+              onLanjut: () => _lanjut(context),
               onInputBiaya: () => _inputBiaya(context),
-              onTanpaBiaya: _layanan.lanjutTanpaBiayaTambahan,
+              onTanpaBiaya: () => _tanpaBiaya(context),
               onUploadBukti: () => _uploadBukti(context),
             ),
           ),

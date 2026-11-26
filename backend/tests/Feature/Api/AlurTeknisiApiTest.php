@@ -260,6 +260,12 @@ class AlurTeknisiApiTest extends TestCase
 
         $this->selesaikan($a, $id)->assertOk()->assertJsonPath('data.status', 'menunggu_pembayaran');
 
+        // Pekerjaan teknisi sudah selesai: tidak lagi sibuk walau pelanggan
+        // belum melunasi.
+        $this->sebagai($a)->getJson('/api/teknisi/pekerjaan')->assertJsonPath('data', null);
+        $this->sebagai($a)->putJson('/api/teknisi/status', ['online' => false])->assertOk();
+        $this->sebagai($a)->putJson('/api/teknisi/status', ['online' => true, 'latitude' => 1.135, 'longitude' => 104.045])->assertOk();
+
         $res = $this->sebagai($this->pelanggan)->getJson("/api/pesanan/{$id}")
             ->assertJsonPath('data.pembayaran.1.jenis', 'pelunasan')
             ->assertJsonPath('data.pembayaran.1.jumlah', 135000)

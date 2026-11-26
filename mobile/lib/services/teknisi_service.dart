@@ -1,6 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:image_picker/image_picker.dart';
+
+import 'api_client.dart';
+import 'perangkat.dart';
 
 /// Tahap pekerjaan yang dijalankan teknisi untuk satu pesanan.
 enum TahapPekerjaan {
@@ -12,10 +16,31 @@ enum TahapPekerjaan {
 
   final String label;
   const TahapPekerjaan(this.label);
+
+  /// Dari status pesanan di server.
+  static TahapPekerjaan dariServer(String? s) => switch (s) {
+    'tiba' => tiba,
+    'pengecekan_awal' || 'menunggu_persetujuan_biaya' => pengecekan,
+    'dikerjakan' => perbaikan,
+    'menunggu_pembayaran' || 'selesai' => selesai,
+    _ => menuju,
+  };
 }
 
 /// Status rincian biaya perbaikan yang diajukan ke pelanggan.
-enum StatusBiaya { belumDiajukan, menunggu, disetujui, ditolak }
+enum StatusBiaya {
+  belumDiajukan,
+  menunggu,
+  disetujui,
+  ditolak;
+
+  static StatusBiaya dariServer(String? s) => switch (s) {
+    'menunggu' => menunggu,
+    'disetujui' => disetujui,
+    'ditolak' => ditolak,
+    _ => belumDiajukan,
+  };
+}
 
 enum JenisItemBiaya {
   jasa('Jasa Perbaikan'),
@@ -23,6 +48,9 @@ enum JenisItemBiaya {
 
   final String label;
   const JenisItemBiaya(this.label);
+
+  /// Nilai `jenis` di API (`jasa` / `suku_cadang`).
+  String get nilai => this == jasa ? 'jasa' : 'suku_cadang';
 }
 
 class ItemBiaya {
@@ -39,6 +67,8 @@ class ItemBiaya {
 
 /// Tawaran pesanan yang dikirim sistem ke teknisi aktif terdekat (UC-20).
 class TawaranPesanan {
+  /// Id pesanan di server.
+  final int id;
   final String kode;
   final String layanan;
   final String unitAc;
@@ -49,14 +79,19 @@ class TawaranPesanan {
   /// Layanan yang bisa bertambah biaya setelah pengecekan.
   final bool bisaBiayaTambahan;
   final String namaPelanggan;
+
+  /// Kosong selama masih tawaran; terlihat setelah diterima.
   final String teleponPelanggan;
   final String alamat;
   final String wilayah;
   final double jarakKm;
   final int menitTempuh;
   final String catatan;
+  final double? latitude;
+  final double? longitude;
 
   const TawaranPesanan({
+    this.id = 0,
     required this.kode,
     required this.layanan,
     required this.unitAc,
@@ -69,7 +104,53 @@ class TawaranPesanan {
     required this.jarakKm,
     required this.menitTempuh,
     required this.catatan,
+    this.latitude,
+    this.longitude,
   });
+
+  /// Dari `PekerjaanTeknisiResource` di backend.
+  factory TawaranPesanan.dariJson(Map<String, dynamic> j) {
+    final pelanggan = j['pelanggan'] as Map<String, dynamic>? ?? const {};
+    final alamat = j['alamat'] as Map<String, dynamic>? ?? const {};
+    final detail = j['detail_layanan'];
+    final keluhan = detail is Map && detail['keluhan'] is List
+        ? (detail['keluhan'] as List).join(', ')
+        : '';
+    final catatan = [
+      if (keluhan.isNotEmpty) 'Keluhan: $keluhan',
+      if (detail is Map && detail['jenis_freon'] != null)
+        'Freon ${detail['jenis_freon']}',
+      if ((j['catatan'] as String?)?.trim().isNotEmpty ?? false)
+        (j['catatan'] as String).trim(),
+    ].join('. ');
+    final pk = (j['pk'] as num?)?.toDouble();
+    final merek = (j['merek'] as String?)?.trim();
+    final jenis = (j['jenis_ac'] as String?) ?? '';
+    return TawaranPesanan(
+      id: j['id'] as int,
+      kode: j['kode'] as String? ?? '',
+      layanan: j['layanan'] as String? ?? '',
+      unitAc:
+          [
+            '${j['jumlah_unit'] ?? 1} Unit AC',
+            if (jenis.isNotEmpty)
+              '${jenis[0].toUpperCase()}${jenis.substring(1)}',
+            if (pk != null) '${pk == pk.roundToDouble() ? pk.toInt() : pk} PK',
+          ].join(' ') +
+          (merek == null || merek.isEmpty ? '' : ' • $merek'),
+      ongkosAwal: (j['biaya_awal'] as num?)?.toInt() ?? 0,
+      bisaBiayaTambahan: j['bisa_biaya_tambahan'] == true,
+      namaPelanggan: pelanggan['nama'] as String? ?? '',
+      teleponPelanggan: pelanggan['no_telepon'] as String? ?? '',
+      alamat: alamat['alamat_lengkap'] as String? ?? '',
+      wilayah: alamat['detail_lokasi'] as String? ?? '',
+      jarakKm: (j['jarak_km'] as num?)?.toDouble() ?? 0,
+      menitTempuh: (j['menit_tempuh'] as num?)?.toInt() ?? 0,
+      catatan: catatan,
+      latitude: (alamat['latitude'] as num?)?.toDouble(),
+      longitude: (alamat['longitude'] as num?)?.toDouble(),
+    );
+  }
 }
 
 /// Pesanan yang sedang dikerjakan teknisi.
@@ -83,7 +164,7 @@ class PekerjaanTeknisi {
   /// Waktu tiap tahap dicapai, untuk garis waktu.
   final Map<TahapPekerjaan, DateTime> waktu;
 
-  /// Foto pemeriksaan unit (nama berkas), diambil saat pengecekan.
+  /// Foto pemeriksaan unit yang sudah diunggah.
   final List<String> fotoPemeriksaan;
 
   const PekerjaanTeknisi({
@@ -95,6 +176,46 @@ class PekerjaanTeknisi {
     this.waktu = const {},
     this.fotoPemeriksaan = const [],
   });
+
+  /// Dari `PekerjaanTeknisiResource` di backend.
+  factory PekerjaanTeknisi.dariJson(Map<String, dynamic> j) {
+    final biaya = j['biaya'] as Map<String, dynamic>? ?? const {};
+    final waktu = j['waktu'] as Map<String, dynamic>? ?? const {};
+    DateTime? w(String k) =>
+        DateTime.tryParse(waktu[k] as String? ?? '')?.toLocal();
+    final foto = (j['foto'] as List? ?? const [])
+        .cast<Map<String, dynamic>>()
+        .where((f) => f['tahap'] == 'pemeriksaan')
+        .toList();
+    return PekerjaanTeknisi(
+      pesanan: TawaranPesanan.dariJson(j),
+      tahap: TahapPekerjaan.dariServer(j['status'] as String?),
+      statusBiaya: StatusBiaya.dariServer(biaya['status_biaya'] as String?),
+      itemBiaya: [
+        for (final r
+            in (biaya['rincian'] as List? ?? const [])
+                .cast<Map<String, dynamic>>())
+          if (r['jenis'] != 'layanan')
+            ItemBiaya(
+              nama: r['nama'] as String? ?? '',
+              jenis: r['jenis'] == 'jasa'
+                  ? JenisItemBiaya.jasa
+                  : JenisItemBiaya.sukuCadang,
+              harga: (r['subtotal'] as num?)?.toInt() ?? 0,
+            ),
+      ],
+      catatanBiaya: biaya['catatan'] as String? ?? '',
+      waktu: {
+        TahapPekerjaan.menuju: ?w('diterima'),
+        TahapPekerjaan.tiba: ?w('tiba'),
+        TahapPekerjaan.pengecekan: ?w('pengecekan'),
+        TahapPekerjaan.perbaikan: ?w('dikerjakan'),
+      },
+      fotoPemeriksaan: [
+        for (var i = 0; i < foto.length; i++) 'Foto pemeriksaan ${i + 1}',
+      ],
+    );
+  }
 
   int get totalBiayaPerbaikan => itemBiaya.fold(0, (a, i) => a + i.harga);
 
@@ -166,13 +287,12 @@ class PengajuanPencairan {
   });
 }
 
-/// Sumber tunggal data tiruan untuk sisi teknisi: status online, tawaran
-/// pesanan, pekerjaan berjalan, pendapatan, riwayat, dan pencairan.
-///
-/// Halaman cukup memanggil kelas ini, supaya nanti cukup mengganti isinya
-/// dengan panggilan API.
-// TODO(backend): ganti dengan API + notifikasi FCM untuk tawaran dan
-// Laravel Reverb untuk status persetujuan biaya.
+/// Sisi teknisi lewat API `/api/teknisi`: status online, tawaran pesanan,
+/// dan langkah kerja. Tawaran dan status pekerjaan diperiksa ke server
+/// setiap [selangPeriksa] selama online.
+// TODO(fcm): tawaran dan persetujuan biaya lewat notifikasi; pemeriksaan
+// berkala jadi cadangan.
+// TODO(dompet): riwayat pendapatan & pencairan dari API (masih tiruan).
 class TeknisiService {
   TeknisiService._();
 
@@ -187,14 +307,12 @@ class TeknisiService {
   /// Rekening tujuan pencairan dari data registrasi (tiruan).
   static const String rekeningTujuan = 'BNI • 1234567890 a.n Rizky Pratama';
 
-  /// Lama tawaran menunggu jawaban sebelum diteruskan ke teknisi lain.
-  Duration batasTawaran = const Duration(seconds: 30);
+  /// Selang pemeriksaan tawaran & status pekerjaan ke server.
+  static Duration selangPeriksa = const Duration(seconds: 3);
 
-  /// Jeda tiruan sebelum tawaran berikutnya datang.
-  Duration jedaTawaran = const Duration(seconds: 3);
-
-  /// Jeda tiruan sebelum pelanggan menyetujui biaya perbaikan.
-  Duration jedaPersetujuan = const Duration(seconds: 3);
+  /// Selang pengiriman lokasi selama online (server menganggap lokasi
+  /// lebih lama dari 30 menit tidak aktif).
+  static Duration selangLokasi = const Duration(minutes: 5);
 
   final ValueNotifier<bool> online = ValueNotifier(false);
   final ValueNotifier<TawaranPesanan?> tawaran = ValueNotifier(null);
@@ -206,16 +324,12 @@ class TeknisiService {
     const [],
   );
 
-  /// Batas waktu kartu tawaran yang sedang tampil. Sama dengan
-  /// [batasTawaran], kecuali tawaran dipulihkan lewat [batalkanTolak].
+  /// Batas waktu kartu tawaran yang sedang tampil (sisa waktu dari server).
   Duration batasAktif = const Duration(seconds: 30);
 
-  /// Tawaran yang baru ditolak beserta sisa waktunya, untuk "Batalkan".
-  ({TawaranPesanan tawaran, int sisaDetik})? _baruDitolak;
-
-  Timer? _timerTawaran;
-  Timer? _timerPersetujuan;
-  int _urutanTawaran = 0;
+  Timer? _timerPeriksa;
+  Timer? _timerLokasi;
+  bool _sedangPeriksa = false;
 
   static int hitungKomisi(int totalDibayar) =>
       totalDibayar - (totalDibayar * persentasePlatform / 100).round();
@@ -239,133 +353,231 @@ class TeknisiService {
       riwayat.value.fold(0, (a, r) => a + r.diterima) -
       pencairan.value.fold(0, (a, p) => a + p.nominal);
 
-  /// Ubah status ketersediaan. Gagal (mengembalikan `false`) bila teknisi
-  /// ingin offline saat masih menangani pesanan (UC-19).
-  bool aturOnline(bool nilai) {
-    if (!nilai && pekerjaan.value != null) return false;
+  /// Dipanggil saat aplikasi teknisi dibuka: pulihkan pekerjaan berjalan.
+  Future<void> muat() async {
+    if (await ApiClient.token() == null) return;
+    await _periksa();
+    if (pekerjaan.value != null) {
+      online.value = true;
+      _mulaiPeriksa();
+    }
+  }
+
+  /// Ubah status ketersediaan. Mengembalikan pesan galat atau `null`.
+  /// Online butuh lokasi saat ini; offline ditolak selama ada pekerjaan.
+  Future<String?> aturOnline(bool nilai) async {
+    if (!nilai && pekerjaan.value != null) {
+      return 'Selesaikan pesanan aktif terlebih dahulu';
+    }
+    final Map<String, dynamic> isi = {'online': nilai};
+    if (nilai) {
+      try {
+        final titik = await Perangkat.koordinatSaatIni();
+        isi['latitude'] = titik.latitude;
+        isi['longitude'] = titik.longitude;
+      } on LokasiException catch (e) {
+        return e.pesan;
+      } catch (_) {
+        return 'Gagal mendapatkan lokasi saat ini';
+      }
+    }
+    try {
+      await ApiClient.put('/teknisi/status', isi);
+    } on ApiException catch (e) {
+      return e.pesan;
+    }
     online.value = nilai;
     if (nilai) {
-      _jadwalkanTawaran();
+      _mulaiPeriksa();
+      unawaited(_periksa());
     } else {
-      _timerTawaran?.cancel();
+      _berhentiPeriksa();
       tawaran.value = null;
     }
-    return true;
+    return null;
   }
 
-  void _jadwalkanTawaran() {
-    _timerTawaran?.cancel();
-    if (!online.value || pekerjaan.value != null || tawaran.value != null) {
-      return;
+  void _mulaiPeriksa() {
+    _timerPeriksa?.cancel();
+    _timerPeriksa = Timer.periodic(selangPeriksa, (_) => _periksa());
+    _timerLokasi?.cancel();
+    _timerLokasi = Timer.periodic(selangLokasi, (_) => _kirimLokasi());
+  }
+
+  void _berhentiPeriksa() {
+    _timerPeriksa?.cancel();
+    _timerLokasi?.cancel();
+    _timerPeriksa = null;
+    _timerLokasi = null;
+  }
+
+  Future<void> _kirimLokasi() async {
+    try {
+      final titik = await Perangkat.koordinatSaatIni();
+      await ApiClient.put('/teknisi/lokasi', {
+        'latitude': titik.latitude,
+        'longitude': titik.longitude,
+      });
+    } catch (_) {
+      // Dicoba lagi di putaran berikutnya.
     }
-    _timerTawaran = Timer(jedaTawaran, () {
-      if (!online.value || pekerjaan.value != null) return;
-      _baruDitolak = null;
-      batasAktif = batasTawaran;
-      tawaran.value = _contohTawaran[_urutanTawaran % _contohTawaran.length];
-      _urutanTawaran++;
-    });
   }
 
-  void terimaTawaran() {
+  /// Ambil pekerjaan berjalan; bila tidak ada dan sedang online, tawaran.
+  Future<void> _periksa() async {
+    if (_sedangPeriksa) return;
+    _sedangPeriksa = true;
+    try {
+      final kerja = await ApiClient.get('/teknisi/pekerjaan');
+      final data = kerja['data'];
+      pekerjaan.value = data is Map<String, dynamic>
+          ? PekerjaanTeknisi.dariJson(data)
+          : null;
+      if (pekerjaan.value != null || !online.value) {
+        tawaran.value = null;
+        return;
+      }
+      final res = await ApiClient.get('/teknisi/tawaran');
+      final t = res['data'];
+      if (t is! Map<String, dynamic>) {
+        tawaran.value = null;
+        return;
+      }
+      final baru = TawaranPesanan.dariJson(t);
+      if (tawaran.value?.id != baru.id) {
+        final sisa =
+            ((t['tawaran'] as Map?)?['sisa_detik'] as num?)?.toInt() ?? 30;
+        batasAktif = Duration(seconds: sisa);
+        tawaran.value = baru;
+      }
+    } on ApiException {
+      // Koneksi putus sesaat: coba lagi di putaran berikutnya.
+    } finally {
+      _sedangPeriksa = false;
+    }
+  }
+
+  /// Terima tawaran. Mengembalikan pesan galat (misal tawaran sudah
+  /// diteruskan ke teknisi lain) atau `null`.
+  Future<String?> terimaTawaran() async {
     final t = tawaran.value;
+    if (t == null) return 'Tawaran sudah tidak berlaku';
+    try {
+      final res = await ApiClient.post('/teknisi/tawaran/${t.id}/terima');
+      pekerjaan.value = PekerjaanTeknisi.dariJson(
+        res['data'] as Map<String, dynamic>,
+      );
+      return null;
+    } on ApiException catch (e) {
+      return e.pesan;
+    } finally {
+      tawaran.value = null;
+    }
+  }
+
+  /// Tolak tawaran atau biarkan lewat batas waktu; server meneruskannya ke
+  /// teknisi lain.
+  Future<void> tolakTawaran() async {
+    final t = tawaran.value;
+    tawaran.value = null;
     if (t == null) return;
-    tawaran.value = null;
-    pekerjaan.value = PekerjaanTeknisi(
-      pesanan: t,
-      waktu: {TahapPekerjaan.menuju: DateTime.now()},
-    );
-  }
-
-  /// Menolak tawaran atau membiarkannya lewat batas waktu; tawaran
-  /// diteruskan ke teknisi lain dan teknisi ini menunggu tawaran berikutnya.
-  /// Tolak tawaran. Bila [sisaDetik] diisi (ditolak manual, bukan karena
-  /// waktu habis), tawaran masih bisa dipulihkan lewat [batalkanTolak]
-  /// selama belum ada tawaran baru.
-  void tolakTawaran({int? sisaDetik}) {
-    final t = tawaran.value;
-    _baruDitolak = (t != null && sisaDetik != null && sisaDetik > 0)
-        ? (tawaran: t, sisaDetik: sisaDetik)
-        : null;
-    tawaran.value = null;
-    _jadwalkanTawaran();
-  }
-
-  /// Pulihkan tawaran yang baru ditolak; `false` bila sudah tidak bisa.
-  bool batalkanTolak() {
-    final d = _baruDitolak;
-    _baruDitolak = null;
-    if (d == null || tawaran.value != null || pekerjaan.value != null) {
-      return false;
+    try {
+      await ApiClient.post('/teknisi/tawaran/${t.id}/tolak');
+    } on ApiException {
+      // Lewat batas waktu: server sudah meneruskannya sendiri.
     }
-    if (!online.value) return false;
-    _timerTawaran?.cancel();
-    batasAktif = Duration(seconds: d.sisaDetik);
-    tawaran.value = d.tawaran;
-    return true;
   }
 
   /// Menuju -> Tiba -> Pengecekan.
-  void lanjutTahap() {
+  Future<String?> lanjutTahap() async {
     final p = pekerjaan.value;
-    if (p == null) return;
-    final berikutnya = switch (p.tahap) {
-      TahapPekerjaan.menuju => TahapPekerjaan.tiba,
-      TahapPekerjaan.tiba => TahapPekerjaan.pengecekan,
+    if (p == null) return null;
+    final langkah = switch (p.tahap) {
+      TahapPekerjaan.menuju => 'tiba',
+      TahapPekerjaan.tiba => 'pengecekan',
       _ => null,
     };
-    if (berikutnya == null) return;
-    pekerjaan.value = p.copyWith(
-      tahap: berikutnya,
-      waktu: {...p.waktu, berikutnya: DateTime.now()},
-    );
+    if (langkah == null) return null;
+    return _langkah(p, langkah);
   }
 
-  void tambahFotoPemeriksaan(String nama) {
+  /// Unggah foto kondisi unit saat pengecekan.
+  Future<String?> tambahFotoPemeriksaan(XFile foto) async {
     final p = pekerjaan.value;
-    if (p == null) return;
-    pekerjaan.value = p.copyWith(fotoPemeriksaan: [...p.fotoPemeriksaan, nama]);
+    if (p == null) return null;
+    try {
+      final res = await ApiClient.multipart(
+        '/teknisi/pekerjaan/${p.pesanan.id}/foto-pemeriksaan',
+        berkas: {'foto': foto},
+      );
+      pekerjaan.value = PekerjaanTeknisi.dariJson(
+        res['data'] as Map<String, dynamic>,
+      );
+      return null;
+    } on ApiException catch (e) {
+      return e.pesan;
+    }
   }
 
   /// Kirim rincian biaya perbaikan ke pelanggan (UC-22).
-  void ajukanBiaya(List<ItemBiaya> item, String catatan) {
+  Future<String?> ajukanBiaya(List<ItemBiaya> item, String catatan) async {
     final p = pekerjaan.value;
-    if (p == null) return;
-    pekerjaan.value = p.copyWith(
-      itemBiaya: item,
-      catatanBiaya: catatan,
-      statusBiaya: StatusBiaya.menunggu,
-    );
-    // Tiruan: pelanggan menyetujui setelah beberapa detik.
-    _timerPersetujuan?.cancel();
-    _timerPersetujuan = Timer(jedaPersetujuan, () {
-      final sekarang = pekerjaan.value;
-      if (sekarang == null || sekarang.statusBiaya != StatusBiaya.menunggu) {
-        return;
-      }
-      pekerjaan.value = sekarang.copyWith(
-        statusBiaya: StatusBiaya.disetujui,
-        tahap: TahapPekerjaan.perbaikan,
-        waktu: {...sekarang.waktu, TahapPekerjaan.perbaikan: DateTime.now()},
-      );
+    if (p == null) return null;
+    return _langkah(p, 'biaya', {
+      'item': [
+        for (final i in item)
+          {'nama': i.nama, 'jenis': i.jenis.nilai, 'harga': i.harga},
+      ],
+      if (catatan.trim().isNotEmpty) 'catatan': catatan.trim(),
     });
   }
 
   /// Pengecekan selesai tanpa biaya tambahan: langsung dikerjakan.
-  void lanjutTanpaBiayaTambahan() {
+  Future<String?> lanjutTanpaBiayaTambahan() async {
     final p = pekerjaan.value;
-    if (p == null) return;
-    pekerjaan.value = p.copyWith(
-      tahap: TahapPekerjaan.perbaikan,
-      waktu: {...p.waktu, TahapPekerjaan.perbaikan: DateTime.now()},
-    );
+    if (p == null) return null;
+    return _langkah(p, 'tanpa-biaya');
   }
 
-  /// Selesaikan pesanan setelah bukti kerja diunggah. Komisi teknisi
-  /// tercatat sebagai pendapatan. Mengembalikan komisi.
-  int selesaikan({required String catatan, required List<String> foto}) {
+  Future<String?> _langkah(
+    PekerjaanTeknisi p,
+    String langkah, [
+    Map<String, dynamic>? isi,
+  ]) async {
+    try {
+      final res = await ApiClient.post(
+        '/teknisi/pekerjaan/${p.pesanan.id}/$langkah',
+        isi,
+      );
+      pekerjaan.value = PekerjaanTeknisi.dariJson(
+        res['data'] as Map<String, dynamic>,
+      );
+      return null;
+    } on ApiException catch (e) {
+      return e.pesan;
+    }
+  }
+
+  /// Unggah bukti kerja dan selesaikan pesanan. Mengembalikan komisi
+  /// teknisi; melempar [ApiException] bila ditolak server.
+  Future<int> selesaikan({
+    required String catatan,
+    required XFile sebelum,
+    required XFile sesudah,
+    List<XFile> tambahan = const [],
+  }) async {
     final p = pekerjaan.value;
     if (p == null) return 0;
+    await ApiClient.multipart(
+      '/teknisi/pekerjaan/${p.pesanan.id}/selesai',
+      kolom: {'catatan': catatan},
+      berkas: {
+        'foto_sebelum': sebelum,
+        'foto_sesudah': sesudah,
+        for (var i = 0; i < tambahan.length; i++)
+          'foto_tambahan[$i]': tambahan[i],
+      },
+    );
     final komisi = hitungKomisi(p.totalTagihan);
     riwayat.value = [
       RiwayatLayanan(
@@ -379,7 +591,6 @@ class TeknisiService {
       ...riwayat.value,
     ];
     pekerjaan.value = null;
-    _jadwalkanTawaran();
     return komisi;
   }
 
@@ -403,51 +614,14 @@ class TeknisiService {
 
   /// Kembalikan ke kondisi awal (dipakai test dan saat keluar akun).
   void reset() {
-    _timerTawaran?.cancel();
-    _timerPersetujuan?.cancel();
-    batasTawaran = const Duration(seconds: 30);
-    batasAktif = batasTawaran;
-    _baruDitolak = null;
-    jedaTawaran = const Duration(seconds: 3);
-    jedaPersetujuan = const Duration(seconds: 3);
+    _berhentiPeriksa();
+    batasAktif = const Duration(seconds: 30);
     online.value = false;
     tawaran.value = null;
     pekerjaan.value = null;
     riwayat.value = _riwayatAwal;
     pencairan.value = const [];
-    _urutanTawaran = 0;
   }
-
-  static const _contohTawaran = [
-    TawaranPesanan(
-      kode: 'AC-000124',
-      layanan: 'Service AC',
-      unitAc: '1 Unit AC Split 1 PK • Daikin',
-      ongkosAwal: 100000,
-      bisaBiayaTambahan: true,
-      namaPelanggan: 'Hendra Gunawan',
-      teleponPelanggan: '081234500001',
-      alamat: 'Jl. Engku Putri No. 12, Batam Centre',
-      wilayah: 'Batam Centre',
-      jarakKm: 2.1,
-      menitTempuh: 7,
-      catatan: 'AC kamar utama netes air dan tidak dingin.',
-    ),
-    TawaranPesanan(
-      kode: 'AC-000125',
-      layanan: 'Cuci AC',
-      unitAc: '2 Unit AC Split 1 PK • Panasonic',
-      ongkosAwal: 150000,
-      bisaBiayaTambahan: false,
-      namaPelanggan: 'Siti Rahayu',
-      teleponPelanggan: '081234500002',
-      alamat: 'Perumahan Batu Aji Blok C No. 5',
-      wilayah: 'Batu Aji',
-      jarakKm: 3.4,
-      menitTempuh: 11,
-      catatan: 'Sudah 6 bulan belum dicuci.',
-    ),
-  ];
 
   static final _riwayatAwal = [
     RiwayatLayanan(

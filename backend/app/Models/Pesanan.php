@@ -48,10 +48,14 @@ class Pesanan extends Model
     /** Bila tidak ada teknisi menerima selama ini, pesanan dibatalkan otomatis. */
     public const BATAS_PENCARIAN_MENIT = 15;
 
-    /** Status ketika pesanan sedang dikerjakan teknisi (teknisi sibuk). */
+    /**
+     * Status ketika pesanan sedang dikerjakan teknisi (teknisi sibuk).
+     * Menunggu pelunasan tidak termasuk: pekerjaannya sudah selesai, jadi
+     * teknisi boleh offline atau menerima pesanan lain.
+     */
     public const STATUS_DIKERJAKAN_TEKNISI = [
         self::MENUJU_LOKASI, self::TIBA, self::PENGECEKAN_AWAL,
-        self::MENUNGGU_PERSETUJUAN_BIAYA, self::DIKERJAKAN, self::MENUNGGU_PEMBAYARAN,
+        self::MENUNGGU_PERSETUJUAN_BIAYA, self::DIKERJAKAN,
     ];
 
     /**

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../services/teknisi_service.dart';
+
 import 'beranda_teknisi_page.dart';
 import 'pesanan_teknisi_page.dart';
 import 'dompet_teknisi_page.dart';
@@ -14,6 +16,13 @@ class TeknisiShell extends StatefulWidget {
 
 class _TeknisiShellState extends State<TeknisiShell> {
   int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // Pulihkan pesanan yang sedang dikerjakan (misal setelah aplikasi ditutup).
+    TeknisiService.instance.muat();
+  }
 
   // IndexedStack: state tiap tab (scroll, form) nggak hilang saat pindah tab
   final _pages = const [

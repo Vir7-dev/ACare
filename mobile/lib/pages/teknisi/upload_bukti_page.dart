@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:image_picker/image_picker.dart';
+
 import '../../models/layanan.dart';
+import '../../services/api_client.dart';
 import '../../services/perangkat.dart';
 import '../../services/teknisi_service.dart';
 import '../../theme/app_colors.dart';
@@ -18,9 +21,16 @@ class UploadBuktiPage extends StatefulWidget {
 
 class _UploadBuktiPageState extends State<UploadBuktiPage> {
   final _catatan = TextEditingController();
-  String? _sebelum;
-  String? _sesudah;
-  final List<String> _tambahan = [];
+  XFile? _fotoSebelum;
+  XFile? _fotoSesudah;
+  final List<XFile> _fotoTambahan = [];
+  bool _mengirim = false;
+
+  String? _nama(XFile? f) =>
+      f == null ? null : (f.name.isEmpty ? 'Foto terpilih' : f.name);
+  String? get _sebelum => _nama(_fotoSebelum);
+  String? get _sesudah => _nama(_fotoSesudah);
+  List<String> get _tambahan => [for (final f in _fotoTambahan) _nama(f)!];
 
   @override
   void dispose() {
@@ -28,14 +38,11 @@ class _UploadBuktiPageState extends State<UploadBuktiPage> {
     super.dispose();
   }
 
-  Future<String?> _pilih() async {
-    final berkas = await Perangkat.ambilFoto();
-    if (berkas == null) return null;
-    return berkas.name.isEmpty ? 'Foto terpilih' : berkas.name;
-  }
+  Future<XFile?> _pilih() => Perangkat.ambilFoto();
 
   Future<void> _selesaikan() async {
-    if (_sebelum == null || _sesudah == null) {
+    if (_mengirim) return;
+    if (_fotoSebelum == null || _fotoSesudah == null) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
@@ -53,11 +60,24 @@ class _UploadBuktiPageState extends State<UploadBuktiPage> {
         );
       return;
     }
-    final komisi = TeknisiService.instance.selesaikan(
-      catatan: _catatan.text.trim(),
-      foto: [_sebelum!, _sesudah!, ..._tambahan],
-    );
-    Navigator.of(context).pop(komisi);
+    setState(() => _mengirim = true);
+    final int komisi;
+    try {
+      komisi = await TeknisiService.instance.selesaikan(
+        catatan: _catatan.text.trim(),
+        sebelum: _fotoSebelum!,
+        sesudah: _fotoSesudah!,
+        tambahan: _fotoTambahan,
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _mengirim = false);
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(e.pesan)));
+      return;
+    }
+    if (mounted) Navigator.of(context).pop(komisi);
   }
 
   @override
@@ -147,7 +167,7 @@ class _UploadBuktiPageState extends State<UploadBuktiPage> {
                         nama: _sebelum,
                         onTap: () async {
                           final f = await _pilih();
-                          if (f != null) setState(() => _sebelum = f);
+                          if (f != null) setState(() => _fotoSebelum = f);
                         },
                       ),
                     ),
@@ -158,7 +178,7 @@ class _UploadBuktiPageState extends State<UploadBuktiPage> {
                         nama: _sesudah,
                         onTap: () async {
                           final f = await _pilih();
-                          if (f != null) setState(() => _sesudah = f);
+                          if (f != null) setState(() => _fotoSesudah = f);
                         },
                       ),
                     ),
@@ -174,7 +194,9 @@ class _UploadBuktiPageState extends State<UploadBuktiPage> {
                       label: const Text('Foto Tambahan (opsional)'),
                       onPressed: () async {
                         final f = await _pilih();
-                        if (f != null) setState(() => _tambahan.add(f));
+                        if (f != null && _fotoTambahan.length < 3) {
+                          setState(() => _fotoTambahan.add(f));
+                        }
                       },
                     ),
                   ],

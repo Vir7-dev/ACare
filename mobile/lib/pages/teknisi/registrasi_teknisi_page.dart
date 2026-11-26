@@ -188,8 +188,9 @@ class _RegistrasiTeknisiPageState extends State<RegistrasiTeknisiPage> {
       });
     }
     final lain = e.galatKolom.entries
-        .where((g) => !kolomTahap1.contains(g.key) &&
-            !kolomTahap3.contains(g.key))
+        .where(
+          (g) => !kolomTahap1.contains(g.key) && !kolomTahap3.contains(g.key),
+        )
         .map((g) => g.value)
         .toList();
     if (e.galatKolom.isEmpty || lain.isNotEmpty) {
