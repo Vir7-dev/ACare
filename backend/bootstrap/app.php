@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\AdminAuth;
 use App\Http\Middleware\CekPeran;
 use App\Http\Middleware\PastikanAkunAktif;
 use Illuminate\Auth\AuthenticationException;
@@ -21,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'akun.aktif' => PastikanAkunAktif::class,
             'peran' => CekPeran::class,
+            'admin.auth' => AdminAuth::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
