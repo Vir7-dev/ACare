@@ -10,6 +10,9 @@ class FotoBuktiPengerjaan extends Model
     // Nilai kolom tahap; kondisi = foto dari pelanggan saat memesan.
     public const TAHAP = ['kondisi', 'pemeriksaan', 'sebelum', 'sesudah', 'tambahan'];
 
+    /** Foto di dalam rumah pelanggan: disimpan privat, dibuka lewat API. */
+    public const DISK = 'local';
+
     public const CREATED_AT = 'dibuat_pada';
 
     public const UPDATED_AT = null;

@@ -35,6 +35,12 @@ API dan panel Admin untuk aplikasi pemesanan servis AC ACare.
 | `GET/POST /api/alamat`, `PUT/DELETE /api/alamat/{id}` | Alamat tersimpan pelanggan; ubah alamat yang sudah dipakai pesanan = baris baru (id baru), yang lama di-soft-delete |
 | `GET/POST /api/pesanan`, `GET /api/pesanan/{id}` | Pesanan pelanggan; `?status=aktif\|selesai\|dibatalkan` |
 | `POST /api/pesanan/{id}/batal` | Hanya saat `mencari_teknisi`; tagihan belum dibayar → `kedaluwarsa`, sudah dibayar → `tertahan` |
+| `POST /api/pesanan/{id}/biaya` | Pelanggan `setuju` true/false atas rincian biaya teknisi |
+| `POST /api/pesanan/{id}/pembayaran/{idPembayaran}/simulasi-lunas` | Hanya env `local`/`testing`: anggap tagihan lunas tanpa Xendit |
+| `GET /api/pesanan/{id}/foto/{idFoto}` | Foto bukti (disk privat), untuk pelanggan pemilik & teknisinya |
+| `PUT /api/teknisi/status`, `PUT /api/teknisi/lokasi` | Online/offline (online wajib kirim lokasi), lokasi berkala |
+| `GET /api/teknisi/tawaran`, `POST /api/teknisi/tawaran/{id}/terima\|tolak` | Tawaran 30 detik ke teknisi terdekat |
+| `GET /api/teknisi/pekerjaan`, `POST /api/teknisi/pekerjaan/{id}/tiba\|pengecekan\|foto-pemeriksaan\|biaya\|tanpa-biaya\|selesai` | Langkah kerja teknisi, harus berurutan (409 bila tidak) |
 
 - Galat: `{message, kode?}`; validasi 422 `{message, errors}` berbahasa
   Indonesia (pesan di `App\Http\Requests\Api\ApiRequest`).
@@ -52,6 +58,14 @@ API dan panel Admin untuk aplikasi pemesanan servis AC ACare.
   `masih_ada_pesanan_aktif`).
 - Harga layanan satu nilai (`layanan.harga`) = biaya awal per unit; biaya
   tambahan hanya lewat rincian biaya teknisi yang disetujui pelanggan.
+- Alur pesanan ada di `App\Services\AlurPesanan`: pembayaran awal lunas →
+  ditawarkan ke teknisi terdekat (terverifikasi, online, lokasi < 30 menit,
+  radius 20 km, tidak sibuk) lewat `id_teknisi_ditawari` → terima mengisi
+  `id_teknisi`. 15 menit tanpa teknisi → batal otomatis, dana `tertahan`.
+  Biaya ditolak/lewat 5 menit → lanjut dengan biaya awal. Selesai: sisa
+  tagihan → pembayaran `pelunasan`; lunas → `selesai` + baris `pendapatan`.
+- Batas waktu diperiksa setiap permintaan API dan oleh `pesanan:proses`
+  (scheduler tiap menit). Lokal: `php artisan schedule:work`.
 
 ## Aturan bisnis penting
 

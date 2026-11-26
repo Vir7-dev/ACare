@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AutentikasiController;
 use App\Http\Controllers\Api\LayananController;
 use App\Http\Controllers\Api\PesananController;
 use App\Http\Controllers\Api\ProfilController;
+use App\Http\Controllers\Api\TeknisiController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -38,5 +39,27 @@ Route::middleware(['auth:sanctum', 'akun.aktif'])->group(function () {
         Route::post('/pesanan', [PesananController::class, 'store'])->name('api.pesanan.buat');
         Route::get('/pesanan/{id}', [PesananController::class, 'show'])->whereNumber('id')->name('api.pesanan.detail');
         Route::post('/pesanan/{id}/batal', [PesananController::class, 'batal'])->whereNumber('id')->name('api.pesanan.batal');
+        Route::post('/pesanan/{id}/biaya', [PesananController::class, 'biaya'])->whereNumber('id')->name('api.pesanan.biaya');
+        Route::post('/pesanan/{id}/pembayaran/{idPembayaran}/simulasi-lunas', [PesananController::class, 'simulasiBayar'])
+            ->whereNumber(['id', 'idPembayaran'])->name('api.pesanan.simulasi-lunas');
+    });
+
+    // Foto bukti pengerjaan: pelanggan pemilik pesanan dan teknisinya.
+    Route::get('/pesanan/{id}/foto/{idFoto}', [TeknisiController::class, 'foto'])
+        ->whereNumber(['id', 'idFoto'])->name('api.pesanan.foto');
+
+    Route::middleware('peran:teknisi')->prefix('teknisi')->group(function () {
+        Route::put('/status', [TeknisiController::class, 'status'])->name('api.teknisi.status');
+        Route::put('/lokasi', [TeknisiController::class, 'lokasi'])->name('api.teknisi.lokasi');
+        Route::get('/tawaran', [TeknisiController::class, 'tawaran'])->name('api.teknisi.tawaran');
+        Route::post('/tawaran/{id}/terima', [TeknisiController::class, 'terima'])->whereNumber('id')->name('api.teknisi.terima');
+        Route::post('/tawaran/{id}/tolak', [TeknisiController::class, 'tolakTawaran'])->whereNumber('id')->name('api.teknisi.tolak');
+        Route::get('/pekerjaan', [TeknisiController::class, 'pekerjaan'])->name('api.teknisi.pekerjaan');
+        Route::post('/pekerjaan/{id}/tiba', [TeknisiController::class, 'tiba'])->whereNumber('id')->name('api.teknisi.tiba');
+        Route::post('/pekerjaan/{id}/pengecekan', [TeknisiController::class, 'mulaiPengecekan'])->whereNumber('id')->name('api.teknisi.pengecekan');
+        Route::post('/pekerjaan/{id}/foto-pemeriksaan', [TeknisiController::class, 'fotoPemeriksaan'])->whereNumber('id')->name('api.teknisi.foto-pemeriksaan');
+        Route::post('/pekerjaan/{id}/biaya', [TeknisiController::class, 'ajukanBiaya'])->whereNumber('id')->name('api.teknisi.biaya');
+        Route::post('/pekerjaan/{id}/tanpa-biaya', [TeknisiController::class, 'tanpaBiaya'])->whereNumber('id')->name('api.teknisi.tanpa-biaya');
+        Route::post('/pekerjaan/{id}/selesai', [TeknisiController::class, 'selesai'])->whereNumber('id')->name('api.teknisi.selesai');
     });
 });

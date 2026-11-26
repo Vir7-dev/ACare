@@ -42,6 +42,18 @@ class Pesanan extends Model
      */
     public const BATAS_PERSETUJUAN_MENIT = 5;
 
+    /** Lama satu tawaran menunggu jawaban teknisi (sama dengan aplikasi). */
+    public const BATAS_TAWARAN_DETIK = 30;
+
+    /** Bila tidak ada teknisi menerima selama ini, pesanan dibatalkan otomatis. */
+    public const BATAS_PENCARIAN_MENIT = 15;
+
+    /** Status ketika pesanan sedang dikerjakan teknisi (teknisi sibuk). */
+    public const STATUS_DIKERJAKAN_TEKNISI = [
+        self::MENUJU_LOKASI, self::TIBA, self::PENGECEKAN_AWAL,
+        self::MENUNGGU_PERSETUJUAN_BIAYA, self::DIKERJAKAN, self::MENUNGGU_PEMBAYARAN,
+    ];
+
     /**
      * Status yang ditampilkan ke pelanggan. Beberapa status database
      * digabung supaya garis waktu di aplikasi tetap ringkas.
@@ -73,7 +85,7 @@ class Pesanan extends Model
     ];
 
     protected $fillable = [
-        'id_pelanggan', 'id_teknisi', 'id_lokasi', 'detail_lokasi', 'jadwal_service', 'jenis_ac', 'pk',
+        'id_pelanggan', 'id_teknisi', 'id_teknisi_ditawari', 'pencarian_dimulai_pada', 'id_lokasi', 'detail_lokasi', 'jadwal_service', 'jenis_ac', 'pk',
         'merek', 'detail_layanan',
         'catatan_pelanggan', 'catatan_biaya', 'catatan_pengerjaan', 'status_pesanan', 'total_biaya',
         'status_biaya', 'batas_tawaran', 'teknisi_menolak', 'batas_persetujuan_biaya',
@@ -91,6 +103,7 @@ class Pesanan extends Model
             'pk' => 'decimal:1',
             'total_biaya' => 'decimal:2',
             'batas_tawaran' => 'datetime',
+            'pencarian_dimulai_pada' => 'datetime',
             'teknisi_menolak' => 'array',
             'batas_persetujuan_biaya' => 'datetime',
             'biaya_ditanggapi_pada' => 'datetime',
@@ -171,6 +184,28 @@ class Pesanan extends Model
     }
 
     /** Alamat pesanan; tetap terbaca walau pelanggan sudah menghapusnya. */
+    public function teknisiDitawari(): BelongsTo
+    {
+        return $this->belongsTo(Teknisi::class, 'id_teknisi_ditawari', 'id_pengguna');
+    }
+
+    /** Pembayaran awal sudah lunas: pesanan boleh ditawarkan ke teknisi. */
+    public function sudahBayarAwal(): bool
+    {
+        return $this->pembayaran()
+            ->where('jenis_pembayaran', Pembayaran::AWAL)
+            ->where('status_pembayaran', Pembayaran::BERHASIL)
+            ->exists();
+    }
+
+    /** Jumlah yang sudah dibayar pelanggan (semua pembayaran berhasil). */
+    public function totalDibayar(): float
+    {
+        return (float) $this->pembayaran()
+            ->where('status_pembayaran', Pembayaran::BERHASIL)
+            ->sum('jumlah_bayar');
+    }
+
     public function lokasi(): BelongsTo
     {
         return $this->belongsTo(Lokasi::class, 'id_lokasi', 'id_lokasi')->withTrashed();

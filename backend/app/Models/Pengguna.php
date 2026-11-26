@@ -31,6 +31,9 @@ class Pengguna extends Authenticatable
 
     protected $primaryKey = 'id_pengguna';
 
+    /** Sama dengan default kolom, supaya model baru langsung benar tanpa refresh. */
+    protected $attributes = ['status_akun' => 'aktif'];
+
     protected $fillable = [
         'nama', 'email', 'no_telepon', 'kata_sandi', 'role', 'foto_profil', 'status_akun',
     ];

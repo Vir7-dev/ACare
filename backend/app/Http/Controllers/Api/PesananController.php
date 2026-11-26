@@ -8,6 +8,7 @@ use App\Http\Resources\PesananResource;
 use App\Models\DetailPesanan;
 use App\Models\Pembayaran;
 use App\Models\Pesanan;
+use App\Services\AlurPesanan;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -25,8 +26,14 @@ class PesananController extends Controller
 {
     private const RELASI = ['detail.layanan', 'lokasi', 'pembayaran', 'teknisi.pengguna'];
 
+    public function __construct(private AlurPesanan $alur) {}
+
     public function index(Request $request): AnonymousResourceCollection
     {
+        // Batas waktu pesanan aktif diperiksa dulu supaya status di daftar terbaru.
+        Pesanan::query()->where('id_pelanggan', $request->user()->id_pengguna)->aktif()
+            ->get()->each(fn (Pesanan $p) => $this->alur->perbarui($p));
+
         $request->validate(['status' => ['nullable', 'in:aktif,selesai,dibatalkan']]);
 
         $pesanan = Pesanan::query()
@@ -46,7 +53,49 @@ class PesananController extends Controller
 
     public function show(Request $request, int $id): PesananResource
     {
-        return new PesananResource($this->milik($request, $id)->load(self::RELASI));
+        $pesanan = $this->alur->perbarui($this->milik($request, $id));
+
+        return new PesananResource($pesanan->refresh()->load(self::RELASI));
+    }
+
+    /** Pelanggan menyetujui atau menolak rincian biaya perbaikan dari teknisi. */
+    public function biaya(Request $request, int $id): JsonResponse|PesananResource
+    {
+        $request->validate(['setuju' => ['required', 'boolean']], ['required' => 'Pilih setuju atau tolak.']);
+        $pesanan = $this->alur->perbarui($this->milik($request, $id));
+
+        if ($pesanan->status_pesanan !== Pesanan::MENUNGGU_PERSETUJUAN_BIAYA
+            || $pesanan->status_biaya !== Pesanan::BIAYA_MENUNGGU) {
+            return response()->json([
+                'message' => $pesanan->status_biaya === Pesanan::BIAYA_DITOLAK
+                    ? 'Waktu persetujuan sudah habis, pesanan dilanjutkan dengan biaya awal saja.'
+                    : 'Tidak ada rincian biaya yang menunggu persetujuan.',
+                'kode' => 'tidak_ada_persetujuan',
+            ], 409);
+        }
+
+        $this->alur->tanggapiBiaya($pesanan, $request->boolean('setuju'));
+
+        return new PesananResource($pesanan->refresh()->load(self::RELASI));
+    }
+
+    /**
+     * Anggap tagihan lunas tanpa Xendit. Hanya untuk pengembangan dan test;
+     * di server sungguhan rute ini tidak ada (404).
+     */
+    public function simulasiBayar(Request $request, int $id, int $idPembayaran): JsonResponse|PesananResource
+    {
+        abort_unless(app()->environment(['local', 'testing']), 404);
+        $pesanan = $this->milik($request, $id);
+        $pembayaran = $pesanan->pembayaran()->whereKey($idPembayaran)->firstOrFail();
+
+        if ($pembayaran->status_pembayaran !== Pembayaran::MENUNGGU) {
+            return response()->json(['message' => 'Tagihan ini tidak menunggu pembayaran.', 'kode' => 'bukan_tagihan_aktif'], 409);
+        }
+
+        $this->alur->pembayaranBerhasil($pembayaran, 'SIMULASI');
+
+        return new PesananResource($pesanan->refresh()->load(self::RELASI));
     }
 
     public function store(BuatPesananRequest $request): JsonResponse

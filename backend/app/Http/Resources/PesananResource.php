@@ -75,7 +75,19 @@ class PesananResource extends JsonResource
                 'foto_profil' => $teknisi->pengguna?->foto_profil
                     ? asset('storage/'.$teknisi->pengguna->foto_profil)
                     : null,
+                // Posisi teknisi hanya dibagikan selama menuju lokasi pelanggan.
+                'lokasi' => in_array($this->status_pesanan, [Pesanan::MENUJU_LOKASI, Pesanan::TIBA], true)
+                    && $teknisi->latitude !== null ? [
+                        'latitude' => (float) $teknisi->latitude,
+                        'longitude' => (float) $teknisi->longitude,
+                        'diperbarui_pada' => $teknisi->lokasi_diperbarui_pada?->toIso8601String(),
+                    ] : null,
             ] : null,
+            'pencarian' => [
+                'dimulai' => $this->pencarian_dimulai_pada?->toIso8601String(),
+                'batas' => $this->pencarian_dimulai_pada
+                    ?->copy()->addMinutes(Pesanan::BATAS_PENCARIAN_MENIT)->toIso8601String(),
+            ],
             'bisa_dibatalkan' => $this->bisaDibatalkan(),
             'alasan_pembatalan' => $this->alasan_pembatalan,
             'waktu' => [
